@@ -163,6 +163,7 @@ impl Context {
 pub struct FrameTexture {
     context: Arc<Context>,
     texture: wgpu::Texture,
+    native_size: [u32; 2],
 }
 thread_local! {
     static FRAME: RefCell<Option<FrameTexture>> = const { RefCell::new(None) };
@@ -183,6 +184,21 @@ pub struct WgpuGpu {
     context: Arc<Context>,
     primitives: u64,
     error: Mutex<Option<String>>,
+}
+impl Drop for WgpuGpu {
+    fn drop(&mut self) {
+        // Release the cached device/texture before thread-local destruction. A queued
+        // UI frame owns its own clone and remains valid after the backend is dropped.
+        let _ = FRAME.try_with(|frame| {
+            if let Ok(mut frame) = frame.try_borrow_mut()
+                && frame
+                    .as_ref()
+                    .is_some_and(|frame| Arc::ptr_eq(&frame.context, &self.context))
+            {
+                *frame = None;
+            }
+        });
+    }
 }
 impl WgpuGpu {
     pub fn new(scale: u32) -> Result<Self, String> {
@@ -229,8 +245,41 @@ impl WgpuGpu {
     pub fn error(&self) -> Option<String> {
         self.error.lock().expect("GPU error mutex").clone()
     }
+    /// PORT: opt-in core3 GTE sidecars affect only scaled presentation. The director
+    /// must forward the newer GpuBackend::packet_precise hook to this method.
+    pub fn packet_precise(&mut self, words: &[u32], positions: &[[f32; 2]]) {
+        self.submit_packet(words, Some(positions));
+    }
+    fn submit_packet(&mut self, words: &[u32], positions: Option<&[[f32; 2]]>) {
+        let Some(payload) = words.get(1..).filter(|payload| !payload.is_empty()) else {
+            return;
+        };
+        let mut gpu = self.gpu.lock().expect("GPU mutex");
+        if !gpu.idle() {
+            self.remember(Err::<(), _>(psxgpu::Error(
+                "incomplete previous host GPU packet".into(),
+            )));
+            return;
+        }
+        let result = match positions {
+            Some(positions) => gpu.polygon_with_positions(payload, positions),
+            None => gpu.gp0_words(payload),
+        };
+        if self.remember(result).is_some() && !gpu.idle() {
+            self.remember(Err::<(), _>(psxgpu::Error(
+                "incomplete host GPU packet".into(),
+            )));
+        }
+        if matches!(payload[0] >> 29, 1..=3) {
+            self.primitives += 1;
+        }
+    }
     fn scanout(&self, x: i32, y: i32, w: u32, h: u32, rgb24: bool) -> Vec<u32> {
+        FRAME.with(|frame| *frame.borrow_mut() = None);
         if w == 0 || h == 0 || w > 1024 || h > 512 {
+            self.remember(Err::<(), _>(psxgpu::Error(
+                "invalid host GPU frame dimensions".into(),
+            )));
             return Vec::new();
         }
         let mut gpu = self.gpu.lock().expect("GPU mutex");
@@ -253,12 +302,6 @@ impl WgpuGpu {
         {
             return Vec::new();
         }
-        FRAME.with(|frame| {
-            *frame.borrow_mut() = Some(FrameTexture {
-                context: self.context.clone(),
-                texture,
-            })
-        });
         // Native pixels serve existing replay/screenshot/visibility checks. The window
         // consumes the scaled GPU texture directly, preserving subpixel rasterization.
         let Some(vram) = self.remember(renderer.read_vram()) else {
@@ -267,6 +310,13 @@ impl WgpuGpu {
         let Some(rgba) = self.remember(psxgpu::scanout(&vram, display, false)) else {
             return Vec::new();
         };
+        FRAME.with(|frame| {
+            *frame.borrow_mut() = Some(FrameTexture {
+                context: self.context.clone(),
+                texture,
+                native_size: [w, h],
+            })
+        });
         rgba.as_chunks::<4>()
             .0
             .iter()
@@ -276,27 +326,7 @@ impl WgpuGpu {
 }
 impl GpuBackend for WgpuGpu {
     fn packet(&mut self, words: &[u32]) {
-        let Some(payload) = words.get(1..) else {
-            return;
-        };
-        if payload.is_empty() {
-            return;
-        }
-        let mut gpu = self.gpu.lock().expect("GPU mutex");
-        if !gpu.idle() {
-            self.remember(Err::<(), _>(psxgpu::Error(
-                "incomplete previous host GPU packet".into(),
-            )));
-            return;
-        }
-        if self.remember(gpu.gp0_words(payload)).is_some() && !gpu.idle() {
-            self.remember(Err::<(), _>(psxgpu::Error(
-                "incomplete host GPU packet".into(),
-            )));
-        }
-        if matches!(payload[0] >> 29, 1..=3) {
-            self.primitives += 1;
-        }
+        self.submit_packet(words, None);
     }
     fn end_ordering_table(&mut self) {
         self.remember(self.gpu.lock().expect("GPU mutex").renderer_mut().flush());
@@ -466,6 +496,7 @@ impl Presentation {
             return Ok(());
         };
         if let Some(soft) = &mut self.soft {
+            validate_frame(w, h, pixels)?;
             soft.resize(width, height).map_err(|e| e.to_string())?;
             let mut buffer = soft.buffer_mut().map_err(|e| e.to_string())?;
             buffer.fill(0);
@@ -493,6 +524,7 @@ struct Surface {
 }
 impl Surface {
     fn new(window: Arc<Window>, context: Arc<Context>) -> Result<Self, String> {
+        let size = window.inner_size();
         let surface = context
             .instance
             .create_surface(window)
@@ -509,6 +541,9 @@ impl Surface {
             .ok_or("GPU cannot present to window")?;
         config.format = format;
         config.present_mode = wgpu::PresentMode::Fifo;
+        config.width = size.width.max(1);
+        config.height = size.height.max(1);
+        surface.configure(&context.device, &config);
         let shader = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -554,6 +589,9 @@ impl Surface {
         size: PhysicalSize<u32>,
         frame: Option<&FrameTexture>,
     ) -> Result<(), String> {
+        if frame.is_some_and(|frame| !Arc::ptr_eq(&frame.context, &self.context)) {
+            return Err("GPU frame belongs to a different presentation device".into());
+        }
         if self.config.width != size.width || self.config.height != size.height {
             self.config.width = size.width;
             self.config.height = size.height;
@@ -631,7 +669,11 @@ struct Output { @builtin(position) position: vec4f, @location(0) uv: vec2f }
 "#;
 
 pub fn screenshot(w: u32, h: u32, pixels: &[u32]) -> Result<(u32, u32, Vec<u32>), String> {
+    validate_frame(w, h, pixels)?;
     if let Some(frame) = frame_texture(true) {
+        if frame.native_size != [w, h] {
+            return Err("GPU screenshot dimensions differ from the host frame".into());
+        }
         return frame.read_pixels();
     }
     let scale = options().scale;
@@ -640,6 +682,12 @@ pub fn screenshot(w: u32, h: u32, pixels: &[u32]) -> Result<(u32, u32, Vec<u32>)
         .flat_map(|y| (0..width).map(move |x| pixels[((y / scale) * w + x / scale) as usize]))
         .collect();
     Ok((width, height, result))
+}
+fn validate_frame(w: u32, h: u32, pixels: &[u32]) -> Result<(), String> {
+    if w == 0 || h == 0 || w > 1024 || h > 512 || pixels.len() != (w * h) as usize {
+        return Err("invalid host frame dimensions/pixel count".into());
+    }
+    Ok(())
 }
 impl FrameTexture {
     pub fn read_pixels(&self) -> Result<(u32, u32, Vec<u32>), String> {
@@ -712,6 +760,9 @@ mod tests {
     #[test]
     fn arguments_reject_bad_renderer_and_scale() {
         let mut options = Options::default();
+        assert_eq!(options.renderer, RendererKind::Soft);
+        assert_eq!(options.scale, 4);
+        assert!(!options.stats && !options.widescreen);
         for value in ["0", "9", "-1", "abc"] {
             assert!(
                 options
@@ -737,6 +788,93 @@ mod tests {
             )
             .unwrap();
         assert_eq!(options.scale, 8);
+        options
+            .argument(
+                OsStr::new("--renderer"),
+                &mut [OsString::from("wgpu")].into_iter(),
+            )
+            .unwrap();
+        assert_eq!(options.renderer, RendererKind::Wgpu);
+        for flag in ["--stats", "--16:9"] {
+            options
+                .argument(OsStr::new(flag), &mut [].into_iter())
+                .unwrap();
+        }
+        assert!(options.stats && options.widescreen);
+    }
+    #[test]
+    fn frame_validation_rejects_empty_oversized_and_short_pixels() {
+        for (w, h, pixels) in [(0, 1, &[][..]), (1025, 1, &[]), (1, 513, &[]), (2, 1, &[0])] {
+            assert!(validate_frame(w, h, pixels).is_err());
+            assert!(screenshot(w, h, pixels).is_err());
+        }
+        assert!(validate_frame(2, 1, &[0, 1]).is_ok());
+    }
+    #[test]
+    fn scaled_rgb24_frames_are_immutable_through_following_draws() {
+        for scale in [1, 4, 8] {
+            let mut gpu = WgpuGpu::new(scale).unwrap();
+            // Odd RGB24 widths use a padded halfword at the end of each row.
+            gpu.load(
+                [12, 5, 5, 2],
+                &[
+                    0x0201, 0x0403, 0x0605, 0x0807, 0xff09, 0x0b0a, 0x0d0c, 0x0f0e, 0x1110, 0xff12,
+                ],
+            );
+            let native = gpu.frame_rgb24(12, 5, 3, 2);
+            assert_eq!(
+                native,
+                [0x010203, 0x040506, 0x070809, 0x0a0b0c, 0x0d0e0f, 0x101112]
+            );
+            let first = frame_texture(true).unwrap();
+            let expected: Vec<_> = (0..2 * scale)
+                .flat_map(|y| {
+                    let native = &native;
+                    (0..3 * scale).map(move |x| native[((y / scale) * 3 + x / scale) as usize])
+                })
+                .collect();
+            let first_pixels = first.read_pixels().unwrap();
+            assert_eq!(first_pixels, (3 * scale, 2 * scale, expected));
+            gpu.env([12, 5, 3, 2], [12, 5]);
+            gpu.begin_ordering_table();
+            gpu.packet(&[0, 0x60ffffff, 0, 0x00020003]);
+            gpu.end_ordering_table();
+            assert_eq!(gpu.frame(12, 5, 3, 2), [0xffffff; 6]);
+            let second = frame_texture(true).unwrap().read_pixels().unwrap();
+            assert_eq!(second.2, vec![0xffffff; (6 * scale * scale) as usize]);
+            assert_eq!(first.read_pixels().unwrap(), first_pixels);
+            assert!(gpu.error().is_none());
+        }
+    }
+    #[test]
+    fn invalid_scanout_clears_the_previous_gpu_frame_and_reports_failure() {
+        let gpu = WgpuGpu::new(1).unwrap();
+        assert_eq!(gpu.frame(0, 0, 1, 1), [0]);
+        assert!(frame_texture(true).is_some());
+        assert!(gpu.frame(0, 0, 0, 1).is_empty());
+        assert!(frame_texture(true).is_none());
+        assert_eq!(
+            gpu.error().as_deref(),
+            Some("invalid host GPU frame dimensions")
+        );
+    }
+    #[test]
+    fn precise_sidecars_change_scaled_geometry_without_changing_native_vram() {
+        let packet = [0, 0x200000ff, 0x00010001, 0x00010005, 0x00050001];
+        let mut gpu = WgpuGpu::new(4).unwrap();
+        gpu.packet(&packet);
+        let native = gpu.frame(0, 0, 8, 8);
+        let integer = frame_texture(true).unwrap().read_pixels().unwrap();
+        gpu.clear([0, 0, 8, 8], [0; 3]);
+        gpu.packet_precise(&packet, &[[1.5, 1.5], [5.5, 1.5], [1.5, 5.5]]);
+        assert_eq!(gpu.frame(0, 0, 8, 8), native);
+        let retained = frame_texture(true).unwrap();
+        let precise = retained.read_pixels().unwrap();
+        assert_ne!(integer.2, precise.2);
+        assert!(gpu.error().is_none());
+        drop(gpu);
+        assert!(frame_texture(true).is_none());
+        assert_eq!(retained.read_pixels().unwrap(), precise);
     }
     #[test]
     fn host_packets_match_psx_reference_for_gradients_and_diagonal_lines() {

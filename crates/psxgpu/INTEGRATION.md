@@ -7,9 +7,11 @@ this worktree at handoff, so its adapter is a core-lane responsibility.
 
 ## Cargo and platforms
 
-1. This crate's empty `[workspace]` table has been removed for gpuwire; the parent
-   already includes `crates/*`. Other nested crate workspaces and the parent lockfile
-   still need director integration. See `HOST_INTEGRATION.md` for the host handoff.
+1. This crate has no nested `[workspace]` table; keep it that way. The gpuwire
+   baseline includes `crates/*`, while current main excludes GPU/SPU from its member
+   list. Run this crate's manifest gates explicitly when it is excluded. The old
+   gpuwire baseline still has psxspu's table, blocking root gates; main has removed it.
+   See `HOST_INTEGRATION.md` for the merge handoff; do not rebase or restore tables.
 2. The host dependency is `psxgpu = { path = "../crates/psxgpu" }`. The crate re-exports
    `wgpu` and `block_on` so the host shares the exact pinned GPU API without another dependency.
 3. The GPU dependency is pinned to **wgpu 24.0.5**, with D3D12/Metal/WGSL enabled.

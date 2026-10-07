@@ -90,6 +90,7 @@ def main():
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
     parser.add_argument("--executable", type=Path)
     parser.add_argument("--disc", type=Path)
+    parser.add_argument("--audio-off", action="store_true", help="pass --audio off to hosts with the audio selector; isolates renderer verification")
     parser.add_argument("--only", nargs="+")
     # One native 5-bit channel quantization step expands to at most 9 in RGB8.
     # Coverage differences are not exempted or hidden by a spatial comparison.
@@ -123,6 +124,8 @@ def main():
             command = [str(executable), "--headless", "--renderer", renderer, "--scale", "1", "--stats", "--frames", str(case["frames"]), "--input", str(replays / case["input"]), "--screenshot", str(screenshot)]
             if args.disc:
                 command += ["--disc", str(args.disc.resolve())]
+            if args.audio_off:
+                command += ["--audio", "off"]
             for key, flag in flags.items():
                 if key in case:
                     command += [flag, str(case[key])]
@@ -136,7 +139,7 @@ def main():
             (output / (stem + ".log")).write_text(log)
             checkpoint = [line for line in log.splitlines() if line.startswith("CHECK ")]
             hardware_selected = renderer == "soft" or "GPU wgpu adapter=" in log
-            runs.append({"renderer": renderer, "exit": exit_code, "checkpoint": checkpoint, "pass": exit_code == 0 and len(checkpoint) == 1 and hardware_selected and screenshot.exists()})
+            runs.append({"renderer": renderer, "command": command, "exit": exit_code, "checkpoint": checkpoint, "pass": exit_code == 0 and len(checkpoint) == 1 and hardware_selected and screenshot.exists()})
             screenshots.append(screenshot)
             print(f"{'PASS' if runs[-1]['pass'] else 'FAIL'} {stem}", flush=True)
         parity = compare(*screenshots, args.tolerance) if all(run["pass"] for run in runs) else {"pass": False}
