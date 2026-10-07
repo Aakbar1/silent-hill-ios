@@ -45,6 +45,7 @@ enum {Sfx_MenuError=1304};
 // Full gameplay records must be migrated separately; upstream assertions stay intact in the baseline gate.
 #include "game_records.h"
 #include "gpu_records.h"
+#include "native_gameplay_records.h"
 #include "screens/options.h"
 #include "main/rng.h"
 #include <string.h>
@@ -54,6 +55,7 @@ typedef struct { s_ControllerConfig controllerConfig;
         extraViewCtrl,extraViewMode,extraRetreatTurn,extraWalkRunCtrl,extraAutoAiming,extraBulletAdjust; } PortOptions;
 typedef struct { u8 tPage[2], u, v; s16 clutX, clutY; } s_FsImageDesc;
 STATIC_ASSERT_SIZEOF(s_FsImageDesc, 8);
+#include "native_asset_records.h"
 STATIC_ASSERT_SIZEOF(SPRT, 20);
 STATIC_ASSERT_SIZEOF(TILE, 16);
 STATIC_ASSERT_SIZEOF(DR_TPAGE, 8);
@@ -65,12 +67,24 @@ typedef struct {
     s_Savegame savegame,autosave;
     s_ControllerData controllers[2];
     s_AnalogController rawController;
+    s8 mapAnimIdx,bgmIdx,ambientIdx;
 } PortGameWork;
 typedef struct {
     s32 gameStateCounter, gameStateStepCounter, sysStateCounter, sysState;
     s32 sysFlags, bgmStatusFlags;
     s32 processFlags;
     bool enableHalfHeightGlyphs;
+    s_PlayerWork playerWork;
+    s_PlayerCombat playerCombat;
+    GsCOORDINATE2 playerBoneCoords[18],npcBoneCoordBuffer[NPC_BONE_COUNT_MAX];
+    s_SubCharacter npcs[NPC_COUNT_MAX];
+    s32 unused_229C;
+    bool enablePlayerMatchAnim;
+    q3_12 lightIntensity;
+    GsCOORDINATE2 *lightBoneCoord,*lensFlareBoneCoord;
+    VECTOR3 lightPosition;
+    SVECTOR lightRotation;
+    struct {bool isFlashlightOn;} field_2388;
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)
@@ -174,7 +188,8 @@ void Fs_QueueInitialize(void);
 s32 Fs_QueueGetLength(void);
 void Fs_QueueUpdate(void);
 void Fs_QueueStartRead(s32 file, void* buffer);
-void Fs_QueueStartReadTim(s32 file, void* buffer, s_FsImageDesc* image);
+s32 Fs_QueueStartReadTim(s32 file, void* buffer, s_FsImageDesc* image);
+bool Fs_QueueIsEntryLoaded(s32 index);
 void Fs_QueueWaitForEmpty(void);
 void Fs_DecryptOverlay(s32* dst, const s32* src, s32 size);
 void Screen_BackgroundImgDraw(s_FsImageDesc* image);
@@ -248,6 +263,7 @@ void Map_EffectTexturesLoad(s32 map);
 void nullsub_800334C8(void);
 // Rust-owned disc/rasterizer callbacks. No borrowed pointers survive these synchronous calls.
 int port_read_file(u32 id, u32 bytes, u8* destination);
+int port_asset_load_native(u32 id,u8* destination,u32 kind);
 // Returns 0 on success, 1 for a missing slot, 2 for invalid/corrupt/I/O failure.
 int port_save_read(u32 slot,u8* destination,u32 bytes);
 int port_save_write(u32 slot,const u8* source,u32 bytes);

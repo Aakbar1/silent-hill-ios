@@ -32,7 +32,7 @@ def main():
         if unknown:
             raise SystemExit("unknown milestones: " + ", ".join(sorted(unknown)))
         cases = [case for case in cases if case["name"] in args.only]
-    private = root.parent.parent / "private/work/core2"
+    private = root.parent.parent / "private/work/core3"
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     executable = root / "target/release/silent-hill-boot.exe"

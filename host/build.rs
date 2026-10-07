@@ -79,6 +79,19 @@ fn main() {
     assert!(gte.success(), "native GTE generation failed");
     println!(
         "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_gameplay.py").display()
+    );
+    let records = std::process::Command::new("python")
+        .arg(repo.join("tools/prepare_gameplay.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate native gameplay records");
+    assert!(records.success(), "native gameplay generation failed");
+    println!(
+        "cargo:rerun-if-changed={}",
         repo.join("tools/prepare_option.py").display()
     );
     println!(
@@ -554,6 +567,8 @@ fn main() {
         "port/title_services.c",
         "port/gte_native.h",
         "port/gte_services.c",
+        "port/gameplay.h",
+        "port/gameplay.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
@@ -563,6 +578,8 @@ fn main() {
         .file(repo.join("port/title_services.c"))
         .file(repo.join("port/gte_services.c"))
         .file(generated.join("gte_command_probe.c"))
+        .file(generated.join("gameplay_consumers.c"))
+        .file(repo.join("port/gameplay.c"))
         .file(generated.join("sine.c"))
         .file(generated.join("option.c"))
         .define("SH_CHECK_BOOT_LAYOUT", None)

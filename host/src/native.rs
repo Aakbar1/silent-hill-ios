@@ -145,6 +145,38 @@ extern "C" fn port_asset_open(id: u32) -> u32 {
     })
 }
 #[unsafe(no_mangle)]
+unsafe extern "C" fn port_asset_load_native(id: u32, destination: *mut u8, kind: u32) -> i32 {
+    if destination.is_null() {
+        return 1;
+    }
+    host(|h| {
+        let result = (|| {
+            let handle = h.assets.open(&mut h.disc, id)?;
+            // SAFETY: C's file queue supplies a descriptor-sized destination.
+            // The descriptor points into separate stable AssetStore allocations.
+            unsafe {
+                match kind {
+                    4 => destination
+                        .cast::<crate::gameplay::NativeAnmHeader>()
+                        .copy_from_nonoverlapping(h.assets.native_animation(handle)?, 1),
+                    5 | 7 => destination
+                        .cast::<crate::gameplay::NativeLmHeader>()
+                        .copy_from_nonoverlapping(h.assets.native_lm(handle)?, 1),
+                    _ => return Err("unported native asset destination".into()),
+                }
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(e) => {
+                h.error = Some(e);
+                1
+            }
+        }
+    })
+}
+#[unsafe(no_mangle)]
 unsafe extern "C" fn port_asset_info(handle: u32, output: *mut AssetInfo) -> i32 {
     if output.is_null() {
         return 1;
@@ -246,6 +278,7 @@ extern "C" fn port_begin_ot() {
 #[unsafe(no_mangle)]
 extern "C" fn port_end_ot() {
     host(|h| h.gpu.end_ordering_table());
+    crate::gte::end_ordering_table();
 }
 #[unsafe(no_mangle)]
 unsafe extern "C" fn port_store_vram(
@@ -818,6 +851,7 @@ mod tests {
             fn sh_b_konami_reset_probe() -> i32;
             fn sh_save_init_probe() -> i32;
             fn sh_option_reset_probe() -> i32;
+            fn port_queue_image_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
@@ -826,6 +860,7 @@ mod tests {
             assert_eq!(sh_b_konami_reset_probe(), 1);
             assert_eq!(sh_save_init_probe(), 1);
             assert_eq!(sh_option_reset_probe(), 1);
+            assert_eq!(port_queue_image_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }

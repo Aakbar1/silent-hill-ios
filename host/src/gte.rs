@@ -110,6 +110,9 @@ pub(crate) fn packet_positions(base: *const u32, words: &[u32]) -> Option<Vec<[f
             .collect()
     })
 }
+pub(crate) fn end_ordering_table() {
+    GTE.with(|c| c.borrow_mut().positions.clear());
+}
 
 #[cfg(test)]
 mod tests {
@@ -175,5 +178,32 @@ mod tests {
             }
         }
         assert_eq!(covered.len(), 22);
+    }
+    #[test]
+    fn precision_is_optional_consumed_and_never_changes_integer_coordinates() {
+        port_gte_reset();
+        for (reg, value) in [(0, 4096), (2, 4096), (4, 4096), (26, 101)] {
+            port_gte_write_control(reg, value);
+        }
+        let mut packet = [0, 0x20808080, 0, 0, 0];
+        for i in 0..3 {
+            port_gte_write_data(0, (1000 + i as u32 * 100) | (500 << 16));
+            port_gte_write_data(1, 2000);
+            assert_eq!(port_gte_execute(0x80001), 0);
+            let exact = port_gte_read_data(14);
+            // SAFETY: One writable coordinate word within the five-word packet.
+            unsafe { port_gte_store_sxy(packet.as_mut_ptr().add(2 + i).cast(), 14) };
+            assert_eq!(packet[2 + i], exact);
+        }
+        let positions = packet_positions(packet.as_ptr(), &packet);
+        if cfg!(feature = "precise-vertices") {
+            let positions = positions.unwrap();
+            assert!((positions[0][0] - 50.5).abs() < 0.001);
+            assert!((positions[0][1] - 25.25).abs() < 0.001);
+        } else {
+            assert!(positions.is_none());
+        }
+        assert!(packet_positions(packet.as_ptr(), &packet).is_none());
+        end_ordering_table();
     }
 }

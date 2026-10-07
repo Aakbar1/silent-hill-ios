@@ -19,5 +19,7 @@ precision metadata changes presentation. No float value feeds game logic.
 
 Verification: C projection/transform probe, worker isolation, and register-by-
 register comparison of all 65 pinned command variants covering 22 commands.
-These three tests passed in exact and precise builds. This establishes the GTE
+An additional test checks optional metadata, exact coordinate preservation and
+single-use packet consumption. All four tests pass in exact and precise builds.
+This establishes the GTE
 boundary; it does not establish working world rendering or collision.

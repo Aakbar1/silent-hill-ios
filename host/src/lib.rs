@@ -2,6 +2,7 @@
 pub mod asset_store;
 pub mod assets;
 pub mod backend;
+pub mod gameplay;
 pub mod gte;
 pub mod pad;
 pub use psxdisc as disc;

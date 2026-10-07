@@ -164,7 +164,7 @@ fn run() -> Result<(), String> {
     }
     if let Some(path) = &options.screenshot {
         let private_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/work/core2")
+            .join("../../../private/work/core3")
             .canonicalize()
             .map_err(|e| format!("private output directory: {e}"))?;
         let parent = path
@@ -174,7 +174,7 @@ fn run() -> Result<(), String> {
             .canonicalize()
             .map_err(|e| format!("screenshot parent: {e}"))?;
         if !parent.starts_with(&private_root) {
-            return Err("screenshots must be inside private/work/core2/".into());
+            return Err("screenshots must be inside private/work/core3/".into());
         }
         if path.exists()
             && !path
@@ -182,7 +182,7 @@ fn run() -> Result<(), String> {
                 .map_err(|e| e.to_string())?
                 .starts_with(&private_root)
         {
-            return Err("resolved screenshot target is outside private/work/core2/".into());
+            return Err("resolved screenshot target is outside private/work/core3/".into());
         }
     }
     let replay = options

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Native load boundary: immutable bytes, decoded graphs and non-reused identities.
 use crate::assets::{self, DecodeError, Dms, Lm, Map};
+use crate::gameplay::{Animation, NativeAnimation, NativeLm, NativeLmHeader};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum AssetKind {
+    Anm = 4,
     Dms = 3,
     Plm = 5,
     Ipd = 6,
@@ -14,6 +16,7 @@ impl TryFrom<u8> for AssetKind {
     type Error = String;
     fn try_from(kind: u8) -> Result<Self, String> {
         match kind {
+            4 => Ok(Self::Anm),
             3 => Ok(Self::Dms),
             5 => Ok(Self::Plm),
             6 => Ok(Self::Ipd),
@@ -23,12 +26,14 @@ impl TryFrom<u8> for AssetKind {
     }
 }
 pub enum NativeAsset<'a> {
+    Anm(Animation<'a>),
     Lm(Lm<'a>),
     Map(Box<Map<'a>>),
     Dms(Dms<'a>),
 }
 fn decode(kind: AssetKind, bytes: &[u8]) -> Result<NativeAsset<'_>, DecodeError> {
     match kind {
+        AssetKind::Anm => crate::gameplay::decode_animation(bytes).map(NativeAsset::Anm),
         AssetKind::Plm | AssetKind::Ilm => assets::decode_lm(bytes).map(NativeAsset::Lm),
         AssetKind::Ipd => assets::decode_ipd(bytes).map(|map| NativeAsset::Map(Box::new(map))),
         AssetKind::Dms => assets::decode_dms(bytes).map(NativeAsset::Dms),
@@ -38,6 +43,8 @@ struct Stored {
     file_id: u32,
     kind: AssetKind,
     bytes: Box<[u8]>,
+    lm: Option<NativeLm>,
+    animation: Option<NativeAnimation>,
 }
 #[derive(Default)]
 pub struct AssetStore {
@@ -74,6 +81,8 @@ impl AssetStore {
             file_id,
             kind,
             bytes: bytes.into_boxed_slice(),
+            lm: None,
+            animation: None,
         }));
         Ok(handle)
     }
@@ -147,7 +156,7 @@ impl AssetStore {
                 21 => Ok((dms.camera.keyframes.bytes(), 16)),
                 _ => Err(missing()),
             },
-            NativeAsset::Lm(_) => Err(missing()),
+            NativeAsset::Lm(_) | NativeAsset::Anm(_) => Err(missing()),
         }
     }
     pub fn info(&self, handle: u32) -> Result<AssetInfo, String> {
@@ -158,6 +167,10 @@ impl AssetStore {
             ..Default::default()
         };
         match self.get(handle)? {
+            NativeAsset::Anm(anm) => {
+                info.characters = u32::from(anm.bone_count);
+                info.segments = u32::from(anm.keyframe_count);
+            }
             NativeAsset::Lm(lm) => {
                 info.models = lm.models.len() as u32;
                 info.materials = lm.materials.len() as u32;
@@ -174,6 +187,36 @@ impl AssetStore {
             }
         }
         Ok(info)
+    }
+    /// Native working graphs have separate owned leaves. Their addresses stay
+    /// stable until close; C may mutate them without ever modifying file bytes.
+    pub fn native_lm(&mut self, handle: u32) -> Result<*mut NativeLmHeader, String> {
+        self.entry(handle)?;
+        let entry = self.entries[(handle - 1) as usize].as_mut().unwrap();
+        if entry.lm.is_none() {
+            let lm = match decode(entry.kind, &entry.bytes).map_err(|e| e.to_string())? {
+                NativeAsset::Lm(lm) => lm,
+                NativeAsset::Map(map) => map.lm,
+                _ => return Err("asset is not a model graph".into()),
+            };
+            entry.lm = Some(NativeLm::new(&lm));
+        }
+        Ok(entry.lm.as_mut().unwrap().header.as_mut())
+    }
+    pub fn native_animation(
+        &mut self,
+        handle: u32,
+    ) -> Result<*mut crate::gameplay::NativeAnmHeader, String> {
+        self.entry(handle)?;
+        let entry = self.entries[(handle - 1) as usize].as_mut().unwrap();
+        if entry.kind != AssetKind::Anm {
+            return Err("asset is not an animation".into());
+        }
+        if entry.animation.is_none() {
+            let anm = crate::gameplay::decode_animation(&entry.bytes).map_err(|e| e.to_string())?;
+            entry.animation = Some(NativeAnimation::new(&anm));
+        }
+        Ok(entry.animation.as_mut().unwrap().header.as_mut())
     }
 }
 #[derive(Default, Debug)]
