@@ -13,8 +13,8 @@ _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*1024];
 PortGameWork g_GameWork;
 PortSysWork g_SysWork;
 PortGameWorkConst* g_GameWorkConst = &g_GameWork;
-static PortController controller;
-PortController* g_Controller0 = &controller;
+PortController* g_Controller0 = &g_GameWork.controllers[0];
+PortController* g_Controller1 = &g_GameWork.controllers[1];
 s32 g_ActiveBufferIdx, g_TickCount, g_VBlanks, g_UncappedVBlanks;
 s32 g_IntervalVBlanks=1, g_Demo_VideoPresentInterval=1;
 q19_12 g_DeltaTime, g_DeltaTimeRaw=TIMESTEP_60_FPS, g_GravitySpeed;
@@ -289,30 +289,17 @@ static bool pad_started;
 void PadInitDirect(u8* first,u8* second) { pad_buffers[0]=first; pad_buffers[1]=second; }
 void PadStartCom(void) { pad_started=true; }
 void PadStopCom(void) { pad_started=false; }
-static void pad_refresh(void) {
+void port_pad_refresh(void) {
     if (!pad_started) return;
     if (pad_buffers[0]) port_pad_read(pad_buffers[0]);
     if (pad_buffers[1]) { memset(pad_buffers[1],0xff,8); }
 }
-int PadGetState(int port) { pad_refresh(); return port==0 && pad_started?6:0; }
+int PadGetState(int port) { port_pad_refresh(); return port==0 && pad_started?6:0; }
 int PadInfoMode(int port,int info,int index) { (void)index; return port==0 && (info==1 || info==2)?7:0; }
 int PadSetMainMode(int port,int mode,int lock) { (void)mode;(void)lock;return port==0; }
 int PadSetActAlign(int port,u8* alignment) { (void)alignment;return port==0; }
 int PadInfoAct(int port,int actuator,int info) { (void)port;(void)actuator;(void)info;return 0; }
 void PadSetAct(int port,u8* values,int count) { (void)port;(void)values;(void)count; }
-void Joy_Init(void) { PadInitDirect(pad0,pad1); PadStartCom(); }
-void Joy_ReadP1(void) { pad_refresh(); }
-void Joy_ControllerDataUpdate(void) {
-    u32 previous=controller.buttonFlags.held;
-    const u8* p=pad_buffers[0];
-    controller.buttonFlags.held=p && p[0]==0 ? (u32)(u16)~((u16)p[2]|((u16)p[3]<<8)):0;
-    controller.buttonFlags.clicked=controller.buttonFlags.held&~previous;
-    controller.buttonFlags.released=previous&~controller.buttonFlags.held;
-    controller.buttonFlags.pulsed=controller.buttonFlags.clicked;
-    // PORT: Record input edges for replay evidence; no change to the held packet.
-    if (previous!=controller.buttonFlags.held) printf("PAD held=0x%04x at VBlank %d\n",controller.buttonFlags.held,vblanks);
-}
-void Joy_Update(void) { Joy_ReadP1(); Joy_ControllerDataUpdate(); }
 void Text_Debug_PositionSet(s32 x,s32 y) {(void)x;(void)y;}
 // PORT: Native STR service replaces STREAM's SDK/CD/MDEC blocking loop. State
 // handlers above remain upstream; num_frames is the original end-frame limit.
@@ -326,7 +313,7 @@ void open_main(s32 file,s16 last_frame) {
     s32 skipped=0;
     for (;;) {
         Joy_Update();
-        if ((controller.buttonFlags.clicked&g_GameWork.config.controllerConfig.skip) || MainLoop_ShouldWarmReset()) {skipped=1;break;}
+        if ((g_Controller0->buttonFlags.clicked&g_GameWork.config.controllerConfig.skip) || MainLoop_ShouldWarmReset()) {skipped=1;break;}
         int result=port_movie_tick();
         if (result==2) {port_movie_end(0);longjmp(stop,2);}
         VSync(0);
@@ -339,6 +326,7 @@ void open_main(s32 file,s16 last_frame) {
 }
 #define STOP_STATE(name) void name(void) {printf("STUB " #name " (beyond boot scope)\n");stop_code=3;longjmp(stop,1);}
 PORT_OTHER_STATES(STOP_STATE)
+void port_unimplemented(const char* name) {printf("BLOCKED native service: %s at state=%d step=%d VBlank=%d\n",name,g_GameWork.gameState,g_GameWork.gameStateSteps[0],vblanks);stop_code=3;longjmp(stop,1);}
 
 extern int sh_main(void);
 // PORT: Terminate the otherwise infinite C boot loop at a host frame/cancel boundary.

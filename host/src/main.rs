@@ -31,6 +31,16 @@ fn options() -> Result<Options, String> {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
             Some("--headless") => result.headless = true,
+            Some("--expect-menu") => {
+                result.check.menu_state = Some(
+                    args.next()
+                        .ok_or("--expect-menu needs a number")?
+                        .to_str()
+                        .ok_or("invalid menu")?
+                        .parse()
+                        .map_err(|_| "invalid menu")?,
+                )
+            }
             Some("--expect-state") => {
                 result.check.state = Some(
                     args.next()
@@ -177,6 +187,7 @@ fn run() -> Result<(), String> {
         || options.check.step.is_some()
         || options.check.min_movie_frames != 0
         || options.check.movie_skips.is_some()
+        || options.check.menu_state.is_some()
     {
         return Err("milestone expectations require --headless".into());
     }

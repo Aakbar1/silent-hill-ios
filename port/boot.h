@@ -39,8 +39,9 @@ enum { PRIM_RECT=0x60, RECT_TEXTURE=4, RECT_BLEND=2 };
 
 // PORT: Boot runtime records are native objects, never views of game-file bytes.
 // Full gameplay records must be migrated separately; upstream assertions stay intact in the baseline gate.
-typedef struct { u16 enter,cancel,skip,action,aim,light,run,view,stepLeft,stepRight,pause,item,map,option; } s_ControllerConfig;
-STATIC_ASSERT_SIZEOF(s_ControllerConfig,28);
+#include "game_records.h"
+#include "main/rng.h"
+#include <string.h>
 typedef struct { s_ControllerConfig controllerConfig;
     s32 screenPositionX,screenPositionY,soundType,volumeBgm,volumeSe,
         extraWeaponCtrl,brightness,vibrationEnabled,extraBloodColor,autoLoad,extraOptionsEnabled; } PortOptions;
@@ -54,29 +55,44 @@ typedef struct {
     struct { u8 r, g, b; } background2dColor;
     s32 gsScreenWidth, gsScreenHeight;
     PortOptions config;
+    s_Savegame savegame,autosave;
+    s_ControllerData controllers[2];
+    s_AnalogController rawController;
 } PortGameWork;
 typedef struct {
     s32 gameStateCounter, gameStateStepCounter, sysStateCounter, sysState;
     s32 sysFlags, bgmStatusFlags;
+    s32 processFlags;
+    bool enableHalfHeightGlyphs;
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)
-typedef struct { struct { u32 held,clicked,released,pulsed; } buttonFlags; } PortController;
+typedef s_ControllerData PortController;
 extern PortGameWork g_GameWork;
 extern PortSysWork g_SysWork;
 extern PortGameWorkConst* g_GameWorkConst;
 extern PortController* g_Controller0;
+extern PortController* g_Controller1;
+#define g_SavegamePtr (&g_GameWork.savegame)
 
 enum { GameState_Init=0, GameState_KonamiLogo=1, GameState_KcetLogo=2,
  GameState_MovieIntroFadeIn=3, GameState_AutoLoadSavegame=4, GameState_MovieIntroAlternate=5, GameState_MovieIntro=6,
  GameState_MainLoadScreen=10, GameState_InGame=11, GameState_InventoryScreen=14,
  GameState_MainMenu=7, GameState_Unk16=22,
+ GameState_LoadSavegameScreen=8,GameState_MovieOpening=9,GameState_OptionScreen=18,
  SysState_Gameplay=0, SysFlag_DemoActive=2, BgmStatusFlag_None=0, BgmStatusFlag_Pause=1,
  AudioStreamingState_None=0, SyncMode_Wait=0, SyncMode_Count=-1, SyncMode_Wait8=8 };
-enum {ControllerFlag_None=0,ControllerFlag_Select=1,ControllerFlag_Start=8,
-    ControllerFlag_L2=256,ControllerFlag_R2=512,ControllerFlag_L1=1024,ControllerFlag_R1=2048,
-    ControllerFlag_Triangle=4096,ControllerFlag_Circle=8192,ControllerFlag_Cross=16384,ControllerFlag_Square=32768};
-enum {ControllerFlag_LStickHighLeft=0x80000,ControllerFlag_LStickHighRight=0x20000};
+enum {MainMenuEntry_Load=0,MainMenuEntry_Continue=1,MainMenuEntry_Start=2,MainMenuEntry_Option=3,MainMenuEntry_Extra=4,MainMenuEntry_Count=5,
+MainMenuState_Start=0,MainMenuState_Main=1,MainMenuState_LoadGame=2,MainMenuState_DifficultySelector=3,MainMenuState_NewGameStart=4,
+ProcessFlag_BootDemo=32,ProcessFlag_Continue=16,ProcessFlag_NewGame=4,SysState_OptionsMenu=1,MapIdx_MAP0_S00=0,
+GameDifficulty_Easy=-1,GameDifficulty_Hard=1,Sfx_MenuMove=1305,Sfx_MenuStartGame=1281,Sfx_MenuConfirm=1307,Sfx_MenuCancel=1306,
+PaperMapIdx_OldTown=0,InvItemId_Unequipped=0};
+typedef s32 e_GameState;
+#define STICK_DEADZONE 64
+#define DEFAULT_MAP_MESSAGE_LENGTH 100
+#define COLOR_RGBC(r,g,b,c) ((u32)(r)|((u32)(g)<<8)|((u32)(b)<<16)|((u32)(c)<<24))
+// PORT: Preserve packed signed coordinates without undefined signed shifts.
+#define Math_SetDVectorFast(v,x,y) (*(u32*)&(v)->vx=(u32)(u16)(x)|((u32)(u16)(y)<<16))
 enum {SavegameEntryType_NoMemCard=0,SavegameEntryType_OutOfBlocks=4,SavegameEntryType_Save=8,
     MemCardGameProcessId_Load_Game=2,MemCardWorkResult_Success=1,AudioMode_Mono=1,AudioMode_Stereo=2};
 #define INPUT_ACTION_COUNT 14
@@ -137,6 +153,8 @@ void* port_gpu_pointer(u32 token);
 // PORT: Pack signed 16-bit coordinates with unsigned shifts, preserving PS1 bits without C UB.
 #undef setXY0Fast
 #define setXY0Fast(p,x,y) (*(u32*)&(p)->x0 = (u32)(u16)(x) | ((u32)(u16)(y)<<16))
+#undef setXY4
+#define setXY4(p,a,b,c,d,e,f,g,h) ((p)->x0=(s16)(a),(p)->y0=(s16)(b),(p)->x1=(s16)(c),(p)->y1=(s16)(d),(p)->x2=(s16)(e),(p)->y2=(s16)(f),(p)->x3=(s16)(g),(p)->y3=(s16)(h))
 
 void Fs_QueueInitialize(void);
 s32 Fs_QueueGetLength(void);
@@ -159,7 +177,7 @@ void port_game_state_next(s32 next);
 void MainLoop(void);
 void GameState_Init_Update(void);
 #define PORT_OTHER_STATES(X) \
- X(GameState_AutoLoadSavegame_Update) X(GameState_MainMenu_Update) \
+ X(GameState_AutoLoadSavegame_Update) \
  X(GameState_LoadSavegameScreen_Update) \
  X(GameState_LoadScreen_Update) X(GameState_InGame_Update) X(GameState_MapEvent_Update) \
  X(GameState_ItemScreens_Update) X(GameState_PaperMapScreen_Update) \
@@ -173,6 +191,7 @@ DECLARE_STATE(GameState_MovieIntro_Update)
 DECLARE_STATE(GameState_MovieOpening_Update)
 DECLARE_STATE(GameState_ExitMovie_Update)
 DECLARE_STATE(GameState_DebugMoviePlayer_Update)
+DECLARE_STATE(GameState_MainMenu_Update)
 #undef DECLARE_STATE
 void ResetCallback(void);
 int CdInit(void);
@@ -185,6 +204,10 @@ void Joy_Update(void);
 void Joy_Init(void);
 void Joy_ReadP1(void);
 void Joy_ControllerDataUpdate(void);
+void port_pad_refresh(void);
+void PadInitDirect(u8* first,u8* second);
+void PadStartCom(void);
+void ControllerData_AnalogToDigital(s_ControllerData* controller,bool analog);
 void Demo_ControllerDataUpdate(void);
 void Demo_Update(void);
 void Demo_GameRandSeedSet(void);
@@ -231,5 +254,28 @@ void port_movie_end(s32 skipped);
 void open_main(s32 file,s16 last_frame);
 void Screen_RectInterlacedClear(s16 x,s16 y,s16 w,s16 h,u8 r,u8 g,u8 b);
 void Text_Debug_PositionSet(s32 x,s32 y);
+void MainMenu_SelectedOptionIdxReset(void);
+void MainMenu_FogUpdate(void);
+void Screen_Refresh(s32 width,bool interlaced);
+void GameBoot_InGameStartup(void);
+void GameBoot_SavegameInitialize(s8 overlay,s32 difficulty);
+void GameBoot_WorldInit(void);
+void GameBoot_MapLoad(s32 map);
+void MemCard_SysDisable(void);
+void GameFs_SaveLoadBinLoad(void);
+void GameFs_OptionBinLoad(void);
+void SysWork_StateSetNext(s32 state);
+void Fs_QueueReset(void);
+extern s32 g_MemCard_SavegameCount;
+typedef struct {s32 unused;} PortMapPoint;
+extern struct PortMapHeader {PortMapPoint* mapPoints;} g_MapOverlayHdr;
+void Chara_PositionSet(const PortMapPoint* point);
+s32 Math_Sin(s32 angle);
+s32 Math_Cos(s32 angle);
+void port_unimplemented(const char* name);
+void Game_SavegameResetPlayer(void);
+void Gfx_StringPositionSet(s32 x,s32 y);
+void Gfx_StringColorSet(s16 color);
+bool Gfx_StringDraw(const char* text,s32 length);
 int port_run_game(void);
 #endif

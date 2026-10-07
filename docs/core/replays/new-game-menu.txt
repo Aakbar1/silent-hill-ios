@@ -1,0 +1,6 @@
+# Skip intro, then select START to enter original difficulty selector.
+0 0000
+1400 0008
+1401 0000
+1510 4000
+1511 0000

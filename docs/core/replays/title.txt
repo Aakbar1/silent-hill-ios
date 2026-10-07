@@ -1,0 +1,4 @@
+# Start skips the intro at tick 1400, after actual decoding.
+0 0000
+1400 0008
+1401 0000

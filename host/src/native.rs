@@ -30,6 +30,7 @@ use winit::{
 
 unsafe extern "C" {
     fn port_run_game() -> i32;
+    fn sh_title_menu_state() -> i32;
 }
 
 struct Host {
@@ -530,6 +531,7 @@ pub struct Backends {
 }
 #[derive(Default)]
 pub struct ReplayCheck {
+    pub menu_state: Option<i32>,
     pub state: Option<i32>,
     pub step: Option<i32>,
     pub min_movie_frames: u64,
@@ -578,8 +580,13 @@ pub fn run_headless(
             save_png(path, *w, *height, pixels).map_err(|e| e.to_string())?;
         }
         println!(
-            "CHECK code={code} frames={} state={} step={} movie_frames={} movie_skips={}",
-            h.frames, h.state, h.step, h.movie_frames, h.movie_skips
+            "CHECK code={code} frames={} state={} step={} menu={} movie_frames={} movie_skips={}",
+            h.frames,
+            h.state,
+            h.step,
+            unsafe { sh_title_menu_state() },
+            h.movie_frames,
+            h.movie_skips
         );
         if let Some(error) = h.error.take() {
             return Err(error);
@@ -594,6 +601,9 @@ pub fn run_headless(
             return Err(format!("completed {} of {limit} ticks", h.frames));
         }
         if check.state.is_some_and(|state| state != h.state)
+            || check
+                .menu_state
+                .is_some_and(|menu| menu != unsafe { sh_title_menu_state() })
             || check.step.is_some_and(|step| step != h.step)
             || h.movie_frames < check.min_movie_frames
             || check
@@ -744,12 +754,14 @@ mod tests {
         unsafe extern "C" {
             fn port_overlay_activate(file_id: u32) -> i32;
             fn sh_b_konami_reset_probe() -> i32;
+            fn sh_save_init_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
         unsafe {
             assert_eq!(port_overlay_activate(4), 0);
             assert_eq!(sh_b_konami_reset_probe(), 1);
+            assert_eq!(sh_save_init_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }
