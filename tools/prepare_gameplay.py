@@ -15,7 +15,7 @@ def between(text, start, end):
 
 
 def function(text, name):
-    match = re.search(r'^(?:static\s+)?(?:inline\s+)?(?:void|s32|u32|s8|u8|s16|u16|bool)\s+' + re.escape(name) + r'\([^;{}]*\)[^{;]*\{', text, re.M)
+    match = re.search(r'^(?:static\s+)?(?:inline\s+)?\w+\s*\*?\s+' + re.escape(name) + r'\([^;{}]*\)[^{;]*\{', text, re.M)
     if not match:
         raise ValueError(f'missing pinned function {name}')
     # Ignore braces in comments/literals while preserving their source positions.
@@ -92,18 +92,20 @@ def generate(decomp, out):
     env = between(read('include/bodyprog/gfx/world.h'), 'typedef struct _Fog', '#endif')
     (out / 'native_environment.h').write_text('/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\ntypedef struct _WaterZone s_WaterZone;\n'+env)
     source = ['/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n',
-              '#include "gameplay.h"\n']
+              '#include "world.h"\n']
     selections = {
-        'src/bodyprog/world/bodyprog_anim_800445A4.c':['Anim_BoneInit'],
+        'src/bodyprog/world/bodyprog_anim_800445A4.c':['Anim_TimestepGet','Anim_BoneInit','Anim_BoneUpdate',
+            'Anim_DurationGet','Anim_PlaybackOnce','Anim_PlaybackLoop','Anim_BlendLinear','Anim_BlendEaseOut'],
         'src/bodyprog/world/bodyprog_bone_80044F14.c':['Bone_ModelIdxGet','Skeleton_Init','func_80045014',
             'func_8004506C','func_80045108','Skeleton_BoneModelAssign','func_80045258','func_800452EC','func_800453E8','func_80045468'],
         'src/bodyprog/gfx/materials.c':['Lm_MaterialFileIdxApply','Lm_MaterialFsImageApply','Material_FsImageApply',
             'Lm_MaterialFlagsApply','Model_MaterialFlagsApply','LmHeader_ModelCountGet','Bone_ModelAssign'],
         'src/bodyprog/world/world_draw.c':['WorldGfx_HarryCharaLoad','Chara_FsImageCalc','WorldGfx_PlayerModelProcessLoad','WorldGfx_CharaModelProcessLoad',
             'World_Init','WorldGfx_HeldItemModelFree','WorldGfx_CharaModelsFree','Chara_ModelFree','WorldObjects_Clear','WorldGfx_HarryMeshSwap'],
-        'src/bodyprog/world/world_effects.c':['Game_FlashlightAttributesFix','Game_TurnFlashlightOn','Game_TurnFlashlightOff'],
+        'src/bodyprog/world/world_effects.c':['Game_FlashlightAttributesFix','Game_TurnFlashlightOn','Game_TurnFlashlightOff','Game_SpotlightLoadScreenAttribsFix'],
+        'src/bodyprog/game_boot/load_screen.c':['Math_MatrixTransform','GameBoot_LoadScreen_PlayerRun'],
         'src/bodyprog/events/game_sys_states.c':['SysWork_SavegameReadPlayer'],
-        'src/bodyprog/game_boot/game_boot.c':['GameBoot_WorldInit','GameBoot_MapLoad','GameState_LoadScreen_Update','GameBoot_LoadingScreen'],
+        'src/bodyprog/game_boot/game_boot.c':['GameBoot_WorldInit','GameBoot_MapLoad','GameState_LoadScreen_Update','GameBoot_LoadingScreen','GameBoot_InGameStartup'],
         'src/bodyprog/gfx/bodyprog_80055028.c':['WorldEnv_Init','WorldEnv_FogDistanceSet'],
         'src/bodyprog/world/bodyprog_80040B74.c':['func_80040BAC'],
         'src/bodyprog/gfx/billboard_draw.c':['func_8005B55C'],
@@ -112,6 +114,22 @@ def generate(decomp, out):
     }
     source.append('static PACKET g_Map_GfxPackets[2][0xA10];\nstatic GsCOORDINATE2* g_ViewCoord;\n')
     source.append('static void GameBoot_LoadingScreen(void);\nstatic s32 g_MapAreaLoadCounter;\n')
+    from prepare_maps import initializer
+    source.append(initializer(read('src/bodyprog/game_boot/fs_chara_anim.c'),'D_800A998C'))
+    # PORT: Retain the entire original startup dispatcher. Unavailable leaves
+    # fail with their own names rather than replacing or skipping its states.
+    guards = ['Demo_DemoFileSavegameUpdate','Demo_PlayFileBufferSetup','Demo_PlayDataRead','Demo_Start',
+              'Fs_CharaAnimDataAlloc','WorldGfx_MapInitCharaLoad','AreaLoad_TransitionFlags',
+              'AreaLoad_TransitionSound','Sd_BgmInit','Sd_AmbientSfxInit','GameBoot_InGameInit']
+    headers='\n'.join(read(path) for path in ['include/bodyprog/bodyprog.h','include/bodyprog/demo.h','include/bodyprog/game_boot/background_sound_init.h','include/bodyprog/game_boot/fs_chara_anim.h','include/bodyprog/game_boot/game_boot.h'])
+    for name in guards:
+        signature=re.search(r'^(?:void|bool|s32|u32|u16|s16|s8|u8)\s+'+name+r'\([^;{}]*\);',headers,re.M)
+        if not signature:raise ValueError('missing pinned startup declaration '+name)
+        signature=signature[0][:-1]
+        params=signature.split('(',1)[1].rsplit(')',1)[0].split(',')
+        unused=''.join('(void)'+re.findall(r'\b\w+',param)[-1]+';' for param in params if param.strip()!='void')
+        source.append(signature+' {'+unused+'port_unimplemented("'+name+'/native startup dependency");'+('return 0;' if not signature.startswith('void ') else '')+'}\n')
+    source.append('static void GameBoot_NpcInit(void) {port_unimplemented("GameBoot_NpcInit/native room transition");}\n')
     source.append(between(read('src/bodyprog/gfx/billboard_draw.c'), 's_800AE204 D_800AE204', '// Used in `Gfx_BillboardDraw`'))
     source.append(between(read('src/bodyprog/gfx/bodyprog_80055028.c'), 's32 D_800AE1C0[]', '// ========================================'))
     for path, names in selections.items():
@@ -119,6 +137,42 @@ def generate(decomp, out):
         source.append(f'#line 1 "{path}"\n')
         for name in names:
             code = function(original, name)
+            if name=='GameBoot_InGameStartup':
+                code=code.replace('WorldGfx_MapInit(&g_MapOverlayHdr,','WorldGfx_MapInit((s_MapOverlayHdr*)&g_MapOverlayHdr,')
+                code=code.replace('WorldGfx_MapInitCharaLoad(&g_MapOverlayHdr)', 'WorldGfx_MapInitCharaLoad((s_MapOverlayHdr*)&g_MapOverlayHdr)')
+            if name=='Math_MatrixTransform':
+                # PORT: SubCharacter owns a six-byte SVECTOR3. Copy named values
+                # to the SDK's padded eight-byte rotation argument.
+                code=code.replace('SVECTOR* rot,','const SVECTOR3* rot,')
+                code=code.replace('Math_RotMatrixZxyNegGte(rot,', 'SVECTOR rotation={rot->vx,rot->vy,rot->vz,0};\n    Math_RotMatrixZxyNegGte(&rotation,')
+            if name=='GameBoot_LoadScreen_PlayerRun':
+                # PORT: The upstream call casts the ANM header to an unrelated
+                # skeleton type. Native playback requires its actual descriptor.
+                code=code.replace('(s_Skeleton*)FS_BUFFER_0','(s_AnmHeader*)FS_BUFFER_0')
+                code=code.replace('vcInitCamera(&g_MapOverlayHdr,','vcInitCamera((s_MapOverlayHdr*)&g_MapOverlayHdr,')
+                code=code.replace('World_CollisionTriggersSet(&g_MapOverlayHdr)', 'World_CollisionTriggersSet((s_MapOverlayHdr*)&g_MapOverlayHdr)')
+            if name == 'Anim_DurationGet':
+                code = code.replace('{', '{\n    (void)unused;', 1)
+            if name == 'Anim_BoneUpdate':
+                # PORT: ANM frames are separate owned allocations, not header-relative bytes.
+                code = code.replace('void*          frame', 'const u8*      frame')
+                code = code.replace('s8*            frame', 'const s8*      frame')
+                code = code.replace('((u8*)anmHdr + anmHdr->dataOffset)', 'anmHdr->keyframes')
+                for target in ['frame0TranslationData', 'frame1TranslationData', 'frame0RotationData', 'frame1RotationData']:
+                    code = re.sub(r'(' + target + r'\s*=) (frame[01](?:Rot)?Data)', r'\1 (const s8*)\2', code)
+                # PORT: Retain signed scaling without C's undefined negative left shift.
+                code = code.replace('*frame0TranslationData << scaleLog2', '(s32)((u32)(s32)*frame0TranslationData * (1u << scaleLog2))')
+                # PORT: MIPS masks variable shift counts; keep legal high-scale
+                # ANMs defined on native C as well as the real player's scale.
+                code = code.replace('>> (Q12_SHIFT - scaleLog2)', '>> ((Q12_SHIFT - scaleLog2) & 31)')
+                code = code.replace('*frame0RotationData << 5', '*frame0RotationData * 32')
+                code = re.sub(r'(curBoneCoord->coord\.m\[i\]\[j\]\s*=) (.*?);', r'\1 (s16)(\2);', code, flags=re.S)
+                code = code.replace('boneCount     = anmHdr->boneCount;', '''// PORT: Reject invalid frames before indexing native keyframe storage.
+    if (keyframe0 < 0 || keyframe1 < 0 || keyframe0 >= anmHdr->keyframeCount || keyframe1 >= anmHdr->keyframeCount)
+        port_unimplemented("animation keyframe bounds");
+    boneCount     = anmHdr->boneCount;''')
+            if name in ['Anim_PlaybackOnce','Anim_PlaybackLoop','Anim_BlendLinear','Anim_BlendEaseOut']:
+                code = re.sub(r'(model->anim\.(?:keyframeIdx|alpha)\s*=) ([^;]+);', r'\1 (s16)(\2);', code)
             if name == 'func_80045468':
                 code = code.replace('Bone_ModelIdxGet(arg1,', 'Bone_ModelIdxGet((s8*)arg1,').replace('1 << 31', '1u << 31')
             if name == 'GameFs_PlayerMapAnimLoad':
@@ -131,7 +185,7 @@ def generate(decomp, out):
                     code=code.replace(f'Sfx_Unk{sfx}',str(sfx))
             # PORT: Native-width pointers and explicit PS1 field narrowing.
             replacements = {
-                'translationInitial[i] << anmHdr->scaleLog2':'translationInitial[i] * (s32)(1u << anmHdr->scaleLog2)',
+                'anmHdr->bindPoses[boneIdx].translationInitial[i] << anmHdr->scaleLog2':'(s32)((u32)(s32)anmHdr->bindPoses[boneIdx].translationInitial[i] * (1u << anmHdr->scaleLog2))',
                 'boneMeshIdx D_800C15B4':'boneMeshIdx port_bone_mesh_idx',
                 'modelCount = LmHeader_ModelCountGet':'modelCount = LmHeader_ModelCountGet',
                 'sp10[2] = LmHeader_ModelCountGet(lmHdr) - 1':'sp10[2] = (u8)(LmHeader_ModelCountGet(lmHdr) - 1)',
@@ -182,6 +236,12 @@ def generate(decomp, out):
             source.append(code)
             source.extend(f'#undef {alias}\n' for alias in aliases)
     (out / 'gameplay_consumers.c').write_text(''.join(source))
+    from prepare_camera import generate as prepare_camera
+    prepare_camera(decomp, out)
+    from prepare_world import generate as prepare_world
+    prepare_world(decomp, out)
+    from prepare_collision import generate as prepare_collision
+    prepare_collision(decomp,out)
 
 
 if __name__ == '__main__':

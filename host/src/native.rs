@@ -27,6 +27,7 @@ use winit::{
 
 unsafe extern "C" {
     fn port_run_game() -> i32;
+    fn port_run_world_probe() -> i32;
     fn sh_title_menu_state() -> i32;
     fn sh_option_selected_entry() -> i32;
     static g_ScreenFade_Status: i32;
@@ -63,6 +64,52 @@ fn host<R>(f: impl FnOnce(&mut Host) -> R) -> R {
             .borrow_mut()
             .as_mut()
             .expect("native worker host installed"))
+    })
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_water_texture_name(destination: *mut u8) -> i32 {
+    if destination.is_null() {
+        return 1;
+    }
+    host(|h| {
+        // PORT: D_8002B2CC is eight filename bytes within encrypted BODYPROG,
+        // whose pinned USA load address is 0x80024B60. This reads data only.
+        const OFFSET: usize = 0x8002_b2cc - 0x8002_4b60;
+        let result = (|| {
+            let bytes = h
+                .disc
+                .read_entry_range(3, 0, (OFFSET + 8) as u64)
+                .map_err(|error| error.to_string())?;
+            let mut seed = 0u32;
+            let mut name = [0u8; 8];
+            for (index, word) in bytes.as_chunks::<4>().0.iter().enumerate() {
+                seed = seed.wrapping_add(0x0130_9125).wrapping_mul(0x03a4_52f7);
+                if index * 4 >= OFFSET {
+                    let decoded = (u32::from_le_bytes(*word) ^ seed).to_le_bytes();
+                    name[index * 4 - OFFSET..index * 4 - OFFSET + 4].copy_from_slice(&decoded);
+                }
+            }
+            if name
+                .iter()
+                .take_while(|byte| **byte != 0)
+                .any(|byte| !(0x20..=0x5f).contains(byte))
+            {
+                return Err("invalid pinned water texture name".to_owned());
+            }
+            // SAFETY: C passes its eight-byte filename array.
+            unsafe {
+                destination.copy_from_nonoverlapping(name.as_ptr(), 8);
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(error) => {
+                h.error = Some(error);
+                1
+            }
+        }
     })
 }
 
@@ -714,6 +761,7 @@ pub struct Backends {
 }
 #[derive(Default)]
 pub struct ReplayCheck {
+    pub world_probe: bool,
     pub min_lit_pixels: usize,
     pub option_entry: Option<i32>,
     pub menu_state: Option<i32>,
@@ -760,7 +808,13 @@ pub fn run_headless(
         })
     });
     // SAFETY: Headless mode is the sole C worker; jumps cross only C stack frames.
-    let code = unsafe { port_run_game() };
+    let code = unsafe {
+        if check.world_probe {
+            port_run_world_probe()
+        } else {
+            port_run_game()
+        }
+    };
     let result = host(|h| {
         if let Some(movie) = h.movie.take() {
             movie.end(h.spu.as_mut(), false);
@@ -793,7 +847,7 @@ pub fn run_headless(
                 h.frames
             ));
         }
-        if h.frames != limit {
+        if !check.world_probe && h.frames != limit {
             return Err(format!("completed {} of {limit} ticks", h.frames));
         }
         if check.state.is_some_and(|state| state != h.state)

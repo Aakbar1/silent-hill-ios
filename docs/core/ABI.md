@@ -1,4 +1,4 @@
-﻿# Disk32 and native load boundary
+# Disk32 and native load boundary
 
 Schemas are derived from the pinned upstream headers: formats/model.h and lm.h (models/materials), formats/ipd.h (maps/collision), dms.h, and savegame.h. Copyright (C) 2026 shdecompilations; GPL-3.0-only. Upstream notices remain in game/decomp/LICENSE.
 
@@ -30,3 +30,7 @@ Owned IPD graphs expose a 464-byte native header, 24-byte model identities, 40-b
 HB_M0S00 and HB_M0S01 contain headerless frame blocks placed at FS_BUFFER_4 within HB_BASE's original frame arena. Native ANM storage reserves that arena up front, keeping pointers stable across bounded frame patches. Base header validation stays strict; source bind poses and base frames remain intact. M0S00 is linked to the runtime queue; M0S01 replacement is tested at the data boundary. The original animation/player updates remain unlinked. Native IPD isLoaded denotes decoded pointer readiness; chunk scheduling and material/texture readiness still require native lifecycle adapters.
 
 Current verification: MSVC x86/x64 wire gates pass; arm64 LP64 native/SDK layout checks pass with the negative pointer control rejected. Runtime C compiles /W4 /WX. Eight affected C units pass the installed LLVM frontend targeting aarch64-apple-ios15.0 with -Werror -Wall -Wextra and compile-only CRT declarations. All 128 THR IPDs pass the C graph probe. Core3 recorded the separate broad original-header failure (37 C2118 diagnostics before truncation); it was not rerun or weakened here. Actual Apple SDK compilation, first-map gameplay and an iOS runtime are not established.
+
+# core5 native consumers
+
+Camera work is 808 bytes, nearby road 40, view work 160; native terrain work is 1592, chunk 32 and chunk texture work 416. Collision cell point is 64 and state 328, with pointer/union/point offsets 72/208/264. These assertions apply to native working records, never wire overlays. Camera, scheduler and ground queries now consume owned graphs. The original broad-header gate is unchanged. See ENGINE.md for verification and remaining rendering/gameplay boundaries.

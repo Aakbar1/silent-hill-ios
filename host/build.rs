@@ -142,6 +142,14 @@ fn main() {
         "cargo:rerun-if-changed={}",
         repo.join("tools/prepare_gameplay.py").display()
     );
+    for file in [
+        "tools/prepare_camera.py",
+        "tools/prepare_math.py",
+        "tools/prepare_world.py",
+        "tools/prepare_collision.py",
+    ] {
+        println!("cargo:rerun-if-changed={}", repo.join(file).display());
+    }
     let records = std::process::Command::new("python")
         .arg(repo.join("tools/prepare_gameplay.py"))
         .arg("--decomp")
@@ -672,6 +680,8 @@ fn main() {
         "port/gameplay.c",
         "port/map.h",
         "port/map.c",
+        "port/camera_services.c",
+        "port/world_services.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
@@ -682,6 +692,16 @@ fn main() {
         .file(repo.join("port/gte_services.c"))
         .file(generated.join("gte_command_probe.c"))
         .file(generated.join("gameplay_consumers.c"))
+        .file(generated.join("native_math.c"))
+        .file(generated.join("vc_main.c"))
+        .file(generated.join("vc_util.c"))
+        .file(generated.join("vw_main.c"))
+        .file(generated.join("vw_calc.c"))
+        .file(generated.join("camera_globals.c"))
+        .file(repo.join("port/camera_services.c"))
+        .file(generated.join("world_consumers.c"))
+        .file(generated.join("collision_consumers.c"))
+        .file(repo.join("port/world_services.c"))
         .file(repo.join("port/gameplay.c"))
         .file(repo.join("port/map.c"))
         .file(generated.join("map0_s00.c"))

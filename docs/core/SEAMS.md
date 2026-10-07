@@ -1,6 +1,6 @@
-﻿# Host seams and replay
+# Host seams and replay
 
-`native::run_with_backends` accepts boxed GpuBackend, SpuBackend and PadSource. C owns OT token resolution; GPU begin/packet/end callbacks preserve traversal order and include the original 32-bit tag. GPU VRAM upload, readback, clear and copy go through the same backend. Software Raster remains the default. No psxgpu/psxspu source changes.
+`native::run_with_backends` accepts boxed GpuBackend, SpuBackend and PadSource. C owns OT token resolution; GPU begin/packet/end callbacks preserve traversal order and include the original 32-bit tag. GPU VRAM upload, readback, clear and copy go through the same backend. Desktop/headless factories select the configured backend (wgpu by default); software Raster remains selectable. No psxgpu/psxspu source changes.
 
 SPU interface is register/voice/sample-RAM level. The silent boot fallback stores state and bounds-checks transfers; it is not a sequencer or audible mixer. C SpuInit calls the selected backend. Full libsd/libspu linkage is still pending.
 
@@ -15,3 +15,5 @@ Replay: `--input docs/core/replays/boot.txt`. Rows are `tick active_high_hex [rx
 Core3 adds the defaulted, backward-compatible `GpuBackend::packet_precise` hook. Exact integer packets remain authoritative; optional GTE coordinates travel beside polygons when built with `--features precise-vertices`. Metadata is consumed once and discarded at OT completion. The software menu Raster ignores it; a renderer must implement the hook before it affects presentation. Existing backend/pad implementations need no changes.
 
 Current reproduction: `tools/milestones.cmd --available --repeat 2`. The runner creates private/work/core3 output folders and checks original state/menu endpoints, nonblack pixels and repeat PNG hashes. See [MILESTONES.md](MILESTONES.md). The full-brief gate fails until missing screens/maps are implemented. Earlier core/core2 captures are historical.
+
+Core5 installs the configured SpuCpal factory, exact 735-sample virtual VBlank advance, and checked desktop/headless finalization. The original libsd sequencer/SFX bridge remains unlinked, so audible game sound is not certified. wgpu now implements the erased precise-vertex hook and native presentation/capture paths. New evidence is under private/work/core5.

@@ -17,7 +17,10 @@ def main():
     output=root/'target/core-native-clang'
     prepare(root/'game/decomp',output)
     sources=[root/'port/runtime.c',root/'port/gameplay.c',root/'port/map.c',root/'port/title_services.c',
-             output/'gameplay_consumers.c',output/'map0_s00.c',output/'map_info.c',output/'player_spawn.c']
+             root/'port/camera_services.c',root/'port/world_services.c',
+             output/'gameplay_consumers.c',output/'map0_s00.c',output/'map_info.c',output/'player_spawn.c',
+             output/'native_math.c',output/'camera_globals.c',output/'vc_main.c',output/'vc_util.c',
+             output/'vw_main.c',output/'vw_calc.c',output/'world_consumers.c',output/'collision_consumers.c']
     flags=['-target','aarch64-apple-ios15.0','-ffreestanding','-std=c11','-Wall','-Wextra','-Werror','-nostdinc']
     for include in [root/'tools/layout-include',root/'port',root/'port/include',output,root/'game/decomp/include',root/'game/decomp/src/main']:
         flags+=['-I',str(include)]

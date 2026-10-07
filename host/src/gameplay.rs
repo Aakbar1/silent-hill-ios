@@ -372,6 +372,11 @@ impl NativeAnimation {
         self._frames[start..].fill(0);
         self._frames[start..start + complete].copy_from_slice(&bytes[..complete]);
         self.header.frames = self._frames.as_ptr();
+        // PORT: Playback bounds include the complete newly loaded map frames.
+        // The descriptor owns the whole stable player frame arena.
+        self.header.keyframe_count = ((start + complete) / stride)
+            .try_into()
+            .map_err(|_| "player frame count exceeds native ANM range")?;
         Ok(())
     }
 }
@@ -394,6 +399,18 @@ mod tests {
     use super::*;
     static CONSUMERS: std::sync::Mutex<()> = std::sync::Mutex::new(());
     unsafe extern "C" {
+        fn ratan2(y: i32, x: i32) -> i32;
+        fn SquareRoot0(value: i32) -> i32;
+        fn Math_RotMatrixZxyNeg(rotation: *const [i16; 4], matrix: *mut TestMatrix);
+        fn Math_RotMatrixZxyNegGte(rotation: *const [i16; 4], matrix: *mut TestMatrix);
+        fn port_animation_sample(
+            anm: *mut NativeAnmHeader,
+            first: i32,
+            second: i32,
+            alpha: i32,
+            bone: i32,
+            out: *mut i32,
+        ) -> i32;
         fn port_native_graph_probe(
             lm: *mut NativeLmHeader,
             anm: *mut NativeAnmHeader,
@@ -472,6 +489,100 @@ mod tests {
         bad[4] = 12;
         bad[16] = 1;
         assert!(decode_animation(&bad).is_err());
+    }
+    #[repr(C)]
+    struct TestMatrix {
+        rotation: [[i16; 3]; 3],
+        translation: [i32; 3],
+    }
+    #[test]
+    fn pinned_sdk_math_octants_quantization_and_rotation_axes() {
+        let _lock = CONSUMERS.lock().unwrap();
+        // These include the SDK's unusual low-ratio quantization and every octant.
+        for (y, x, want) in [
+            (0, 0, 0),
+            (0, 1, 0),
+            (1, 0, 1024),
+            (-1, 0, -1024),
+            (0, -1, 2048),
+            (1, 1, 512),
+            (1, -1, 1536),
+            (-1, -1, -1536),
+            (-1, 1, -512),
+            (2, 1024, 2),
+        ] {
+            // SAFETY: Scalar SDK entry points have no external storage.
+            assert_eq!(unsafe { ratan2(y, x) }, want);
+        }
+        for (value, want) in [(0, 0), (1, 1), (4, 2), (100, 10), (65536, 256)] {
+            // SAFETY: Scalar SDK entry point uses this thread's native COP2 state.
+            assert_eq!(unsafe { SquareRoot0(value) }, want);
+        }
+        let cases = [
+            ([0, 0, 0, 0], [[4096, 0, 0], [0, 4096, 0], [0, 0, 4096]]),
+            ([1024, 0, 0, 0], [[4096, 0, 0], [0, 0, -4096], [0, 4096, 0]]),
+            ([0, 1024, 0, 0], [[0, 0, 4096], [0, 4096, 0], [-4096, 0, 0]]),
+            ([0, 0, 1024, 0], [[0, -4096, 0], [4096, 0, 0], [0, 0, 4096]]),
+        ];
+        for (rotation, want) in cases {
+            for gte in [false, true] {
+                let mut matrix = TestMatrix {
+                    rotation: [[0; 3]; 3],
+                    translation: [123, -456, 789],
+                };
+                // SAFETY: The repr(C) matrix and padded SDK rotation own all addressed fields.
+                unsafe {
+                    if gte {
+                        Math_RotMatrixZxyNegGte(&rotation, &mut matrix)
+                    } else {
+                        Math_RotMatrixZxyNeg(&rotation, &mut matrix)
+                    }
+                }
+                assert_eq!(matrix.rotation, want, "rotation={rotation:?} gte={gte}");
+                assert_eq!(matrix.translation, [123, -456, 789]);
+            }
+        }
+    }
+    #[test]
+    fn original_bone_update_interpolates_owned_frames_without_wire_relocation() {
+        let _lock = CONSUMERS.lock().unwrap();
+        let mut bytes = vec![0u8; 56];
+        bytes[..2].copy_from_slice(&32u16.to_le_bytes());
+        bytes[2] = 1;
+        bytes[3] = 1;
+        bytes[4..6].copy_from_slice(&12u16.to_le_bytes());
+        bytes[6] = 2;
+        bytes[8..12].copy_from_slice(&2u32.to_le_bytes());
+        bytes[12..16].copy_from_slice(&56u32.to_le_bytes());
+        bytes[16..18].copy_from_slice(&2u16.to_le_bytes());
+        bytes[18] = 4;
+        bytes[19] = 5;
+        bytes[20..23].copy_from_slice(&[255, 255, 255]);
+        bytes[26..29].copy_from_slice(&[0, 0, 0]);
+        bytes[32..44].copy_from_slice(&[254, 3, 252, 127, 0, 0, 0, 127, 0, 0, 0, 127]);
+        bytes[44..56].copy_from_slice(&[4, 253, 2, 129, 64, 0, 192, 127, 0, 0, 0, 0]);
+        let before = bytes.clone();
+        let mut animation = NativeAnimation::new(&decode_animation(&bytes).unwrap());
+        let mut sample = [0i32; 12];
+        // SAFETY: The descriptor and every leaf stay owned for the synchronous original C consumer.
+        assert_eq!(
+            unsafe {
+                port_animation_sample(
+                    animation.header.as_mut(),
+                    0,
+                    1,
+                    2048,
+                    1,
+                    sample.as_mut_ptr(),
+                )
+            },
+            1
+        );
+        assert_eq!(
+            sample,
+            [16, -5, -16, 0, 1024, 0, -1024, 4064, 0, 0, 0, 2032]
+        );
+        assert_eq!(bytes, before);
     }
     #[test]
     fn owned_player_assets_decode_and_run_original_consumers() {
