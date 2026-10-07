@@ -1,0 +1,13 @@
+[package]
+name = "psxmedia"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "GPL-3.0-only"
+description = "Native PlayStation STR/MDEC, XA and SPU ADPCM decoding"
+
+# Standalone until the director adds this lane to the parent workspace.
+[workspace]
+
+[dev-dependencies]
+png = "0.18"
