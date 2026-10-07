@@ -1,0 +1,10 @@
+REPORT.md
+/target/
+*.bin
+*.cue
+*.iso
+*.chd
+*.BIN
+SLUS_*
+/assets_extracted/
+/private/
