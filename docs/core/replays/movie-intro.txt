@@ -1,0 +1,2 @@
+# Neutral input: intro enters state 6 and decodes video/XA by tick 1900.
+0 0000

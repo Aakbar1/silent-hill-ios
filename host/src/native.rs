@@ -3,8 +3,10 @@ use crate::{
     asset_store::{AssetInfo, AssetKind, AssetStore, NativeSpan},
     backend::{GpuBackend, SilentSpu, SpuBackend},
     disc::{DiscImage, GameDisc},
+    movie::Movie,
     pad::{KeyboardController, LiveInput, PadSource, ReplayPad},
     raster::Raster,
+    saves::SaveStore,
 };
 use std::{
     cell::RefCell,
@@ -29,6 +31,9 @@ use winit::{
 
 unsafe extern "C" {
     fn port_run_game() -> i32;
+    fn sh_title_menu_state() -> i32;
+    fn sh_option_selected_entry() -> i32;
+    static g_ScreenFade_Status: i32;
 }
 
 struct Host {
@@ -37,7 +42,8 @@ struct Host {
     spu: Box<dyn SpuBackend>,
     pad: Box<dyn PadSource>,
     assets: AssetStore,
-    proxy: EventLoopProxy<Frame>,
+    saves: SaveStore,
+    proxy: Option<EventLoopProxy<Frame>>,
     frames: u64,
     limit: u64,
     screenshot: Option<PathBuf>,
@@ -47,6 +53,11 @@ struct Host {
     error: Option<String>,
     first_logo: Option<u64>,
     last_frame: Option<(u32, u32, Vec<u32>)>,
+    movie: Option<Movie>,
+    state: i32,
+    step: i32,
+    movie_frames: u64,
+    movie_skips: u32,
 }
 thread_local! { static HOST: RefCell<Option<Host>> = const {RefCell::new(None)}; }
 
@@ -85,6 +96,41 @@ unsafe extern "C" fn port_read_file(id: u32, bytes: u32, destination: *mut u8) -
                 h.error = Some(format!("disc read file {id}: {e}"));
                 1
             }
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_save_read(slot: u32, destination: *mut u8, count: u32) -> i32 {
+    if destination.is_null() || count != 636 {
+        return 2;
+    }
+    host(|h| match h.saves.read(slot) {
+        Ok(Some(bytes)) => {
+            // SAFETY: C supplies one writable 636-byte save record for this call.
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), destination, 636);
+            }
+            0
+        }
+        Ok(None) => 1,
+        Err(error) => {
+            h.error = Some(format!("native save read: {error}"));
+            2
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_save_write(slot: u32, source: *const u8, count: u32) -> i32 {
+    if source.is_null() || count != 636 {
+        return 2;
+    }
+    // SAFETY: C supplies one readable 636-byte original-format save record.
+    let bytes = unsafe { std::slice::from_raw_parts(source, 636) };
+    host(|h| match h.saves.write(slot, bytes) {
+        Ok(()) => 0,
+        Err(error) => {
+            h.error = Some(format!("native save write: {error}"));
+            2
         }
     })
 }
@@ -245,6 +291,49 @@ extern "C" fn port_spu_reset() {
     host(|h| h.spu.reset());
 }
 #[unsafe(no_mangle)]
+extern "C" fn port_movie_begin(id: u32, last_frame: u32) -> i32 {
+    host(|h| match Movie::new(&h.disc, id, last_frame, h.frames) {
+        Ok(movie) => {
+            h.movie = Some(movie);
+            0
+        }
+        Err(error) => {
+            h.error = Some(error);
+            1
+        }
+    })
+}
+#[unsafe(no_mangle)]
+extern "C" fn port_movie_tick() -> i32 {
+    host(|h| {
+        let Some(movie) = h.movie.as_mut() else {
+            h.error = Some("movie tick without begin".into());
+            return 2;
+        };
+        let before = movie.decoded_frames;
+        let result = movie.tick(&mut h.disc, h.gpu.as_mut(), h.spu.as_mut(), h.frames);
+        h.movie_frames += u64::from(movie.decoded_frames - before);
+        match result {
+            Ok(done) => i32::from(done),
+            Err(error) => {
+                h.error = Some(error);
+                2
+            }
+        }
+    })
+}
+#[unsafe(no_mangle)]
+extern "C" fn port_movie_end(skipped: i32) {
+    host(|h| {
+        if let Some(movie) = h.movie.take() {
+            movie.end(h.spu.as_mut(), skipped != 0);
+        }
+        if skipped != 0 {
+            h.movie_skips += 1;
+        }
+    });
+}
+#[unsafe(no_mangle)]
 extern "C" fn port_spu_write(offset: u16, value: u16) -> i32 {
     host(|h| match h.spu.write_register(offset, value) {
         Ok(()) => 0,
@@ -280,14 +369,28 @@ unsafe extern "C" fn port_spu_transfer(address: u32, data: *const u8, count: u32
     })
 }
 #[unsafe(no_mangle)]
-extern "C" fn port_present(x: i32, y: i32, w: i32, h: i32, state: i32, step: i32) -> i32 {
+extern "C" fn port_present(
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    state: i32,
+    step: i32,
+    rgb24: i32,
+) -> i32 {
     host(|host| {
         host.frames += 1;
+        host.state = state;
+        host.step = step;
         let display_enabled = w > 0 && h > 0;
         let w = if w > 0 { w as u32 } else { 320 };
         let h = if h > 0 { h as u32 } else { 240 };
         let pixels = if display_enabled {
-            host.gpu.frame(x, y, w, h)
+            if rgb24 != 0 {
+                host.gpu.frame_rgb24(x, y, w, h)
+            } else {
+                host.gpu.frame(x, y, w, h)
+            }
         } else {
             vec![0; (w * h) as usize]
         };
@@ -313,21 +416,23 @@ extern "C" fn port_present(x: i32, y: i32, w: i32, h: i32, state: i32, step: i32
                 host.gpu.primitives()
             );
         }
-        if host
-            .proxy
-            .send_event(Frame {
-                w,
-                h,
-                pixels,
-                finished,
-            })
-            .is_err()
+        if let Some(proxy) = &host.proxy
+            && proxy
+                .send_event(Frame {
+                    w,
+                    h,
+                    pixels,
+                    finished,
+                })
+                .is_err()
         {
             return 1;
         }
-        host.next += Duration::from_secs_f64(1.0 / 60.0);
-        if let Some(wait) = host.next.checked_duration_since(Instant::now()) {
-            std::thread::sleep(wait);
+        if host.proxy.is_some() {
+            host.next += Duration::from_secs_f64(1.0 / 60.0);
+            if let Some(wait) = host.next.checked_duration_since(Instant::now()) {
+                std::thread::sleep(wait);
+            }
         }
         i32::from(finished)
     })
@@ -463,6 +568,108 @@ pub struct Backends {
     pub spu: Box<dyn SpuBackend>,
     pub pad: Box<dyn PadSource>,
 }
+#[derive(Default)]
+pub struct ReplayCheck {
+    pub min_lit_pixels: usize,
+    pub option_entry: Option<i32>,
+    pub menu_state: Option<i32>,
+    pub state: Option<i32>,
+    pub step: Option<i32>,
+    pub min_movie_frames: u64,
+    pub movie_skips: Option<u32>,
+}
+
+pub fn run_headless(
+    disc: GameDisc<DiscImage<File>>,
+    limit: u64,
+    screenshot: Option<PathBuf>,
+    replay: ReplayPad,
+    check: ReplayCheck,
+) -> Result<(), String> {
+    let saves = SaveStore::app_data()?;
+    let now = Instant::now();
+    HOST.with(|cell| {
+        *cell.borrow_mut() = Some(Host {
+            disc,
+            gpu: Box::<Raster>::default(),
+            spu: Box::<SilentSpu>::default(),
+            pad: Box::new(replay),
+            assets: AssetStore::default(),
+            saves,
+            proxy: None,
+            frames: 0,
+            limit,
+            screenshot,
+            start: now,
+            next: now,
+            cancel: Arc::new(AtomicBool::new(false)),
+            error: None,
+            first_logo: None,
+            last_frame: None,
+            movie: None,
+            state: 0,
+            step: 0,
+            movie_frames: 0,
+            movie_skips: 0,
+        })
+    });
+    // SAFETY: Headless mode is the sole C worker; jumps cross only C stack frames.
+    let code = unsafe { port_run_game() };
+    let result = host(|h| {
+        if let Some(movie) = h.movie.take() {
+            movie.end(h.spu.as_mut(), false);
+        }
+        if let (Some(path), Some((w, height, pixels))) = (&h.screenshot, &h.last_frame) {
+            save_png(path, *w, *height, pixels).map_err(|e| e.to_string())?;
+        }
+        println!(
+            "CHECK code={code} frames={} state={} step={} menu={} option_entry={} fade={} movie_frames={} movie_skips={}",
+            h.frames,
+            h.state,
+            h.step,
+            unsafe { sh_title_menu_state() },
+            unsafe { sh_option_selected_entry() },
+            unsafe { g_ScreenFade_Status },
+            h.movie_frames,
+            h.movie_skips
+        );
+        let lit = h.last_frame.as_ref().map_or(0, |(_, _, pixels)| {
+            pixels.iter().filter(|p| **p != 0).count()
+        });
+        println!("VISIBLE lit_pixels={lit}");
+        if let Some(error) = h.error.take() {
+            return Err(error);
+        }
+        if code != 0 {
+            return Err(format!(
+                "native game stopped: code {code}, frames {}",
+                h.frames
+            ));
+        }
+        if h.frames != limit {
+            return Err(format!("completed {} of {limit} ticks", h.frames));
+        }
+        if check.state.is_some_and(|state| state != h.state)
+            || lit < check.min_lit_pixels
+            || check
+                .option_entry
+                .is_some_and(|entry| entry != unsafe { sh_option_selected_entry() })
+            || check
+                .menu_state
+                .is_some_and(|menu| menu != unsafe { sh_title_menu_state() })
+            || check.step.is_some_and(|step| step != h.step)
+            || h.movie_frames < check.min_movie_frames
+            || check
+                .movie_skips
+                .is_some_and(|skips| skips != h.movie_skips)
+        {
+            return Err("replay milestone expectation failed".into());
+        }
+        Ok(())
+    });
+    HOST.with(|cell| *cell.borrow_mut() = None);
+    result
+}
 pub fn run(
     disc: GameDisc<DiscImage<File>>,
     limit: u64,
@@ -493,6 +700,7 @@ pub fn run_with_backends(
     input: Arc<LiveInput>,
     backends: Backends,
 ) -> Result<(), String> {
+    let saves = SaveStore::app_data()?;
     let event_loop = EventLoop::<Frame>::with_user_event()
         .build()
         .map_err(|e| e.to_string())?;
@@ -508,7 +716,8 @@ pub fn run_with_backends(
                 spu: backends.spu,
                 pad: backends.pad,
                 assets: AssetStore::default(),
-                proxy,
+                saves,
+                proxy: Some(proxy),
                 frames: 0,
                 limit,
                 screenshot,
@@ -518,11 +727,19 @@ pub fn run_with_backends(
                 error: None,
                 first_logo: None,
                 last_frame: None,
+                movie: None,
+                state: 0,
+                step: 0,
+                movie_frames: 0,
+                movie_skips: 0,
             })
         });
         // SAFETY: This is the sole game worker. C's exit jump only crosses C frames after Rust callbacks return.
         let code = unsafe { port_run_game() };
         host(|h| {
+            if let Some(movie) = h.movie.take() {
+                movie.end(h.spu.as_mut(), false);
+            }
             if code != 0 {
                 if let (Some(path), Some((w, height, pixels))) = (&h.screenshot, &h.last_frame)
                     && let Err(error) = save_png(path, *w, *height, pixels)
@@ -538,7 +755,7 @@ pub fn run_with_backends(
                     h.frames,
                     h.gpu.primitives()
                 );
-                let _ = h.proxy.send_event(Frame {
+                let _ = h.proxy.as_ref().expect("window proxy").send_event(Frame {
                     w,
                     h: height,
                     pixels,
@@ -595,12 +812,16 @@ mod tests {
         unsafe extern "C" {
             fn port_overlay_activate(file_id: u32) -> i32;
             fn sh_b_konami_reset_probe() -> i32;
+            fn sh_save_init_probe() -> i32;
+            fn sh_option_reset_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
         unsafe {
             assert_eq!(port_overlay_activate(4), 0);
             assert_eq!(sh_b_konami_reset_probe(), 1);
+            assert_eq!(sh_save_init_probe(), 1);
+            assert_eq!(sh_option_reset_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }

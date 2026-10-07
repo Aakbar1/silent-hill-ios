@@ -60,6 +60,66 @@ fn main() {
         PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("native-source");
     fs::create_dir_all(&generated).expect("generated-source directory");
     fs::create_dir_all(generated.join("psyq")).expect("generated SDK directory");
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_option.py").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        decomp.join("src/screens/options/options.c").display()
+    );
+    let option = std::process::Command::new("python")
+        .arg(repo.join("tools/prepare_option.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate OPTION native state");
+    assert!(option.success(), "OPTION state generation failed");
+    // PORT: Reuse pointer-free upstream save/input records, with their original
+    // size assertions. Do not include unrelated pointer-bearing gameplay records.
+    let joy_header =
+        fs::read_to_string(decomp.join("include/bodyprog/sys/joy.h")).expect("joy records");
+    let joy_records = between(
+        &joy_header,
+        "/** @brief PSX controller input flags.",
+        "extern s_ControllerData* const g_Controller0;",
+    );
+    let save_header =
+        fs::read_to_string(decomp.join("include/bodyprog/savegame.h")).expect("save records");
+    let save_records = between(
+        &save_header,
+        "/** @brief Savegame data.",
+        "/** @brief User options configuration.",
+    );
+    let text_header = fs::read_to_string(decomp.join("include/bodyprog/text/text_draw.h"))
+        .expect("font constants");
+    let text_constants = between(
+        &text_header,
+        "#define MAP_MSG_CODE_MARKER",
+        "// ====================",
+    );
+    fs::write(generated.join("game_records.h"), format!("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n#define INV_ITEM_COUNT_MAX 40\n#define Chara_Count 45\ntypedef u32 q20_12;\ntypedef struct {{u8 id,count,command,field_3;}} s_InventoryItem;\n{joy_records}\n{save_records}\n{text_constants}\n")).expect("native pointer-free records");
+    let gpu_header = fs::read_to_string(decomp.join("include/gpu.h")).expect("2D GPU records");
+    fs::write(generated.join("gpu_records.h"), format!("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n#define RECT_VERT_COUNT 4\n{}",between(&gpu_header,"/** @brief 2D screen-space line.","/** @brief Primitive color."))).expect("2D GPU records");
+    let sine_source = decomp.join("src/bodyprog/libkmath/libkmath.s");
+    println!("cargo:rerun-if-changed={}", sine_source.display());
+    let sine_text = fs::read_to_string(sine_source).expect("reference sine table");
+    let sine: Vec<_> = sine_text
+        .split("dlabel g_SineTable")
+        .nth(1)
+        .expect("sine label")
+        .lines()
+        .filter_map(|line| line.split(".short ").nth(1))
+        .map(|value| {
+            (u16::from_str_radix(value.trim().trim_start_matches("0x"), 16)
+                .expect("reference sine word") as i16)
+                .to_string()
+        })
+        .collect();
+    assert_eq!(sine.len(), 5120);
+    fs::write(generated.join("sine.c"), format!("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp libkmath.s. */\n#include \"boot.h\"\nstatic const s16 sine[5120]={{{}}};\ns32 Math_Sin(s32 angle) {{return sine[(u32)angle&4095];}}\ns32 Math_Cos(s32 angle) {{return sine[((u32)angle&4095)+1024];}}\n", sine.join(","))).expect("native sine lookups");
     for header in ["libgte.h", "libgpu.h"] {
         let source = decomp.join("include/psyq").join(header);
         println!("cargo:rerun-if-changed={}", source.display());
@@ -84,6 +144,16 @@ fn main() {
         ("main", "src/main/main.c"),
         ("game_main", "src/bodyprog/sys/game_main.c"),
         ("konami", "src/screens/b_konami/b_konami.c"),
+        ("stream", "src/screens/stream/stream.c"),
+        ("title", "src/bodyprog/events/title.c"),
+        ("text", "src/bodyprog/text/text_draw.c"),
+        ("text_debug", "src/bodyprog/text/text_debug_draw.c"),
+        ("texture_mode", "src/bodyprog/items/item_screens_3.c"),
+        ("brightness", "src/bodyprog/gfx/option_brightness_line.c"),
+        ("joy", "src/bodyprog/sys/joy.c"),
+        ("rng", "src/main/rng.c"),
+        ("save_init", "src/bodyprog/game_boot/game_boot.c"),
+        ("reset_player", "src/bodyprog/player_control.c"),
         ("fade", "src/bodyprog/screen/screen_fade.c"),
         ("screen", "src/bodyprog/screen/screen_draw.c"),
         ("vsync", "src/bodyprog/sys/vsync.c"),
@@ -100,6 +170,51 @@ fn main() {
         // Function bodies are read from the pinned decomp, not reimplemented game state machines.
         let selected = match name {
             "konami" => original.clone(),
+            "title" | "rng" => original.clone(),
+            "texture_mode" => between(
+                &original,
+                "void Gfx_Primitive2dTextureSet",
+                "void Gfx_Results_ItemsDisplay",
+            )
+            .to_owned(),
+            "text_debug" => between(
+                &original,
+                "static DVECTOR g_Text_Debug_PositionSet0",
+                "char* Text_Debug_IntToString",
+            )
+            .to_owned(),
+            "save_init" => between(
+                &original,
+                "void GameBoot_SavegameInitialize",
+                "void GameBoot_WorldInit",
+            )
+            .to_owned(),
+            "reset_player" => between(
+                &original,
+                "void Game_SavegameResetPlayer",
+                "void Game_PlayerInfoInit",
+            )
+            .to_owned(),
+            "joy" => between(&original, "void Joy_Init", "bool func_8003483C").to_owned(),
+            "text" => format!(
+                "{}\nDVECTOR g_StringPosition;\ns32 g_StringPositionX1;\n{}",
+                between(
+                    &original,
+                    "static const u8 FONT_12X16_GLYPH_WIDTHS",
+                    "// ========================================\n// GLOBAL VARIABLES"
+                ),
+                between(
+                    &original,
+                    "void Gfx_StringPositionSet",
+                    "s32 Gfx_MapMsg_WidthsCompute"
+                )
+            ),
+            "stream" => between(
+                &original,
+                "void GameState_MovieIntroFadeIn_Update",
+                "s32 max_frame =",
+            )
+            .to_owned(),
             "settings" => between(
                 &original,
                 "void Settings_ScreenAndVolUpdate",
@@ -109,7 +224,7 @@ fn main() {
             "fs_screens" => between(
                 &original,
                 "void GameFs_TitleGfxSeek",
-                "void GameFs_OptionBinLoad",
+                "void GameFs_LoadingTextDraw",
             )
             .to_owned(),
             "bg_etc" => between(
@@ -127,6 +242,18 @@ fn main() {
                 )
             ),
             _ => original.clone(),
+        };
+        let selected = if name == "text" {
+            format!(
+                "{selected}\nstatic struct {{s32 x;}} g_MapMsg_GlyphSprite;\n{}",
+                between(
+                    &original,
+                    "void Gfx_StringDrawInt",
+                    "const s32 unused_Rodata_80025E88"
+                )
+            )
+        } else {
+            selected
         };
         let mut native = selected
             .lines()
@@ -189,6 +316,174 @@ fn main() {
                 "ptr = &g_GameWorkPtr->config.controllerConfig.enter;",
             );
         }
+        if name == "stream" {
+            // PORT: STREAM's PS1 image symbol aliases the native image descriptor.
+            native = native.replace(
+                "Screen_BackgroundImgDraw(g_MemCardWarningImg)",
+                "Screen_BackgroundImgDraw(&g_MemCardWarningImg)",
+            );
+            native = native
+                .replace("static s32  g_Debug_MoviePlayerIdx = 0;", "")
+                .replace("static s32 g_Debug_MoviePlayerIdx = 0;", "");
+            native = format!(
+                "static s32 g_Debug_MoviePlayerIdx;\nvoid sh_stream_reset(void) {{ g_Debug_MoviePlayerIdx=0; }}\n{native}"
+            );
+        }
+        if name == "joy" {
+            native = native
+                .replace(
+                    "PadInitDirect(&g_GameWork.rawController, g_Controller1)",
+                    "PadInitDirect((u8*)&g_GameWork.rawController, (u8*)g_Controller1)",
+                )
+                .replace(
+                    "cont->buttonFlags.held << 20",
+                    "(u32)cont->buttonFlags.held << 20",
+                )
+                .replace(
+                    "cont->buttonFlags.held << 8",
+                    "(u32)cont->buttonFlags.held << 8",
+                )
+                .replace(
+                    "    cont = &g_GameWork.controllers[0];",
+                    "    port_pad_refresh();\n    cont = &g_GameWork.controllers[0];",
+                )
+                .replace(
+                    "cont->rawSticks.rawData_0 = signedRawAnalog",
+                    "cont->rawSticks.rawData_0 = (u32)signedRawAnalog",
+                )
+                .replace(
+                    "normalizedAnalogData <<= 8",
+                    "normalizedAnalogData = (s32)((u32)normalizedAnalogData << 8)",
+                )
+                .replace(
+                    "xorShiftedRawAnalog  <<= 8",
+                    "xorShiftedRawAnalog = (s32)((u32)xorShiftedRawAnalog << 8)",
+                )
+                .replace(
+                    "heldButFlags         |= 1 <<",
+                    "heldButFlags         |= (s32)(1u <<",
+                )
+                .replace(
+                    "(negDirBitIdx - (axisIdx * 2));",
+                    "(negDirBitIdx - (axisIdx * 2)));",
+                )
+                .replace(
+                    "(posDirBitIdx - ((axisIdx >> 1) * 4));",
+                    "(posDirBitIdx - ((axisIdx >> 1) * 4)));",
+                );
+        }
+        if name == "save_init" {
+            native = native.replace(
+                "bzero(g_SavegamePtr, sizeof(s_Savegame))",
+                "memset(g_SavegamePtr, 0, sizeof(s_Savegame))",
+            );
+            // PORT: Avoid forming a pointer before the array on the final iteration.
+            native = native
+                .replace("    s32* mapEnemyStatesPtr;", "")
+                .replace("    mapEnemyStatesPtr = g_SavegamePtr->mapEnemyStates;", "")
+                .replace(
+                    "        mapEnemyStatesPtr[44] = NO_VALUE;\n        mapEnemyStatesPtr--;",
+                    "        g_SavegamePtr->mapEnemyStates[44-i] = NO_VALUE;",
+                );
+        }
+        if name == "reset_player" {
+            native = native.replace(
+                "g_SavegamePtr->items[i].id    = NO_VALUE",
+                "g_SavegamePtr->items[i].id    = (u8)NO_VALUE",
+            );
+        }
+        if name == "title" {
+            // PORT: Replace fixed-address title fog and scratch writes with native
+            // storage, retaining the original neighbour padding and update order.
+            native = native
+                .replace("s8* s0 = 0x801E2432", "s8* s0 = port_title_fog + 1")
+                .replace("*(s32*)0x1F800000", "*(s32*)port_scratch")
+                .replace("*(s32*)0x1F800004", "*(s32*)(port_scratch+4)")
+                .replace("(RECT*)0x1F800000", "(RECT*)port_scratch")
+                .replace(
+                    "MainMenu_FogPacketGet(GsOT* ot",
+                    "MainMenu_FogPacketGet(u32* ot",
+                )
+                .replace("poly = packet", "poly = (POLY_G4*)packet")
+                .replace("ptr1  = ptr + 441", "ptr1  = (u8*)ptr + 441")
+                .replace("ptr = &D_800BCDE0[", "ptr = (u8*)&D_800BCDE0[")
+                .replace("*ptr2-- = val", "*ptr2-- = (s8)val")
+                .replace("ptr1[idx] = NO_VALUE", "ptr1[idx] = (u8)NO_VALUE")
+                .replace("ptr[j] = val", "ptr[j] = (u8)val");
+            native = native.replace("    e_GameState prevState;", "").replace(
+                "    #define COLUMN_POS_Y                    204",
+                "    #undef COLUMN_POS_Y\n    #define COLUMN_POS_Y                    204",
+            );
+            native = format!(
+                "static void MainMenu_MainTextDraw(void);\nstatic void MainMenu_DifficultyTextDraw(s32 selected);\nstatic void MainMenu_BackgroundDraw(void);\nstatic void func_8003BCF4(void);\nvoid func_8003B560(void);\nstatic s8 port_title_fog[464];\n{native}\nint sh_title_menu_state(void) {{ return g_MainMenuState; }}\n"
+            );
+        }
+        if name == "text" {
+            native = native
+                .replace("Gfx_StringDraw(char* str", "Gfx_StringDraw(const char* str")
+                .replace(
+                    "g_StringPosition.vx = x -",
+                    "g_StringPosition.vx = (s16)(x -",
+                )
+                .replace(
+                    "g_StringPosition.vy = y -",
+                    "g_StringPosition.vy = (s16)(y -",
+                )
+                .replace("OFFSET_FROM_CENTER_X;", "OFFSET_FROM_CENTER_X);")
+                .replace("OFFSET_FROM_CENTER_Y;", "OFFSET_FROM_CENTER_Y);")
+                .replace("ot         = &g_OtTags0", "ot         = (GsOT*)&g_OtTags0")
+                .replace("strCpy  = str", "strCpy  = (u8*)str")
+                .replace("(posY << 16)", "((u32)(u16)posY << 16)")
+                .replace(
+                    "*((u16*)&glyphPoly->u2) = u0 - 0xFF4",
+                    "*((u16*)&glyphPoly->u2) = (u16)(u0 - 0xFF4)",
+                )
+                .replace(
+                    "*((u16*)&glyphPoly->u3) = u0 - 0xF4",
+                    "*((u16*)&glyphPoly->u3) = (u16)(u0 - 0xF4)",
+                )
+                .replace(
+                    "g_StringColorId = charCode",
+                    "g_StringColorId = (s16)charCode",
+                )
+                // PORT: MIPS masks a variable shift by 32 to zero. C's shift
+                // is undefined; the observed quotient is the division result.
+                .replace(
+                    "(val / ATLAS_COLUMN_COUNT) >> 32",
+                    "val / ATLAS_COLUMN_COUNT",
+                )
+                .replace(
+                    "*str     = (val - (quotient * ATLAS_COLUMN_COUNT)) + '0'",
+                    "*str     = (char)((val - (quotient * ATLAS_COLUMN_COUNT)) + '0')",
+                )
+                .replace("*str = val + '0'", "*str = (char)(val + '0')");
+        }
+        if name == "text_debug" {
+            native = native
+                .replace(
+                    "Text_Debug_Draw(char* str)",
+                    "Text_Debug_Draw(const char* str)",
+                )
+                .replace("strCpy = str", "strCpy = (u8*)str")
+                .replace("= x - OFFSET_X", "= (s16)(x - OFFSET_X)")
+                .replace("= y - OFFSET_Y", "= (s16)(y - OFFSET_Y)");
+            native = format!("#include <ctype.h>\n{native}");
+        }
+        if name == "brightness" {
+            native = native
+                .replace(
+                    "line->x1 = ((g_GameWork.gsScreenWidth - 64) / 20) * i",
+                    "line->x1 = (s16)(((g_GameWork.gsScreenWidth - 64) / 20) * i)",
+                )
+                .replace(
+                    "line->y1 = (g_GameWork.gsScreenHeight / 2) - 45",
+                    "line->y1 = (s16)((g_GameWork.gsScreenHeight / 2) - 45)",
+                )
+                .replace(
+                    "color    = (brightness * 8) + 4",
+                    "color    = (u8)((brightness * 8) + 4)",
+                );
+        }
         // PORT: The native OT is a separate allocation; name its tail instead of PS1 BSS adjacency.
         native = native.replace(
             "(GsOT*)&g_OtTags1[g_ActiveBufferIdx + 1][0]",
@@ -239,12 +534,16 @@ fn main() {
         "port/runtime.c",
         "port/disk32.h",
         "port/layout_check.c",
+        "port/title_services.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
     build
         .file(repo.join("port/runtime.c"))
         .file(repo.join("port/layout_check.c"))
+        .file(repo.join("port/title_services.c"))
+        .file(generated.join("sine.c"))
+        .file(generated.join("option.c"))
         .define("SH_CHECK_BOOT_LAYOUT", None)
         .compile("sh_native_boot");
 }

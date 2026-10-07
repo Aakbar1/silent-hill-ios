@@ -1,20 +1,25 @@
-﻿# Core lane checkpoint
+﻿# core2 checkpoint
 
 ## Goal and constraints
-Progress from merged Konami boot toward the first controllable map, in brief order. Branch lane/core. Game bytes/captures remain under ../../private/work/core/. No system installations, pushes, merges or GPU/SPU lane edits.
+Reach title -> New Game -> first controllable opening map, then two area transitions/back and all 43 overlays. Own only the core2 brief paths. Branch lane/core2; no merge/push/main edits or system installs. Decomp d9e28f8315c7938117224f21516786d9d149a145 is read-only. Game bytes/captures remain outside Git under private/work/core2.
 
-## Committed checkpoints
-1. game/decomp submodule pinned to d9e28f8315c7938117224f21516786d9d149a145, SH_DECOMP_DIR override, root workspace and data-free Windows CI. Only explicitly required standalone manifest/profile removals outside core directories. See docs/core/BUILD.md.
-2. psxdisc archive reads by file ID; GPU/SPU/pad traits, software raster default, VRAM transfers, keyboard/XInput and tick replay. See docs/core/SEAMS.md.
-3. Explicit model/map/collision/DMS disk32 decode and save roundtrip; native asset store/checked C leaf views; fixed-width SDK declarations and C layout gates. Full C gameplay consumers still need adapters when linked. See docs/core/ABI.md.
-4. Partial overlay milestone: B_KONAMI exports namespaced, writable initial image restored on load; full native KCET and original USA settings/FS helpers linked. Remaining four screens and 43 maps are not linked. See docs/core/OVERLAYS.md.
+## Current result
+Requested pass is NOT achieved. 3/5 screens linked (B_KONAMI, STREAM, OPTION); 0/43 maps. Original title and difficulty menus work. NORMAL confirmation at tick 1650 runs original save initialization, then stops at GameBoot_WorldInit: state 7, step 1, menu 3, native code 3/process exit 1. Opening movie and controllable gameplay are not reached. Title idle-demo loading is also guarded.
 
-## Verified current state
-- fmt, workspace/all-targets clippy with warnings denied, workspace build, 234 unit/integration + 3 doctests pass. Selected native C builds /W4 /WX.
-- MSVC x86/x64 wire assertions pass. Installed LLVM frontend checks actual iOS arm64/LP64 SDK/wire/native layouts and rejects a negative control. Remote CI configured, not run.
-- Disc audit: 622 assets decode, TEST2.DMS rejects unsupported runtime layout; complete audit exits nonzero. No bounds gate weakened.
-- 850-tick neutral replay succeeds and visibly renders KCET (state 2/step 6). Neutral 1600 requested stops after 989 at MovieIntroFadeIn (state 3, code 3). Actual final frame saved/presented. Input Start at 850/release 851 reaches the same guard at 929, proving the game reacts to the pad packet.
-- Private captures/logs: kcet-850.png/log, final-stop.png/final-neutral.log, kcet-skip-stop.png/log; original step2/step3 evidence retained. Captures visually reviewed. No game data/screenshots in Git.
+## Completed decisions and work
+- STREAM uses psxmedia raw STR/XA decoding, bounded queues, 15 fps on virtual 60 Hz ticks, RGB24 VRAM/display through GpuBackend. Start skip and natural end return via original state handlers. CD PCM/stop use SpuBackend hooks; default sink logs absence. Audible sync/warm reset/alternate-intro semantics remain unverified.
+- Original title/text/Joy/RNG and GPL sine table linked. Pointer-free save/input sizes and save offsets retain assertions. No raw PLM/IPD/ILM/DMS relocation or full gameplay assertions were weakened.
+- OPTION namespaces exports and restores 10 globals + 14 local statics from compiled initial images. Dirty/reset probe covers all 24 objects. Main screen, brightness, controller bindings and return/re-entry have visually reviewed private captures. Other option subpages remain untested.
+- Native save files preserve exact 636-byte payloads at LOCALAPPDATA/SilentHillIOS/saves/slot-NNN.shs, 330 stable identities. Real Windows tests cover replacement and malformed sizes. C hooks are ready; SAVELOAD/UI/settings persistence still unconnected. Cards still report absent.
+- Menu raster draws untextured polygons/lines/fixed-size sprites; full PS1 raster calibration belongs to the GPU integration work. No psxgpu/psxspu edits. Frame output is checked for nonblack pixels; fresh filenames avoid stale image previews.
 
-## Open work and decisions
-Step 4 remains partial; step 5 title/New Game/walking is not achieved. Broad original-header probe still fails 43 size assertion diagnostics (expected opt-in gate, not the native passing configuration). Do not disable those assertions: port resident/map clients to native records and decoder adapters, plus GTE/scratch/packet contracts, then add all overlay namespaces/data-reset descriptors. STREAM/memory-card/native gameplay services and physical controller verification remain pending. Coordinate GPU/SPU lane adapters through the host traits.
+## Verification and evidence
+fmt check, workspace/all-targets clippy -D warnings, workspace tests: 240 unit/integration + 3 doctests pass; linked C /W4 /WX passes. Disk32 MSVC x86/x64 and arm64 LP64 native/SDK/record assertions pass, including rejected negative control. Broad original-header probe still fails with 43 C2118 assertions (private full-abi-probe.log).
+Nine replay cases each passed twice: 18 runs, 9 matching PNG SHA-256 comparisons. Seven-case results: private/work/core2/milestones/20261007T120623066930Z/results.json; two submenu results: 20261007T121326770302Z/results.json. Strict tools/milestones.cmd exits 2 for pending full-brief work; mismatched-state negative control exits 1. See docs/core/MILESTONES.md and OVERLAYS.md. Remote CI and full iOS runtime were not run.
+
+## Next work
+1. Port real gameplay work records and WorldGfx/model/animation/collision consumers onto checked native asset graphs; implement GTE/scratch/packet contracts. Do not turn declaration-only PortMapHeader or guards into successful map loads.
+2. Wire SAVELOAD/native memory-card UI and settings storage; namespace/reset STF_ROLL with migrated native records.
+3. Link MAP0_S00/MAP0_S01, prove opening/walking; then generic namespacing/reset across maps and two actual door/area transitions/back. Add passing replays only when proven.
+
+Commits: 54a5fdb movie/headless service; 1e9641b title/Joy/save-init; fce402f OPTION/native file saves; replay/docs checkpoint is recorded in the branch log. REPORT.md is the uncommitted, gitignored handoff.

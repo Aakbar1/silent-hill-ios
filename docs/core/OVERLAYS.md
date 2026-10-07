@@ -1,19 +1,21 @@
-﻿# Native overlays: current integration
+# Native overlays: core2 checkpoint
 
-B_KONAMI is the only integrated screen overlay (one of five); no map overlay is integrated (zero of 43). Step 4 is partial. Each of its six exported functions now uses sh_b_konami_* symbols. The release object symbol table was inspected with dumpbin. BODYPROG's existing state table binds to these native names; no MIPS entry is executed.
+Three of five screens are linked; zero of 43 map overlays are linked. The brief's first-map pass is **not achieved**.
 
-Its sole writable static, the KCET next-state byte, is a separate native object with a compiled constant initial image. Fs_QueueUpdate activates B_KONAMI on its original file ID 4 and restores that image. A C/Rust test dirties and resets this state and checks repeat activation/unknown-ID rejection. Other overlays still need their own namespaces, native entry descriptors and complete initialized-data/BSS/reset inventories. The current activation function is deliberately limited to B_KONAMI.
+| Overlay | Original file ID | Native implementation | Verification |
+|---|---:|---|---|
+| B_KONAMI | 4 | sh_b_konami_*; next-state byte reset on load | KCET replay, dirty/reset probe |
+| STREAM | 2043 | sh_stream_* state handlers; psxmedia STR/XA service | RGB24 capture, 2060-frame end, Start skip and return to title |
+| OPTION | 2040 | sh_option_*; 10 writable globals and 14 local statics reset from compiled initial images | Main screen, brightness, controller bindings, return/re-entry; probe compares all 24 restored objects |
+| SAVELOAD | — | Explicit state guard; native file service ready but UI/backend wiring absent | No save/load UI claim |
+| STF_ROLL | — | Explicit state guard | No credits claim |
 
-The full original Konami/KCET source now compiles, together with original USA settings/control presets, selected screen FS functions and the BG_ETC texture loader. Native pointer arithmetic replaces the KCET packet-base truncation; the unused NTSC-J local is excluded in USA. The host reports two absent memory cards because a native card backend is not implemented. It does not synthesize a save or claim a successful card operation. Demo/media/audio helpers remain logged stubs; movies have not been skipped yet.
+Fs_QueueUpdate activates screens at queued read completion, then restores native initialized state. Code is compiled from pinned GPL source; disc overlay bytes are never executed. The namespace/reset generator is deliberately specific to OPTION, with a pinned writable-inventory assertion; it does not process maps generically. Its read-only static string pointer arrays are made explicitly const.
 
-Replay evidence (all captures/logs under ../../private/work/core/):
-```
-tools/dev-cargo.cmd run --release -- --frames 850 --input docs/core/replays/boot.txt --screenshot "C:/Claude Projects/Silent Hill iOS/private/work/core/kcet-850.png"
-tools/dev-cargo.cmd run --release -- --frames 1600 --input docs/core/replays/boot.txt --screenshot "C:/Claude Projects/Silent Hill iOS/private/work/core/final-stop.png"
-tools/dev-cargo.cmd run --release -- --frames 1600 --input docs/core/replays/kcet-skip.txt --screenshot "C:/Claude Projects/Silent Hill iOS/private/work/core/kcet-skip-stop.png"
-```
-850 ticks succeeds in state 2/step 6 with 4,628 primitives; the visible KCET image was inspected. Neutral replay reaches state 3 at VBlank 987, then stops after 989 completed ticks at GameState_MovieIntroFadeIn_Update (C code 3, process exit 1, 5,125 primitives). The actual last frame is saved/presented; it is black after the KCET fade.
+STREAM retains the upstream state handlers and original open_main end-frame argument. Its SDK movie loop is replaced by bounded raw-sector decoding, one video frame ahead, and a bounded XA queue. Video uses the virtual 60 Hz VBlank clock at 15 fps, writes packed RGB24 into GpuBackend VRAM, and displays that same VRAM. SpuBackend receives decoded CD PCM if supported; the default silent sink logs its absence. Skip/end clear CD samples without resetting SPU voices. Natural end and Start skip return through the original game-state transitions. Warm reset, alternate-intro semantics and audible synchronization are not verified.
 
-The input replay presses Start at tick 850 and releases at 851. C logs both edges; the game takes its original early logo-exit branch and reaches the same guard after 929 ticks (60 earlier). This verifies PadSource-to-libpad-to-native-game input. Physical keyboard/XInput hardware has not been manually tested, and no walking claim is made.
+The original title, glyph renderers, controller processing, RNG and GPL sine table are linked. Native menu raster support includes untextured polygons, lines and fixed-size sprites; PS1 subpixel/dither fidelity remains uncalibrated. GPU/SPU lane sources were not edited.
 
-The broad original-header probe was rerun and exits 101 with 43 negative-array size assertion diagnostics. It is separate from the passing native subset and wire schema checks. The full resident/map C clients still need native records/decoder adapters and GTE/scratch/packet migration; merely linking and namespacing all their source is not sufficient. Title, New Game and first-map walking remain unimplemented/unproven. No remaining overlay is represented as successfully loaded native code.
+The deepest New Game replay confirms NORMAL at tick 1650, executes original 636-byte save initialization, then deliberately stops at GameBoot_WorldInit's missing native model/animation/collision consumers: state 7, step 1, menu 3, native code 3, process exit 1. Opening movie, MAP0_S00 walking, MAP0_S01 cafe and door transitions are not reached. The declaration-only PortMapHeader is a guarded seam, not a loaded map descriptor.
+
+The opt-in broad original-header probe still fails with 43 C2118 ABI assertions; no assertions were disabled. Native records/asset adapters, GTE and scratch/packet contracts must precede first-map integration. See [ABI.md](ABI.md), [MILESTONES.md](MILESTONES.md) and [SURVEY.md](../survey/SURVEY.md).

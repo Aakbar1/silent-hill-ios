@@ -30,6 +30,136 @@ impl Default for Raster {
 }
 
 impl Raster {
+    fn put(&mut self, x: i32, y: i32, mut source: [u16; 3], blend: bool) {
+        if x < self.clip[0].max(0)
+            || y < self.clip[1].max(0)
+            || x >= (self.clip[0] + self.clip[2]).min(1024)
+            || y >= (self.clip[1] + self.clip[3]).min(512)
+        {
+            return;
+        }
+        let at = (y * 1024 + x) as usize;
+        if blend {
+            let destination = rgb(self.vram[at]);
+            for i in 0..3 {
+                source[i] = match (self.page >> 5) & 3 {
+                    0 => destination[i] / 2 + source[i] / 2,
+                    1 => (destination[i] + source[i]).min(31),
+                    2 => destination[i].saturating_sub(source[i]),
+                    _ => (destination[i] + source[i] / 4).min(31),
+                };
+            }
+        }
+        self.vram[at] = packed(source);
+    }
+    // PORT: Menu fallback uses a native top-left raster. PS1 subpixel/dither
+    // calibration remains with the full GPU backend lane.
+    fn triangle(&mut self, mut vertices: [(i32, i32, [u16; 3]); 3], blend: bool) {
+        fn edge(a: (i32, i32, [u16; 3]), b: (i32, i32, [u16; 3]), x: i32, y: i32) -> i64 {
+            i64::from(b.0 - a.0) * i64::from(y - a.1) - i64::from(b.1 - a.1) * i64::from(x - a.0)
+        }
+        for vertex in &mut vertices {
+            vertex.0 *= 2;
+            vertex.1 *= 2;
+        }
+        let mut area = edge(vertices[0], vertices[1], vertices[2].0, vertices[2].1);
+        if area == 0 {
+            return;
+        }
+        if area < 0 {
+            vertices.swap(1, 2);
+            area = -area;
+        }
+        let left = (vertices.iter().map(|v| v.0).min().unwrap() / 2)
+            .max(self.clip[0])
+            .max(0);
+        let right = (vertices.iter().map(|v| v.0).max().unwrap() / 2)
+            .min(self.clip[0] + self.clip[2])
+            .min(1024);
+        let top = (vertices.iter().map(|v| v.1).min().unwrap() / 2)
+            .max(self.clip[1])
+            .max(0);
+        let bottom = (vertices.iter().map(|v| v.1).max().unwrap() / 2)
+            .min(self.clip[1] + self.clip[3])
+            .min(512);
+        let top_left = |a: (i32, i32, [u16; 3]), b: (i32, i32, [u16; 3])| {
+            b.1 < a.1 || (b.1 == a.1 && b.0 > a.0)
+        };
+        for y in top..bottom {
+            for x in left..right {
+                let weights = [
+                    edge(vertices[1], vertices[2], x * 2 + 1, y * 2 + 1),
+                    edge(vertices[2], vertices[0], x * 2 + 1, y * 2 + 1),
+                    edge(vertices[0], vertices[1], x * 2 + 1, y * 2 + 1),
+                ];
+                if (0..3).any(|i| {
+                    weights[i] < 0
+                        || (weights[i] == 0
+                            && !top_left(vertices[(i + 1) % 3], vertices[(i + 2) % 3]))
+                }) {
+                    continue;
+                }
+                let color = std::array::from_fn(|c| {
+                    ((0..3)
+                        .map(|i| weights[i] * i64::from(vertices[i].2[c]))
+                        .sum::<i64>()
+                        / area
+                        / 8)
+                    .clamp(0, 31) as u16
+                });
+                self.put(x, y, color, blend);
+            }
+        }
+    }
+    fn polygon(&mut self, words: &[u32], code: u8) {
+        let count = if code & 8 != 0 { 4 } else { 3 };
+        let gouraud = code & 16 != 0;
+        if words.len() < if gouraud { 1 + count * 2 } else { 2 + count } {
+            return;
+        }
+        let mut vertices = [(0, 0, [0; 3]); 4];
+        for (i, vertex) in vertices.iter_mut().enumerate().take(count) {
+            let color = words[if gouraud { 1 + i * 2 } else { 1 }];
+            let xy = words[if gouraud { 2 + i * 2 } else { 2 + i }];
+            *vertex = (
+                i32::from(xy as i16) + self.offset[0],
+                i32::from((xy >> 16) as i16) + self.offset[1],
+                [
+                    (color & 255) as u16,
+                    ((color >> 8) & 255) as u16,
+                    ((color >> 16) & 255) as u16,
+                ],
+            );
+        }
+        self.primitives += 1;
+        self.triangle([vertices[0], vertices[1], vertices[2]], code & 2 != 0);
+        if count == 4 {
+            self.triangle([vertices[1], vertices[2], vertices[3]], code & 2 != 0);
+        }
+    }
+    fn line(&mut self, words: &[u32], code: u8) {
+        let gouraud = code & 16 != 0;
+        if words.len() < if gouraud { 5 } else { 4 } {
+            return;
+        }
+        let a = words[2];
+        let b = words[if gouraud { 4 } else { 3 }];
+        let from = [i32::from(a as i16), i32::from((a >> 16) as i16)];
+        let to = [i32::from(b as i16), i32::from((b >> 16) as i16)];
+        let colors = [words[1], words[if gouraud { 3 } else { 1 }]];
+        let steps = (to[0] - from[0]).abs().max((to[1] - from[1]).abs()).max(1);
+        self.primitives += 1;
+        for t in 0..=steps {
+            let x = from[0] + (to[0] - from[0]) * t / steps + self.offset[0];
+            let y = from[1] + (to[1] - from[1]) * t / steps + self.offset[1];
+            let color = std::array::from_fn(|c| {
+                let a = ((colors[0] >> (c * 8)) & 255) as i32;
+                let b = ((colors[1] >> (c * 8)) & 255) as i32;
+                ((a + (b - a) * t / steps) / 8) as u16
+            });
+            self.put(x, y, color, code & 2 != 0);
+        }
+    }
     pub fn read(&self, [x, y, w, h]: [i32; 4]) -> Vec<u16> {
         if w <= 0 || h <= 0 || w > 1024 || h > 512 {
             return Vec::new();
@@ -80,6 +210,14 @@ impl Raster {
         if code == 0xe2 && words[1] & 0xffffff == 0 {
             return;
         } // Disabled texture window.
+        if code & 0xe0 == 0x20 && code & 4 == 0 {
+            self.polygon(words, code);
+            return;
+        }
+        if code & 0xe0 == 0x40 && code & 8 == 0 {
+            self.line(words, code);
+            return;
+        }
         if code & 0xe0 != 0x60 {
             // PORT: Unsupported GPU commands are boot-only stubs, logged once per opcode.
             if !self.unknown[usize::from(code)] {
@@ -89,13 +227,31 @@ impl Raster {
             return;
         }
         let textured = code & 4 != 0;
-        if words.len() < if textured { 5 } else { 4 } {
+        let size = (code >> 3) & 3;
+        if words.len()
+            < if textured {
+                if size == 0 { 5 } else { 4 }
+            } else if size == 0 {
+                4
+            } else {
+                3
+            }
+        {
             return;
         }
         self.primitives += 1;
         let x = i32::from(words[2] as i16) + self.offset[0];
         let y = i32::from((words[2] >> 16) as i16) + self.offset[1];
-        let wh = words[if textured { 4 } else { 3 }];
+        let wh = if size == 0 {
+            words[if textured { 4 } else { 3 }]
+        } else {
+            let n = match size {
+                1 => 1,
+                2 => 8,
+                _ => 16,
+            };
+            n | (n << 16)
+        };
         let w = (wh & 0xffff) as i32;
         let h = (wh >> 16) as i32;
         let color = [
@@ -183,6 +339,33 @@ impl Raster {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn translucent_quad_has_no_double_blended_diagonal_and_clips() {
+        let mut raster = Raster::default();
+        raster.env([1, 0, 2, 4], [0, 0]);
+        raster.packet(&[0, 0xe1000020]); // additive
+        raster.packet(&[
+            0,
+            0x3a080808,
+            0,
+            0x00080808,
+            4,
+            0x00080808,
+            4 << 16,
+            0x00080808,
+            (4 << 16) | 4,
+        ]);
+        for y in 0..4 {
+            assert_eq!(raster.read([0, y, 4, 1]), [0, 0x421, 0x421, 0]);
+        }
+        assert_eq!(raster.primitives, 1);
+    }
+    #[test]
+    fn fixed_sprite_size_reads_no_missing_wh_word() {
+        let mut raster = Raster::default();
+        raster.packet(&[0, 0x70101010, 0]);
+        assert_eq!(raster.read([7, 7, 2, 2]), [0x842, 0, 0, 0]);
+    }
     #[test]
     fn sprite_uses_clut_and_skips_transparent_texels() {
         let mut raster = Raster::default();
