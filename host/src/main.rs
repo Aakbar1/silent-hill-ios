@@ -11,6 +11,7 @@ struct Options {
     screenshot: Option<PathBuf>,
     input: Option<PathBuf>,
     headless: bool,
+    renderer: silent_hill_boot::gpu_wgpu::Options,
     check: silent_hill_boot::native::ReplayCheck,
 }
 
@@ -24,6 +25,7 @@ fn options() -> Result<Options, String> {
         screenshot: None,
         input: None,
         headless: false,
+        renderer: Default::default(),
         check: Default::default(),
     };
     let mut args = std::env::args_os().skip(1);
@@ -31,6 +33,9 @@ fn options() -> Result<Options, String> {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
             Some("--headless") => result.headless = true,
+            Some("--renderer" | "--scale" | "--stats" | "--wide" | "--16:9") => {
+                result.renderer.argument(&arg, &mut args)?;
+            }
             Some("--min-lit-pixels") => {
                 result.check.min_lit_pixels = args
                     .next()
@@ -136,6 +141,7 @@ fn options() -> Result<Options, String> {
 
 fn run() -> Result<(), String> {
     let options = options()?;
+    silent_hill_boot::gpu_wgpu::configure(options.renderer)?;
     let started = std::time::Instant::now();
     let mut disc = GameDisc::open(&options.disc)
         .map_err(|e| format!("disc open/release verification: {e}"))?;

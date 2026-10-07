@@ -7,9 +7,11 @@ this worktree at handoff, so its adapter is a core-lane responsibility.
 
 ## Cargo and platforms
 
-1. Remove the empty `[workspace]` table from this crate's Cargo.toml and add
-   `crates/psxgpu` to the parent's members (core owns those edits).
-2. Add `psxgpu = { path = "../crates/psxgpu" }` to host dependencies.
+1. This crate's empty `[workspace]` table has been removed for gpuwire; the parent
+   already includes `crates/*`. Other nested crate workspaces and the parent lockfile
+   still need director integration. See `HOST_INTEGRATION.md` for the host handoff.
+2. The host dependency is `psxgpu = { path = "../crates/psxgpu" }`. The crate re-exports
+   `wgpu` and `block_on` so the host shares the exact pinned GPU API without another dependency.
 3. The GPU dependency is pinned to **wgpu 24.0.5**, with D3D12/Metal/WGSL enabled.
    Use that version in host to share devices/textures. `default-features = false` provides
    the software/GTE/capture paths without wgpu. Rust minimum is 1.88; verified stable is 1.99.

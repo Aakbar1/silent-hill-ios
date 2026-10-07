@@ -2,6 +2,7 @@
 pub mod asset_store;
 pub mod assets;
 pub mod backend;
+pub mod gpu_wgpu;
 pub mod pad;
 pub use psxdisc as disc;
 pub mod movie;

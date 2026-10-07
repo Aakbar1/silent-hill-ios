@@ -10,6 +10,8 @@ mod software;
 
 #[cfg(feature = "wgpu")]
 pub use accelerated::WgpuRenderer;
+#[cfg(feature = "wgpu")]
+pub use {pollster::block_on, wgpu};
 pub use packet::{Display, DrawState, Processor};
 pub use raster::{Primitive, Vertex};
 pub use software::SoftwareRenderer;

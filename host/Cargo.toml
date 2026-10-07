@@ -9,6 +9,7 @@ publish = false
 cc = "=1.6.0"
 
 [dependencies]
+psxgpu = { path = "../crates/psxgpu" }
 psxdisc = { path = "../crates/psxdisc" }
 psxmedia = { path = "../crates/psxmedia" }
 sh-touch = { path = "../crates/touch" }

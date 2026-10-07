@@ -1,6 +1,26 @@
 # GPU lane checkpoint — 2026-10-07
 
-## Goal and ownership
+## gpuwire host integration checkpoint
+
+- New host adapter/presenter/CLI module is implemented; actual native.rs hooks,
+  psxspu workspace/parent lockfile edits stay outside this lane's ownership.
+  Parsed flags alone do not select the GPU in this working branch. Full pass is pending.
+- Private integration copy verifies 335 tests including 3 doctests, Clippy and
+  formatting; 1x game state checks pass 9/9 with both renderers. RGB24 movie PNG
+  is exact. Image comparison passes 6/9 at <=9 channel delta; keep soft default.
+- Windowed wgpu title at 4x presents its final frame in a 1280x896 window, with
+  frame interval stats near paced 60 fps; GPU scanout PNG is 1280x1792. Wide
+  (1592x896) and soft 1x (320x224) window checks also present final frames.
+- Initial repeated 4x suite found six varying brightness subpixels. Private
+  traces show 116 different incoming G3 packets but identical native VRAM
+  checksums. options.c reads BORDER_ARROWS[-1] with no direction held. A marked
+  generated-source guard is proposed for core3; the corrected repeat gate is running.
+- Do not hide malformed incoming triangles, relax image gates or change PS1
+  raster semantics to match the fallback. Core3 must reconcile its calibration.
+- Evidence and exact unowned patches: private/work/gpuwire/. See HOST_INTEGRATION.md.
+  No Metal/iPhone runtime verification. Root gates stop at nested psxspu workspace.
+
+## Standalone GPU goal and ownership
 
 Standalone native GPU/GTE backend for core's host-owned GpuBackend adapter. Own only
 `crates/psxgpu/`; root REPORT.md is the explicitly required uncommitted handoff.
