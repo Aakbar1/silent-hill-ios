@@ -2,11 +2,11 @@
 
 ## Ownership and types
 
-Core adds `crates/psxspu` to the parent workspace and removes this crate's empty
-`[workspace]` stanza. Add a path dependency in host. Implement the host-owned
-`SpuBackend` trait with a wrapper containing `psxspu::Spu`; this lane deliberately
-does not own host's trait or exported C symbols. No host integration was compiled
-in this worktree: its checkout does not yet contain that trait.
+The spuwire lane removed this crate's standalone workspace table and added the
+host path dependency and register-level `SpuCpal` wrapper. See
+[SPUWIRE.md](SPUWIRE.md) for the current integration checkpoint and required
+core3 clock/factory/libsd hooks. The native runtime still uses SilentSpu until
+those hooks are supplied; the backend diagnostics are not a game-audio pass.
 
 `Spu::new()` allocates sound RAM once. `init()` initializes the SDK state.
 `reset()` resets device state while retaining sound RAM; `quit()` disables it.

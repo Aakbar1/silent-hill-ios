@@ -11,6 +11,7 @@ struct Options {
     screenshot: Option<PathBuf>,
     input: Option<PathBuf>,
     headless: bool,
+    audio: silent_hill_boot::spu_cpal::AudioMode,
     check: silent_hill_boot::native::ReplayCheck,
 }
 
@@ -24,6 +25,7 @@ fn options() -> Result<Options, String> {
         screenshot: None,
         input: None,
         headless: false,
+        audio: Default::default(),
         check: Default::default(),
     };
     let mut args = std::env::args_os().skip(1);
@@ -31,6 +33,14 @@ fn options() -> Result<Options, String> {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
             Some("--headless") => result.headless = true,
+            Some("--audio") => {
+                result.audio = silent_hill_boot::spu_cpal::AudioMode::parse(
+                    args.next()
+                        .ok_or("--audio needs on, off, or wav:PATH")?
+                        .to_str()
+                        .ok_or("invalid audio mode")?,
+                )?;
+            }
             Some("--min-lit-pixels") => {
                 result.check.min_lit_pixels = args
                     .next()
@@ -193,6 +203,7 @@ fn run() -> Result<(), String> {
                 .and_then(|text| silent_hill_boot::pad::ReplayPad::parse(&text))
         })
         .transpose()?;
+    silent_hill_boot::spu_cpal::configure(options.audio)?;
     if options.headless {
         return silent_hill_boot::native::run_headless(
             disc,
@@ -200,7 +211,8 @@ fn run() -> Result<(), String> {
             options.screenshot,
             replay.ok_or("--headless requires --input")?,
             options.check,
-        );
+        )
+        .and_then(|()| silent_hill_boot::spu_cpal::require_backend());
     }
     if options.check.state.is_some()
         || options.check.step.is_some()
@@ -217,7 +229,8 @@ fn run() -> Result<(), String> {
         options.frames.unwrap_or(600),
         options.screenshot,
         replay,
-    )
+    )?;
+    silent_hill_boot::spu_cpal::require_backend()
 }
 
 fn main() -> ExitCode {
