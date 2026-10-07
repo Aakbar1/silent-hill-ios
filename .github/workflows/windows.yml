@@ -42,4 +42,4 @@ jobs:
         with:
           submodules: true
       - name: Type-check disk32 and native pointer layouts for iOS arm64
-        run: python3 tools/check-ios-layouts.py --compiler "$(xcrun --find clang)"
+        run: python3 tools/check-ios-layouts.py --compiler "$(xcrun --find clang)" --sysroot "$(xcrun --sdk iphoneos --show-sdk-path)"

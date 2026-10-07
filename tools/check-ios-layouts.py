@@ -11,6 +11,7 @@ from prepare_sdk import prepare
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--compiler", default="clang")
+    parser.add_argument("--sysroot", help="iPhoneOS SDK path, for system headers when using real clang")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     out = root / "target" / "core-layouts"
@@ -22,6 +23,8 @@ def main():
              "-DSH_CHECK_BOOT_LAYOUT", "-DSH_CHECK_IOS_LAYOUT"]
     for include in (root / "port", root / "port/include", out / "sdk", root / "game/decomp/include"):
         flags.extend(["-I", str(include)])
+    if args.sysroot:
+        flags.extend(["-isysroot", args.sysroot])
     if Path(args.compiler).name.startswith("clang-tidy"):
         # VS bundles a frontend but no clang resource headers. Use target builtin
         # type declarations for this compile-only check, not host SDK types.
