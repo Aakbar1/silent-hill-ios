@@ -1,0 +1,14 @@
+[package]
+name = "silent-hill-boot"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[build-dependencies]
+cc = "=1.6.0"
+
+[dependencies]
+winit = { version = "=0.30.13", default-features = false, features = ["rwh_06"] }
+softbuffer = { version = "=0.4.8", default-features = false }
+png = "=0.18.1"
