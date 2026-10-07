@@ -204,6 +204,21 @@ fn main() {
         .status()
         .expect("generate OPTION native state");
     assert!(option.success(), "OPTION state generation failed");
+    // PORT: Rendering prep binds only rendering guards in generated callers;
+    // the parallel player lane's source and work records remain untouched.
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_render.py").display()
+    );
+    let render = std::process::Command::new(python)
+        .arg(repo.join("tools/prepare_render.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate native rendering");
+    assert!(render.success(), "native rendering generation failed");
     // PORT: Reuse pointer-free upstream save/input records, with their original
     // size assertions. Do not include unrelated pointer-bearing gameplay records.
     let joy_header =
@@ -279,6 +294,17 @@ fn main() {
             build.warnings_into_errors(false);
         }
     }
+    // PORT: Self-contained rendering lane additions.
+    for file in [
+        "port/render_services.c",
+        "port/render_services.h",
+        "port/render_gte.h",
+    ] {
+        println!("cargo:rerun-if-changed={}", repo.join(file).display());
+    }
+    build
+        .file(generated.join("render_consumers.c"))
+        .file(repo.join("port/render_services.c"));
     let inputs = [
         ("main", "src/main/main.c"),
         ("game_main", "src/bodyprog/sys/game_main.c"),

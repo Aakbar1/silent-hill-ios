@@ -31,13 +31,14 @@ def generate(decomp,out):
             'WorldMap_FreeChunkSpaceFind','WorldMap_ChunkLoadStart','WorldMap_ActiveModelsLoadStateCheck',
             'WorldMap_NextChunkLoadCheck','WorldMap_CloseChunkEdgeCheck','WorldMap_ChunkPositionMatchCheck',
             'WorldMap_TextureLoadedCheck','WorldMap_HeaderCollisionDataGet','WorldMap_ChunkPropertiesSet',
-            'WorldMap_ChunkMaterialsLoad','WorldMap_ChunkHalfPageMaterialCountGet','LmFilter_IsFullPage','LmFilter_IsHalfPage','func_80044044'],
+            'WorldMap_ChunkMaterialsLoad','WorldMap_ChunkHalfPageMaterialCountGet','LmFilter_IsFullPage','LmFilter_IsHalfPage','func_80044044',
+            'WorldMap_ChunksDraw','WorldMap_Draw','WorldMap_SubcellVisibleCheck'],
         'src/bodyprog/gfx/materials.c':['Lm_MaterialCountGet','Lm_MaterialsLoadWithFilter','Lm_IsTextureLoaded',
             'Lm_MaterialRefCountDec','Lm_MaterialFsImageApply1','StringCopy'],
         'src/bodyprog/gfx/texture_utils.c':['Texture_Init','Texture_Get','Texture_RefCountReset','func_8005B378',
             'Texture_RefClear','Material_TimFileNameGet','Textures_ActiveTex_CountReset','Textures_ActiveTex_PutTextures','Textures_ActiveTex_FindTexture'],
         'src/bodyprog/world/world_draw.c':['WorldGfx_MapInit','WorldGfx_MapReset','WorldGfx_CloseRangeChunksInit',
-            'WorldGfx_ChunkInitCheck','WorldGfx_IpdSamplePointStore','WorldGfx_IpdSamplePointReset'],
+            'WorldGfx_ChunkInitCheck','WorldGfx_IpdSamplePointStore','WorldGfx_IpdSamplePointReset','WorldGfx_Draw'],
         'src/main/fileinfo.c':['Fs_EncodeFileName','Fs_FindNextFile'],
         'src/bodyprog/world/collision_trigger.c':['World_CollisionTriggersSet'],
     }
@@ -87,6 +88,17 @@ def generate(decomp,out):
             code=code.replace('largestOutsideCount < curChunk->outsideCount','largestOutsideCount < (u32)curChunk->outsideCount')
             code=code.replace('tex->queueIdx = NO_VALUE', 'tex->queueIdx = (u32)NO_VALUE')
             if name=='WorldGfx_MapInit':code=code.replace('s_MapInfo* mapInfo;', 'const s_MapInfo* mapInfo;').replace('mapInfo->tag,', '(char*)mapInfo->tag,')
+            if name=='WorldGfx_Draw':code=code.replace('WorldObjects_DrawAllObjects(', 'port_render_world_objects(')
+            if name=='WorldMap_Draw':
+                # PORT: Subcell orders are a named native array, not PS1 header adjacency.
+                code=code.replace('&ipdHdr->textureCount + (subcellZ * 10) + (subcellX * 2)',
+                    '(u8*)ipdHdr + offsetof(s_IpdHeader,textureCount) + subcellZ*10 + subcellX*2')
+                code=code.replace('modelBuffer->field_10','((SVECTOR*)modelBuffer->field_10)')
+                code=code.replace('WorldMap_SubcellVisibleCheck(modelBuffer, geomX - chunkBoundX, geomZ - chunkBoundZ,',
+                    'WorldMap_SubcellVisibleCheck(modelBuffer, (q7_8)(geomX - chunkBoundX), (q7_8)(geomZ - chunkBoundZ),')
+            if name=='WorldMap_SubcellVisibleCheck':
+                code=code.replace('modelBuf->subcellPositions','((SVECTOR*)modelBuf->subcellPositions)')
+                code=code.replace('Q8(25.0f), g_GameWork.gsScreenHeight)', 'Q8(25.0f), (u16)g_GameWork.gsScreenHeight)')
             code=narrow(code,records+'\n'+read('include/bodyprog/formats/texture.h')+'\n'+read('include/bodyprog/gfx/world.h'))
             for lhs in ['tex->imageDesc.u','tex->imageDesc.v']:
                 code=re.sub(r'('+re.escape(lhs)+r'\s*=) ([^;]+);',r'\1 (u8)(\2);',code)
@@ -137,4 +149,8 @@ void port_world_probe(void) {
     printf("WORLD_PROBE PASS reset=4 textures=10; player update/render not exercised\\n");
 }
 '''
-    (out/'world_consumers.c').write_text(NOTICE+'#include "world.h"\n#include <stdio.h>\nstatic s_WorldMapWork g_WorldMapWork;\nstatic s_IpdHeader native_chunks[4];\n'+''.join(sources)+probe)
+    (out/'world_consumers.c').write_text(NOTICE+'#include "world.h"\n#include "render_services.h"\n#include <stdio.h>\nstatic s_WorldMapWork g_WorldMapWork;\nstatic s_IpdHeader native_chunks[4];\n'+''.join(sources)+probe)
+    # PORT: Standalone SDK/layout preparation must expose the same rendering
+    # declarations and bindings as Cargo, without editing the player generator.
+    from prepare_render import generate as prepare_render
+    prepare_render(decomp,out)

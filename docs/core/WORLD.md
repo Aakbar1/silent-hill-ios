@@ -1,0 +1,101 @@
+# World rendering checkpoint
+
+`first_map_view` draws MAP0_S00 after the real New Game/opening/skip path, with
+Harry, road geometry and the original fog preset. It is a **static rendering
+milestone**, not a walking/gameplay pass. The player startup guard remains at
+state 10 / step 5 / VBlank 2207 (`Fs_CharaAnimDataAlloc`). The separate rendering
+capture returns without advancing or replacing that dispatcher.
+
+The private 1280x896 capture is `private/work/world/first_map_view.png`.
+It shows textured asphalt, a white road marking, Harry in the loading animation's
+running pose and grey-purple distance fog. No buildings, movement, NPCs, events
+or map transitions are certified by this view.
+
+## Linked rendering
+
+- The parity lane's `host-raster.patch` is applied. Software now delegates to
+  psxgpu's reference processor; Gouraud, coverage, dither and lines share its rules.
+- Desktop/headless default is wgpu at 4x. `--renderer soft` retains the reference
+  backend. All ten available replays have identical decoded pixels between
+  software and wgpu at 1x (software captures were reduced from nearest-scaled 4x).
+- Original chunk/subcell/model traversal, mesh drawing, material UV/CLUT data,
+  skeleton drawing, billboards, fog/lighting transitions, fog background,
+  brightness overlay and loading-screen motion blur compile natively.
+- Generation reads the pinned GPL decomp only. Owned IPD/ILM/TIM/ANM graphs are
+  consumed at runtime; no assets, game executable bytes or captures enter Git.
+
+## Native boundaries
+
+`prepare_world.py` invokes `prepare_render.py`, including in standalone SDK
+preparation. Rendering prep rebinds four explicit rendering guards in generated
+`gameplay_consumers.c` to `port_render_*` entry points. The player lane's source
+files are unchanged. `WorldGfx_Draw` remains the original public world entry point.
+The generated rendering tests are included by a small append to `native.rs`.
+
+The native 3732-byte scratch record separates the byte-indexed vertex, depth,
+fog, normal-index and color arenas into 256 slots each. The upstream nominal
+arrays overlap: real HERO has a 57-vertex/57-normal mesh and an opening road mesh
+has 94 vertices. Native bounds are checked before drawing; final SDK triples use
+bounded local inputs and store only live results. Numeric matrix unions remain
+intact. Synthetic tests verify projection, untouched tail slots, normal colors
+and the original custom light-matrix register order.
+
+Environment-transition work is a separate 400-byte native sidecar because the
+bootstrap's `field_2388` currently contains only the flashlight flag. That flag
+is synchronized on each effects update. During loading, water-zone data comes
+from the already active map descriptor until the streaming workspace publishes
+its `mapInfo`. Both native record sizes/offsets have explicit assertions.
+
+## Reproduce and merge
+
+Build with `tools/dev-cargo.cmd build --release`. Run the capture with:
+
+```text
+tools/dev-cargo.cmd test --release -p silent-hill-boot first_map_view -- --ignored --nocapture --test-threads=1
+```
+
+The test requires the verified owned US 1.1 disc at the established private path.
+`SH_RENDER_TEST_BACKEND=soft|wgpu` and `SH_RENDER_TEST_SCALE=1..8` select isolated
+diagnostic variants. Captures always go to private/work/world. The test verifies
+the original movie counters and exact retained startup boundary before rendering.
+It will deliberately need a new checkpoint when the player startup is merged.
+
+The director should preserve the rendering rebinds when combining generated
+player functions, include `render_services.h` for new native rendering callers,
+and integrate the environment sidecar when expanding the shared system workspace.
+World-object registration, held items, non-Harry metadata, volumetric overlap,
+lens flare and lighter flame remain explicit guards. They were not exercised by
+MAP0_S00's static view. UIKit's separate backend selection and an actual Apple
+SDK/device build remain outside this lane.
+
+## Verification
+
+Release `/W4 /WX` build, fmt check and workspace/all-target clippy with
+`precise-vertices` / `-D warnings` pass. Workspace tests pass: 297 unit/integration
+and 3 doctests; 4 opt-in tests are ignored in the default run. The existing
+MSVC x86/x64 and arm64 layout gates pass, including the negative pointer control.
+All 20 native C units pass the installed arm64 frontend with `-Werror`.
+
+The default wgpu available suite passes 20/20 runs with 10 matching repeated PNG
+hashes (`private/work/core5/milestones/20261007T171034132315Z/results.json`).
+`first_map_view` passes four isolated runs (wgpu 4x twice, wgpu 1x, software 1x):
+the 1x pixels match exactly and the two 4x PNG hashes match. The final view has
+106 native colors, fog near/far 3456/3712 in Q8, fog RGB (107,99,115), and an empty
+file queue. Its PNG SHA-256 is
+`ea37c8852fbc165a8e722c4c610b6af71c5ee68e3c4b12193bb89bb787d2756d`.
+The original three-leg `--probe-world --audio off` streaming/camera/reset test
+also passes using the default backend. No PS1 golden-image or device comparison
+was run.
+
+Evidence is under `private/work/world/`: build-final.log, clippy.log, tests.log,
+clang-render.log, layouts.log, layouts-arm64.log, first_map_view.log and
+milestones-default.log. The rendering arm64 command extends the unchanged
+18-unit gate with both new C units:
+
+```text
+python tools/prepare_render.py --check-clang "C:/BuildTools2022/VC/Tools/Llvm/x64/bin/clang-tidy.exe"
+```
+
+The all-game milestone manifest still lists unrelated pending gameplay/screens.
+The available suite and this rendering milestone must be distinguished from that
+full-game gate; no pending requirement has been removed or weakened.

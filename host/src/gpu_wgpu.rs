@@ -27,8 +27,8 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            // Switch only after the available game replays have been compared at 1x.
-            renderer: RendererKind::Soft,
+            // PORT: All ten available replays match the corrected software pixels at 1x.
+            renderer: RendererKind::Wgpu,
             scale: 4,
             stats: false,
             widescreen: false,
@@ -762,7 +762,7 @@ mod tests {
     #[test]
     fn arguments_reject_bad_renderer_and_scale() {
         let mut options = Options::default();
-        assert_eq!(options.renderer, RendererKind::Soft);
+        assert_eq!(options.renderer, RendererKind::Wgpu);
         assert_eq!(options.scale, 4);
         assert!(!options.stats && !options.widescreen);
         for value in ["0", "9", "-1", "abc"] {
@@ -797,6 +797,13 @@ mod tests {
             )
             .unwrap();
         assert_eq!(options.renderer, RendererKind::Wgpu);
+        options
+            .argument(
+                OsStr::new("--renderer"),
+                &mut [OsString::from("soft")].into_iter(),
+            )
+            .unwrap();
+        assert_eq!(options.renderer, RendererKind::Soft);
         for flag in ["--stats", "--16:9"] {
             options
                 .argument(OsStr::new(flag), &mut [].into_iter())
@@ -911,9 +918,8 @@ mod tests {
                 .read(Rect::new(0, 0, 64, 64))
                 .unwrap()
         );
-        // The boot fallback samples polygons at half-pixel centers, omits dither,
-        // and uses different line rounding/endpoints. It is not a PS1 golden.
-        assert_ne!(actual, legacy.read([0, 0, 64, 64]));
+        // Both host backends now use the documented PS1 rules at native resolution.
+        assert_eq!(actual, legacy.read([0, 0, 64, 64]));
         assert!(gpu.error().is_none());
     }
     #[test]
