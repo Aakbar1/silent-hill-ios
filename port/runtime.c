@@ -104,7 +104,7 @@ void Fs_QueueUpdate(void) {
     Job job=jobs[job_first++%32];
     u32 bytes=(u32)Fs_GetFileSize(job.file);
     u32 lba=g_FileTable[job.file].startSector;
-    if (bytes>sizeof(port_fs_buffers[0]) || port_read_disc(lba,bytes,(u8*)job.destination)) longjmp(stop,2);
+    if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
     printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.image?" TIM":"");
     if (job.image) {
         const u8* p=(const u8*)job.destination;
@@ -146,6 +146,18 @@ int ResetGraph(int mode) {
 void ResetCallback(void) { vsync_callback=NULL; }
 int DrawSync(int mode) { (void)mode; return 0; }
 int ClearImage2(RECT* rect,u8 r,u8 g,u8 b) { port_clear_vram(rect->x,rect->y,rect->w,rect->h,r,g,b); return 0; }
+int LoadImage(RECT* rect,u_long* data) {
+    if (!rect || !data || rect->w<=0 || rect->h<=0 || rect->w>1024 || rect->h>512) return -1;
+    port_load_vram(rect->x,rect->y,rect->w,rect->h,(const u16*)data); return 0;
+}
+int StoreImage(RECT* rect,u_long* data) {
+    if (!rect || !data) return -1;
+    return port_store_vram(rect->x,rect->y,rect->w,rect->h,(u16*)data)?-1:0;
+}
+int MoveImage(RECT* rect,int x,int y) {
+    if (!rect) return -1;
+    return port_move_vram(rect->x,rect->y,rect->w,rect->h,x,y)?-1:0;
+}
 DISPENV* PutDispEnv(DISPENV* env) { GsDISPENV=*env; return env; }
 DRAWENV* PutDrawEnv(DRAWENV* env) {
     GsDRAWENV=*env;
@@ -167,12 +179,13 @@ void GsClearOt(u_short offset,u_short point,GsOT* ot) {
     for (u32 i=0;i<count;i++) { ((u32*)ot->org)[i]=i?port_gpu_token(&ot->org[i-1]):0xffffff; }
 }
 void GsDrawOt(GsOT* ot) {
+    port_begin_ot();
     const u32* packet=(const u32*)&ot->org[(1u<<ot->length)-1];
     for (u32 count=0;count<100000;count++) {
         u32 tag=*packet;
         if (tag>>24) port_draw_packet(packet,(tag>>24)+1);
         u32 next=tag&0xffffff;
-        if (next==0xffffff) return;
+        if (next==0xffffff) { port_end_ot(); return; }
         packet=(const u32*)port_gpu_pointer(next);
     }
     fprintf(stderr,"OT cycle\n"); longjmp(stop,2);
@@ -222,8 +235,8 @@ int VSync(int mode) {
 // PORT: Stub systems unrelated to logo rendering; every stub logs its first call once.
 #define STUB0(name) void name(void) { static bool seen; if (!seen) {printf("STUB " #name "\n");seen=true;} }
 #define STUB1(name) void name(s32 value) { (void)value; static bool seen; if (!seen) {printf("STUB " #name "\n");seen=true;} }
-STUB0(SpuInit) STUB0(GsInit3D) STUB0(Joy_Update) STUB0(Joy_Init) STUB0(Joy_ReadP1)
-STUB0(Joy_ControllerDataUpdate) STUB0(Demo_ControllerDataUpdate) STUB0(Demo_Update)
+STUB0(GsInit3D)
+STUB0(Demo_ControllerDataUpdate) STUB0(Demo_Update)
 STUB0(Demo_GameRandSeedSet) STUB0(Demo_PresentIntervalUpdate) STUB0(Game_WarmBoot)
 STUB0(MemCard_SysInit) STUB0(MemCard_SysEnable) STUB0(MemCard_InitStatus) STUB0(MemCard_Update)
 STUB0(ItemScreen_TmdGsFCallInit) STUB0(func_800890B8) STUB0(SD_Init) STUB1(SD_Call)
@@ -234,6 +247,33 @@ STUB0(nullsub_800334C8)
 STUB_RETURN(CdInit,int,1) STUB_RETURN(MainLoop_ShouldWarmReset,s32,0)
 STUB_RETURN(MemCard_ElementsUpdate,bool,true) STUB_RETURN(Sd_AudioStreamingCheck,s32,0)
 STUB0(InitGeom)
+void SpuInit(void) { port_spu_reset(); printf("SPU backend reset (silent fallback)\n"); }
+// PORT: libpad reads host PadSource packets. Boot uses held bits only; the full
+// game-owned joy/libkpad mode, pulse and vibration algorithms remain to be linked.
+static u8 pad0[8], pad1[8];
+static u8* pad_buffers[2]={pad0,pad1};
+static bool pad_started;
+void PadInitDirect(u8* first,u8* second) { pad_buffers[0]=first; pad_buffers[1]=second; }
+void PadStartCom(void) { pad_started=true; }
+void PadStopCom(void) { pad_started=false; }
+static void pad_refresh(void) {
+    if (!pad_started) return;
+    if (pad_buffers[0]) port_pad_read(pad_buffers[0]);
+    if (pad_buffers[1]) { memset(pad_buffers[1],0xff,8); }
+}
+int PadGetState(int port) { pad_refresh(); return port==0 && pad_started?6:0; }
+int PadInfoMode(int port,int info,int index) { (void)index; return port==0 && (info==1 || info==2)?7:0; }
+int PadSetMainMode(int port,int mode,int lock) { (void)mode;(void)lock;return port==0; }
+int PadSetActAlign(int port,u8* alignment) { (void)alignment;return port==0; }
+int PadInfoAct(int port,int actuator,int info) { (void)port;(void)actuator;(void)info;return 0; }
+void PadSetAct(int port,u8* values,int count) { (void)port;(void)values;(void)count; }
+void Joy_Init(void) { PadInitDirect(pad0,pad1); PadStartCom(); }
+void Joy_ReadP1(void) { pad_refresh(); }
+void Joy_ControllerDataUpdate(void) {
+    const u8* p=pad_buffers[0];
+    controller.buttonFlags.held=p && p[0]==0 ? (u32)(u16)~((u16)p[2]|((u16)p[3]<<8)):0;
+}
+void Joy_Update(void) { Joy_ReadP1(); Joy_ControllerDataUpdate(); }
 #define STOP_STATE(name) void name(void) {printf("STUB " #name " (beyond boot scope)\n");stop_code=3;longjmp(stop,1);}
 PORT_OTHER_STATES(STOP_STATE)
 

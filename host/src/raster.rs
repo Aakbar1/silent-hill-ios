@@ -30,6 +30,22 @@ impl Default for Raster {
 }
 
 impl Raster {
+    pub fn read(&self, [x, y, w, h]: [i32; 4]) -> Vec<u16> {
+        if w <= 0 || h <= 0 || w > 1024 || h > 512 {
+            return Vec::new();
+        }
+        (0..h)
+            .flat_map(|row| {
+                (0..w).map(move |col| {
+                    if (0..1024).contains(&(x + col)) && (0..512).contains(&(y + row)) {
+                        self.vram[((y + row) * 1024 + x + col) as usize]
+                    } else {
+                        0
+                    }
+                })
+            })
+            .collect()
+    }
     pub fn env(&mut self, clip: [i32; 4], offset: [i32; 2]) {
         self.clip = clip;
         self.offset = offset;

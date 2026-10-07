@@ -15,3 +15,11 @@ Unchanged from Phase 1: Konami succeeds; KCET is an explicit guard at 731 ticks.
 ## Next
 Implement shared-disc/pad/backend seams, then explicit disk32 decoders and C layout checks; verify/commit each step before overlay work. References: `docs/survey/SURVEY.md`, `docs/boot/READINESS.md`, `docs/boot/PORT_FIXES.md`.
 
+
+## Completed: shared services (step 2)
+- Removed host disc implementation; psxdisc GameDisc verifies US 1.1 and serves bounded archive reads by original file ID.
+- Swappable GPU/SPU/pad traits, software raster default, VRAM transfer shims, keyboard/XInput and tick-based replay. Full gameplay joy/libkpad and audible audio remain pending.
+- Workspace fmt/clippy/tests passed; affected host retest passes 6 tests after final transfer/input edits. MSVC /W4 /WX is active.
+- Replay at 600 succeeds: state 1/step 3, 3,413 primitives, Konami capture. At 800 requested stops at KCET after 731, C code 3; actual last frame saved/presented. Evidence: ../../private/work/core/step2-*.png/log. See docs/core/SEAMS.md.
+
+Next: disk32/native views and 32/64-bit C layout checks before overlay integration.

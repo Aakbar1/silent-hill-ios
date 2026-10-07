@@ -165,7 +165,16 @@ void GameFs_BgItemLoad(void);
 void Map_EffectTexturesLoad(s32 map);
 void nullsub_800334C8(void);
 // Rust-owned disc/rasterizer callbacks. No borrowed pointers survive these synchronous calls.
-int port_read_disc(u32 lba, u32 bytes, u8* destination);
+int port_read_file(u32 id, u32 bytes, u8* destination);
+void port_pad_read(u8* destination);
+void port_begin_ot(void);
+void port_end_ot(void);
+int port_store_vram(s32 x, s32 y, s32 w, s32 h, u16* destination);
+int port_move_vram(s32 x, s32 y, s32 w, s32 h, s32 dx, s32 dy);
+void port_spu_reset(void);
+int port_spu_write(u16 offset, u16 value);
+u16 port_spu_read(u16 offset);
+int port_spu_transfer(u32 address, const u8* data, u32 count);
 void port_load_vram(s32 x, s32 y, s32 w, s32 h, const u16* data);
 void port_clear_vram(s32 x, s32 y, s32 w, s32 h, u8 r, u8 g, u8 b);
 void port_draw_packet(const u32* words, u32 count);
