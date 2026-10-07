@@ -1,0 +1,17 @@
+[package]
+name = "silent-hill-ios"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+# The app builds the real host library, without depending on membership of the
+# parallel renderer/audio workspaces. No host source or dependency is duplicated.
+[workspace]
+
+[dependencies]
+silent-hill-boot = { path = "../../host" }
+
+[profile.release]
+strip = "symbols"
+lto = "thin"

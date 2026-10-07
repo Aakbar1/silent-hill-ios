@@ -1,52 +1,70 @@
-# iOS lane checkpoint — 7 October 2026
+# ios2 checkpoint — 7 October 2026
 
-Goal: standalone Windows/iPhone Rust test shell and unsigned GitHub macOS build
-pipeline, with a friend installation guide. Owned: `ios/`, `.github/workflows/`;
-root `REPORT.md` is the explicitly requested ignored handoff. Branch: `lane/ios`.
+Goal: ship the real host with a first-launch US v1.1 disc importer, unsigned device
+IPA, and a no-disc simulator screenshot check. Branch: `lane/ios2`. Owned: `ios/`,
+`.github/workflows/ios.yml`, `host/src/platform_ios.rs`, minimal host registration,
+and Apple-only build glue. No core3 source, root manifests, main, merges or pushes.
 
-## Decisions and completed work
+## Decisions and implementation
 
-- winit 0.30.13 / wgpu 24.0.5; standalone Cargo workspace + locked dependencies.
-- Metal on iOS; D3D12 on Windows. Test pattern, live touch circles, fullscreen,
-  both landscapes, UIKit safe areas, deferred edges and home-indicator preference.
-- Documents log, previous-session rotation, panic and GPU diagnostics. No game bytes.
-- Plain stdlib Python packaging using installed Xcode actool/ibtool; rejected an
-  additional bundler/Xcode-project generator because signing/resource steps can
-  be expressed directly and checked locally. Device signature removed; simulator
-  alone receives a local ad-hoc signature. No account/certificate/profile in CI.
-- One cached Apple Silicon macOS job builds device + simulator, uploads device IPA
-  before simulator smoke, then captures screenshot/logs. Every push triggers both
-  workflows; newer pushes cancel superseded jobs. Windows job includes GPU smoke.
-- Original generated geometric icon, launch storyboard, Files keys and bin/cue UTIs.
-- Live SideStore English documentation checked 7 October 2026: iloader + LocalDevVPN.
-  Historical WireGuard/StosVPN instructions were excluded from the main guide.
+- `ios/app` is a thin, independently locked entry point depending on the **actual**
+  host library. This avoids unrelated nested root workspaces without source copies
+  or manifest edits outside scope. Rejected a temporary copied host workspace once
+  the direct dependency build passed. `ios/shell` remains a diagnostic fallback
+  target, excluded from the default IPA/simulator pipeline.
+- UIKit scene lifecycle owns the only app loop. Document picker/Open In URLs and
+  Files/USB Documents copies enter a serial, coordinated read-only import.
+  External security-scoped URLs stay held until import completion.
+- psxdisc verifies US v1.1, copies into Application Support staging, syncs, then
+  reopens/verifies the copy before atomic activation. Crash staging is discarded
+  on retry. Existing imports are reverified at launch; damaged copies are preserved
+  as Documents/*.invalid before another import is offered. The user's source stays.
+- Actual copied bytes drive progress. Saves/logs are in Foundation's Documents URL;
+  log rotation at 2 MiB. AVAudioSession playback category; no background audio.
+- Apple-only build glue appends `ios/host_bridge.rs` to the current native worker
+  in OUT_DIR and inserts a guarded iOS pacing call at its existing clock seam.
+  Every tick, including blank display frames, uses the original 60Hz host rate.
+  Background pause resets the clock on resume. Source CRLF is normalized first.
+  Game callbacks/assets/save payloads stay shared; UIKit's latest-frame mailbox
+  bounds pending presentation memory. No game bytes or screenshots enter the repo.
+- CI: submodule checkout, explicit Apple clang/ar/SDK, both real C archives with
+  warnings as errors, both locked Apple targets, host/app Clippy, resource tools,
+  unsigned device IPA, local ad-hoc simulator signature. A fresh simulator prevents
+  retained disc content; screenshot pixels must contain importer text via Vision.
 
-## Verified locally
+## Verified locally on Windows
 
-- `cargo fmt --check`, `cargo clippy --locked -- -D warnings`, `cargo build --locked`: pass.
-- `cargo test --locked`: 1 passed / 0 failed (circle count/pixel mapping).
-- Windows GPU smoke: 8 presented D3D12 frames, first-frame + completion log, exit 0.
-- `cargo clippy --locked --target aarch64-apple-ios -- -D warnings`: pass, type-check only.
-- `cargo check --locked --target aarch64-apple-ios-sim`: pass, type-check only.
-- `python ios/scripts/test_pipeline.py`: 4 passed / 0 failed.
-- `package.py --dry-run`: pass (XML/plist/icons/fixture ZIP; not a real iOS build).
-- `check_workflows.py`: actionlint 1.7.12, 2 workflows passed / 0 diagnostics;
-  checksum verified portable download. Optional shellcheck/pyflakes disabled.
-- `python -m compileall -q ios/scripts`: pass. `git diff --check`: pass.
-  Reproduction commands and artifact instructions: [README.md](README.md).
+- `git submodule update --init`: pass; pinned d9e28f8315c7938117224f21516786d9d149a145.
+- Actual host library + thin app Clippy for **both** aarch64-apple-ios and
+  aarch64-apple-ios-sim: 4 checks pass / 0 Clippy diagnostics. Explicit
+  SH_IOS_RUST_CHECK_ONLY=1; C/UIKit compilation and Apple linking excluded.
+- App cargo fmt + rustfmt checks for owned host/bridge/importer files: pass.
+- Actual host `clippy --all-targets --locked -- -D warnings`: pass on MSVC.
+- Actual host `test --lib --locked`: 24 passed / 0 failed / 1 private test ignored.
+- Local-only private importer test explicitly run: 1 passed / 0 failed. All
+  616,494,480 copied bytes match and the copy reopens as Us11. Source SHA-256 before
+  and after is CF975C962D8ECD7B57ED43127FB5CE41A693C713AE4917C14E79DABDE5250794.
+  Test outputs were created only in private/work/ios2 and removed. No game run.
+- Thin app Windows build links the real host C: pass, warnings treated as errors.
+- Packaging fixtures/dry run: pass; pipeline Python tests: 4 passed / 0 failed.
+  actionlint 1.7.12: 2 workflows, 0 diagnostics. Python compileall and diff check pass.
 
-## Open problems and next actions
+## Open integration and required checks
 
-1. Director creates remote/integrates/pushes as specified in README. Worker does not push.
-2. First macOS run must verify Apple linking, actool/ibtool, signature removal,
-   simulator Metal + landscape PNG; then inspect both uploaded artifacts.
-3. Friend follows [INSTALL_FOR_FRIEND.md](INSTALL_FOR_FRIEND.md) and checks actual
-   device signing, multitouch, safe areas in both landscapes, indicator/edge gestures,
-   background/resume, Files copy and log sharing. None is claimed device-tested.
-4. Disc parsing/extraction, Open In callbacks and game integration are later work.
-   Only storing the player's files in Documents is implemented here.
-5. Apple-target checks emit a dependency future-compatibility notice for `block 0.1.6`.
-   Stable 1.99.0 passes today; watch it when updating Rust/wgpu. Local Windows GPU
-   also reports reduced WebGPU conformance; this simple pipeline renders successfully.
-6. Root GPL-3.0 licence text is absent in this checkout; director owns adding it
-   before distributing source/binaries. No read-only decomp code was copied.
+1. After integrating core3, reconcile bridge Host fields/pacing seam and regenerate
+   ios/app/Cargo.lock if host dependencies changed. Prefer a core-owned public
+   worker/backends/save-root seam to eventually remove generated module extension.
+2. iOS currently preserves the base host's Raster/SilentSpu/keyboard PadSource.
+   Director must connect GPU/audio/touch lane backends and UIKit touch delivery.
+   This is a real native host entry; full-game/audio/touch playability is unproven.
+3. First macOS CI run must verify decomp C + app.m clang compilation without
+   warnings, both Apple links, actool/ibtool, device signature removal/IPA layout,
+   simulator signature/install/launch, landscape importer screenshot and OCR.
+   Inspect simulator.png, game.log, simulator-system.log and importer-ocr.txt.
+   Apple C, UIKit, Swift Vision, signing and simulator execution were NOT run here.
+4. Device tests still need picker/iCloud, USB/Files auto import, wrong releases,
+   interrupted copies, source preservation, relaunch, saves/log sharing, landscape,
+   safe areas, background/resume and integrated sound/touch gameplay.
+5. Whole-root Cargo gates remain blocked by inherited nested psxgpu/psxspu
+   workspaces; director/owning lanes must fix them. The iOS app path builds directly
+   without this blocker. See README.md for reproduction and INSTALL_FOR_FRIEND.md.
