@@ -240,6 +240,13 @@ fn main() {
         for name in ["ccos", "csin", "csqrt", "catan"] {
             build.flag(format!("-fno-builtin-{name}"));
         }
+        // PORT: Apple clang flags warnings in original decomp code (e.g. -Wsign-compare)
+        // that MSVC /W4 does not. MSVC CI still builds with /WX, so new port code stays
+        // warning-clean there; on Apple targets, report the decomp's warnings without
+        // stopping the build so each CI run surfaces all of them at once.
+        if std::env::var("CARGO_CFG_TARGET_VENDOR").as_deref() == Ok("apple") {
+            build.warnings_into_errors(false);
+        }
     }
     let inputs = [
         ("main", "src/main/main.c"),
