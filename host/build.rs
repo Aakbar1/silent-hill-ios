@@ -153,6 +153,29 @@ fn main() {
     assert!(records.success(), "native gameplay generation failed");
     println!(
         "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_maps.py").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        decomp.join("src/maps").display()
+    );
+    let maps = std::process::Command::new(
+        if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
+            "python3"
+        } else {
+            "python"
+        },
+    )
+    .arg(repo.join("tools/prepare_maps.py"))
+    .arg("--decomp")
+    .arg(&decomp)
+    .arg("--out")
+    .arg(&generated)
+    .status()
+    .expect("generate native maps");
+    assert!(maps.success(), "native map generation failed");
+    println!(
+        "cargo:rerun-if-changed={}",
         repo.join("tools/prepare_option.py").display()
     );
     println!(
@@ -647,6 +670,8 @@ fn main() {
         "port/gte_services.c",
         "port/gameplay.h",
         "port/gameplay.c",
+        "port/map.h",
+        "port/map.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
@@ -658,6 +683,10 @@ fn main() {
         .file(generated.join("gte_command_probe.c"))
         .file(generated.join("gameplay_consumers.c"))
         .file(repo.join("port/gameplay.c"))
+        .file(repo.join("port/map.c"))
+        .file(generated.join("map0_s00.c"))
+        .file(generated.join("player_spawn.c"))
+        .file(generated.join("map_info.c"))
         .file(generated.join("sine.c"))
         .file(generated.join("option.c"))
         .define("SH_CHECK_BOOT_LAYOUT", None)

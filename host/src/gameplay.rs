@@ -4,6 +4,7 @@
 //! immutable file; native pointers refer only to separate owned allocations.
 use crate::assets::{DecodeError, Lm};
 use std::ffi::c_void;
+pub(crate) type SharedNativeLm = std::rc::Rc<std::cell::RefCell<NativeLm>>;
 
 #[repr(C)]
 pub struct NativeMaterial {
@@ -37,7 +38,7 @@ pub struct NativeModel {
     mesh_count: u8,
     vertex_offset: u8,
     normal_offset: u8,
-    flags: u8,
+    pub(crate) flags: u8,
     meshes: *mut NativeMesh,
 }
 #[repr(C)]
@@ -50,6 +51,14 @@ pub struct NativeLmHeader {
     model_count: u8,
     models: *mut NativeModel,
     order: *mut u8,
+}
+impl NativeLm {
+    pub(crate) fn find_model(&mut self, name: &[u8; 8]) -> Option<*mut NativeModel> {
+        self._models
+            .iter_mut()
+            .find(|model| &model.name == name)
+            .map(|model| model as *mut _)
+    }
 }
 struct MeshStorage {
     _primitives: Box<[NativePrimitive]>,
@@ -295,7 +304,7 @@ pub struct NativeAnmHeader {
     scale: u8,
     root_y: u8,
     poses: *mut BindPose,
-    frames: *const u8,
+    pub(crate) frames: *const u8,
 }
 pub struct NativeAnimation {
     pub header: Box<NativeAnmHeader>,
@@ -305,7 +314,15 @@ pub struct NativeAnimation {
 impl NativeAnimation {
     pub fn new(a: &Animation<'_>) -> Self {
         let mut poses = a.poses.clone().into_boxed_slice();
-        let frames = a.frames.to_vec().into_boxed_slice();
+        // PORT: Reserve the original player arena up front. Header copies can
+        // retain this pointer across map patches; no leaf allocation moves.
+        let capacity = if a.file_size <= 0x2e630 {
+            0x2e630 - usize::from(a.data_offset)
+        } else {
+            a.frames.len()
+        };
+        let mut frames = vec![0; capacity].into_boxed_slice();
+        frames[..a.frames.len()].copy_from_slice(a.frames);
         let header = Box::new(NativeAnmHeader {
             data_offset: a.data_offset,
             rotation_count: a.rotation_count,
@@ -326,6 +343,36 @@ impl NativeAnimation {
             _poses: poses,
             _frames: frames,
         }
+    }
+    /// Map ANMs are headerless frame blocks written at FS_BUFFER_4, within
+    /// HB_BASE's virtual frame arena. This is distinct from decoding a header.
+    pub(crate) fn patch_map_frames(&mut self, bytes: &[u8]) -> Result<(), String> {
+        const MAP_OFFSET: usize = 0x19d84; // FS_BUFFER_4 - FS_BUFFER_0, pinned fsqueue.h.
+        const PLAYER_BUDGET: usize = 0x2e630; // GameBoot_WorldInit's original arena.
+        let start = MAP_OFFSET
+            .checked_sub(usize::from(self.header.data_offset))
+            .ok_or("map animation starts before frame data")?;
+        let stride = usize::from(self.header.frame_size);
+        let capacity = PLAYER_BUDGET - usize::from(self.header.data_offset);
+        if stride == 0
+            || start % stride != 0
+            || bytes.len() < stride
+            || bytes.len() > capacity - start
+        {
+            return Err(
+                "map animation frame block exceeds player arena or has incompatible stride".into(),
+            );
+        }
+        let complete = bytes.len() / stride * stride;
+        if self._frames.len() != capacity {
+            return Err("player animation arena was not reserved".into());
+        }
+        // PORT: Replacing a map clears its previous tail so no prior overlay's
+        // frame data can survive a shorter load. Weapon frames precede start.
+        self._frames[start..].fill(0);
+        self._frames[start..start + complete].copy_from_slice(&bytes[..complete]);
+        self.header.frames = self._frames.as_ptr();
+        Ok(())
     }
 }
 const _: () = {

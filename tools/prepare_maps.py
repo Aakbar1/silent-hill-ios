@@ -1,0 +1,202 @@
+"""Native MAP0_S00 descriptor from pinned GPL C, without reading disc bytes.
+
+SPDX-License-Identifier: GPL-3.0-only. Only migrated records receive native
+assertions. Unlinked callbacks terminate explicitly, never masquerade as logic.
+"""
+from pathlib import Path
+import argparse
+import re
+from prepare_gameplay import between, function
+
+NOTICE = '/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations; derived from silent-hill-decomp. */\n'
+
+
+def no_includes(text):
+    return re.sub(r'^#include[^\n]*', '', text, flags=re.M)
+
+
+def enumeration(text, name):
+    return re.search(r'typedef enum _' + name + r'\b.*?}\s*e_' + name + r';', text, re.S)[0] + '\n'
+
+
+def initializer(text, name):
+    match = re.search(r'^([^\n;]+\b' + re.escape(name) + r'\s*(?:\[[^\n]*?\])?(?:\)\([^)]*\))?\s*=\s*)\{', text, re.M)
+    if not match:
+        raise ValueError(f'missing initializer {name}')
+    masked = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"', lambda m: ' ' * len(m[0]), text, flags=re.S)
+    depth = 0
+    start = text.index('{', match.start())
+    for i in range(start, len(text)):
+        depth += (masked[i] == '{') - (masked[i] == '}')
+        if depth == 0:
+            return text[match.start():text.index(';', i) + 1] + '\n'
+    raise ValueError(f'unterminated initializer {name}')
+
+
+def prepare(decomp, output):
+    def read(path):
+        return (decomp / path).read_text(encoding='utf-8')
+    game = read('include/game.h')
+    constants = ''.join(enumeration(game, name) for name in ['PaperMapIdx', 'SysState', 'ProcessFlags', 'SysFlags'])
+    constants += enumeration(read('include/bodyprog/bodyprog.h'), 'LoadingScreenId')
+    constants += enumeration(read('include/bodyprog/items.h'), 'InvItemId')
+    constants += enumeration(read('include/bodyprog/events/bgm_update.h'), 'BgmCmd')
+    constants += enumeration(read('include/bodyprog/sound/sfx.h'), 'SfxPairIdx')
+    constants += enumeration(read('include/maps/characters/harry.h'), 'HarrySwappableMesh')
+    constants += enumeration(read('include/maps/characters/harry.h'), 'HarryVariantMesh')
+    player_header = read('include/bodyprog/player.h')
+    for name in ['PlayerState', 'PlayerUpperBodyState', 'PlayerLowerBodyState', 'PlayerStopFlags']:
+        constants += enumeration(player_header, name)
+    constants += no_includes(read('include/event_flags.h'))
+    (output / 'map_constants.h').write_text(NOTICE + constants, encoding='utf-8')
+    view = no_includes(read('include/bodyprog/view/enums.h'))
+    view += between(read('include/bodyprog/view/structs.h'), '#define CAMERA_PATH_COLL_COUNT_MAX', '/** @brief Rail camera')
+    # PORT: Camera fields are native values, not an implementation-dependent
+    # mix of enum/int/short bitfield units. The original source initializers and
+    # algorithms use named values; serialized PS1 camera bytes are never read.
+    view = re.sub(r'(\b\w+)\s*:\s*\d+;', r'\1;', view)
+    view = view.replace('STATIC_ASSERT_SIZEOF(VC_ROAD_DATA, 24);', 'STATIC_ASSERT_SIZEOF(VC_ROAD_DATA, 52);')
+    trigger = between(read('include/bodyprog/collision/trigger.h'), '/** @brief World-space collision trigger', '/** @brief Collection of nearby')
+    trigger = re.sub(r'(\b\w+)\s*:\s*\d+;', r'\1;', trigger)
+    trigger = trigger.replace('STATIC_ASSERT_SIZEOF(s_CollisionTrigger, 4);', 'STATIC_ASSERT_SIZEOF(s_CollisionTrigger, 24);')
+    header = no_includes(read('include/bodyprog/map/map.h'))
+    # PORT: Native point/event/spawn records also use explicit named scalar
+    # fields. Original PS1 declarations remain unmodified in the submodule;
+    # these named records consume C initializers, never serialized map bytes.
+    header = re.sub(r'(\b\w+)\s*:\s*\d+;', r'\1;', header)
+    header = header.replace('s_MapInfo*             mapInfo;', 'const s_MapInfo*       mapInfo;')
+    header = header.replace('s32*                   func_88;', 'void*                  func_88;')
+    for name, size in [('s_MapPoint2d',32), ('s_EventData',40), ('s_SpawnInfo',16), ('s_MapOverlayHdr', 0)]:
+        original = re.search(r'STATIC_ASSERT_SIZEOF\(' + name + r', \d+\);', header)[0]
+        header = header.replace(original, f'STATIC_ASSERT_SIZEOF({name}, {size});' if size else '// PORT: Native descriptor size asserted in port/map.h.')
+    (output / 'native_map_records.h').write_text(NOTICE + '#ifndef SH_NATIVE_MAP_RECORDS_H\n#define SH_NATIVE_MAP_RECORDS_H\n' + view + trigger + header + '\n#endif\n', encoding='utf-8')
+    info = read('src/bodyprog/sys/map_info.c')
+    info = info[info.index('const static s_WaterZone'):]
+    (output / 'map_info.c').write_text(NOTICE + '#include "map.h"\n' + info, encoding='utf-8')
+
+    reset_player = function(read('src/bodyprog/player_control.c'), 'func_8007E9C4')
+    globals_ = sorted(set(re.findall(r'\bg_Player_\w+', reset_player)))
+    declarations = []
+    for name in globals_:
+        decl = re.search(r'(?:extern\s+)?([\w]+)\s+' + name + r'\s*;', player_header + read('include/bodyprog/bodyprog.h') + read('src/bodyprog/player_control.c'))
+        if not decl:
+            raise ValueError(f'missing reset global declaration {name}')
+        declarations.append(f'{decl[1]} {name};\n')
+    damage = between(read('include/bodyprog/chara/chara.h'), '#define Chara_DamageClear', '/** @brief Sets a character')
+    weapon = function(read('src/bodyprog/items/item_utils.c'), 'func_8004C564')
+    weapon_none = between(weapon, '            D_800C3960 =', '        case 0:').replace('            break;', '')
+    # PORT: Preserve the exact unequipped startup branch. Other weapon/audio
+    # consumers remain explicit guards pending their native records.
+    weapon_none = 'static s8 D_800C3960,D_800C3961,D_800C3962;\nstatic u8 D_800C3963;\nvoid func_8004C564(u8 arg0,s8 attack) {(void)arg0;if(attack!=NO_VALUE)port_unimplemented("weapon gas-state update");\n' + weapon_none + '}\n'
+    weapon_none = weapon_none.replace('D_800C3960 = g_SavegamePtr->mapIdx', 'D_800C3960 = (s8)g_SavegamePtr->mapIdx')
+    spawn = function(read('src/bodyprog/events/player_pos_update.c'), 'Chara_PositionSet')
+    spawn = spawn.replace('g_SysWork.cameraAngleY = headingAngle;', 'g_SysWork.cameraAngleY = (s16)headingAngle;\n    port_player_spawn_note();')
+    spawn = spawn.replace('g_SavegamePtr->paperMapIdx = mapPoint->paperMapIdx', 'g_SavegamePtr->paperMapIdx = (u8)mapPoint->paperMapIdx')
+    room_update = function(read('src/bodyprog/events/bgm_update.c'), 'Game_MapRoomIdxUpdate')
+    room_update = room_update.replace('newMapRoomIdx = g_MapOverlayHdr.mapRoomIdxGet(posX, posZ)', 'newMapRoomIdx = (s8)g_MapOverlayHdr.mapRoomIdxGet(posX, posZ)')
+    reset_player = '#define playerExtra g_SysWork.playerWork.extra\n#define playerCombat g_SysWork.playerCombat\n' + reset_player + '\n#undef playerExtra\n#undef playerCombat\n'
+    (output / 'player_spawn.c').write_text(NOTICE + '#include "gameplay.h"\n' + ''.join(declarations) + damage + weapon_none + reset_player + spawn + room_update, encoding='utf-8')
+
+    lane = 'map0_s00'
+    prefix = 'sh_' + lane + '_'
+    path = 'src/maps/' + lane + '/'
+    upstream_header = read(path + lane + '_header.c')
+    callbacks = {}
+    # Generate guards with the exact native field type, rather than calling an
+    # incompatible void() stub through an unrelated function-pointer type.
+    signatures = {m[2]: (m[1], m[3]) for m in re.finditer(r'(\w+)\s+\(\*(\w+)\)\(([^;]*)\);', header)}
+    for field, name in re.findall(r'\.(\w+)\s*=\s*(\w+)\s*,', upstream_header):
+        if field in signatures and name != 'NULL':
+            callbacks[name] = signatures[field]
+    extra = ['GameBoot_LoadScreen_PlayerRun', 'GameBoot_LoadScreen_BackgroundImg', 'GameBoot_LoadScreen_StageString']
+    events = re.search(r'void \(\*g_MapEventFuncs\[\]\)\(\)\s*=\s*\{(.*?)\};', upstream_header, re.S)[1]
+    extra += re.findall(r'\b(?:MapEvent_\w+|MapEven_\w+|func_\w+)\b', events)
+    for name in extra:
+        callbacks[name] = ('void', 'void')
+    callbacks['Stalker_Update'] = callbacks['Cheryl_Update'] = ('void', 's_SubCharacter*, s_AnmHeader*, GsCOORDINATE2*')
+    for name in ['Anim_BlendLinear', 'Anim_PlaybackOnce', 'Anim_PlaybackLoop']:
+        callbacks[name] = ('void', 's_Model*, s_AnmHeader*, GsCOORDINATE2*, s_AnimInfo*')
+    # The original room callback is linked. All remaining unavailable callbacks
+    # are guarded in this descriptor slice, and are listed in its inventory.
+    callback_code = []
+    for name, (ret, params) in callbacks.items():
+        if name == 'Map_RoomIdxGet':
+            continue
+        args, unused = [], []
+        for i, typ in enumerate(params.split(',')):
+            typ = typ.strip()
+            if not typ or typ == 'void':
+                continue
+            # The header's known parameters sometimes already have names.
+            typ = re.sub(r'\b(?:idx|arg1|poly|chara|extra|coords|setIdle|playerExtraState|vec|angle|vecCount|npc|player|afkTime|arg2In|angleIn|arg4|arg1|arg3|unused|mapId|vec0|rotX|rotY|from|to|animStatus|keyframeIdx0|keyframeIdx1|keyframeIdx|sfxId|pitch|x|z)\b', '', typ).strip()
+            args.append(f'{typ} arg{i}')
+            unused.append(f'(void)arg{i};')
+        callback_code.append(f'static {ret} {name}({", ".join(args) or "void"}) {{ {"".join(unused)} port_unimplemented("{lane}/{name}");' + (' return 0;' if ret != 'void' else '') + ' }\n')
+    data = no_includes(read(path + lane + '_anim_info.c'))
+    data += no_includes(read(path + lane + '_events_data.c'))
+    messages = initializer(read(path + lane + '_2.c'), 'MAP_MESSAGES')
+    messages = messages.replace('#include "maps/shared/map_msg_common.h"', read('include/maps/shared/map_msg_common.h'))
+    data += messages
+    # Uninitialized shared buffers are defined by the map's pinned declarations.
+    # Their compiled zero image replaces PS1 overlay BSS clearing.
+    map_defines = read('include/maps/map0/map0_s00.h')
+    for macro in ['MAP_FIELD_4C_COUNT', 'MAP_BLOOD_SPLAT_COUNT_MAX', 'MAP_ROOM_MIN_X', 'MAP_ROOM_MAX_X', 'MAP_ROOM_MIN_Z', 'MAP_ROOM_MAX_Z', 'MAP_HAS_SECONDARY_GRID']:
+        m = re.search(r'^#define ' + macro + r'.*$', map_defines, re.M)
+        if m:
+            data = m[0] + '\n' + data
+    data += 's_MapHdr_field_4C sharedData_800DFB7C_0_s00[MAP_FIELD_4C_COUNT];\ns_BloodSplat g_Effect_BloodSplats[MAP_BLOOD_SPLAT_COUNT_MAX];\ns32 g_Particle_SpeedX,g_Particle_SpeedZ,sharedData_800DFB6C_0_s00,sharedData_800DFB70_0_s00;\n'
+    data += 'u8 MAP_ROOM_IDXS[224],sharedData_800DF2DC_0_s00[25];\n'
+    # no_includes must run AFTER expanding the initializer includes.
+    native_header = upstream_header
+    for include in ['map_points.h', 'chara_spawns.h', 'vc_road_data.h', 'header_field_D2C.h']:
+        native_header = native_header.replace('#include "' + include + '"', read(path + include))
+    native_header = no_includes(native_header)
+    data += native_header
+    # An exhaustive inventory of this linked data slice; future source units
+    # must add their writable objects before being linked.
+    owned = list(callbacks) + ['g_LoadScreenFuncs', 'g_MapEventFuncs', 'MAP_POINTS', 'MAP_EVENTS', 'MAP_MESSAGES', 'HARRY_M0S00_ANIM_INFOS', 'g_MapHeaderTable_38', 'LOADABLE_INVENTORY_ITEMS', 'sharedData_800DFB7C_0_s00', 'g_Effect_BloodSplats', 'g_Particle_SpeedX', 'g_Particle_SpeedZ', 'sharedData_800DFB6C_0_s00', 'sharedData_800DFB70_0_s00', 'g_MapOverlayHdr', 'GetXIdx', 'GetYIdx', 'MAP_ROOM_IDXS', 'sharedData_800DF2DC_0_s00']
+    namespace = '\n'.join(f'#define {name} {prefix}{name}' for name in owned) + '\n'
+    utility = read('src/maps/map_util.c')
+    room = between(utility, '#ifdef MAP5_S01', 'u8 Map_RoomIdxGet') + function(utility, 'Map_RoomIdxGet')
+    room = 'static bool CheckRange(s32 value,s32 low,s32 high) {return low<=value && value<=high;}\n' + room
+    room = room.replace('return res;', 'return (u8)res;')
+    writable = ['g_LoadScreenFuncs', 'g_MapEventFuncs', 'MAP_POINTS', 'MAP_EVENTS', 'MAP_MESSAGES', 'HARRY_M0S00_ANIM_INFOS', 'g_MapHeaderTable_38', 'LOADABLE_INVENTORY_ITEMS']
+    # Capture each initializer in a const compiled initial image. Pointer-valued
+    # fields point to this map's namespaced mutable objects after every reset.
+    initials = []
+    for name in writable:
+        obj = initializer(data, name)
+        obj = obj.replace(name, name + '_initial', 1)
+        if obj.startswith('void (*'):
+            obj = obj.replace('void (*', 'void (* const ', 1)
+        elif obj.startswith('const char*'):
+            obj = obj.replace('const char*', 'const char* const ', 1)
+        else:
+            obj = 'const ' + obj
+        initials.append('static ' + obj)
+    zeros = ['sharedData_800DFB7C_0_s00', 'g_Effect_BloodSplats', 'g_Particle_SpeedX', 'g_Particle_SpeedZ', 'sharedData_800DFB6C_0_s00', 'sharedData_800DFB70_0_s00', 'MAP_ROOM_IDXS', 'sharedData_800DF2DC_0_s00']
+    resets = [f'memcpy(&{name},&{name}_initial,sizeof({name}));' for name in writable]
+    resets += [f'memset(&{name},0,sizeof({name}));' for name in zeros]
+    probes = [f'memset(&{name},0xa5,sizeof({name}));' for name in writable + zeros]
+    comparisons = [f'memcmp(&{name},&{name}_initial,sizeof({name}))==0' for name in writable]
+    # The zero-buffer test uses a byte scan, avoiding stack copies of large BSS.
+    comparisons += [f'port_map_zero(&{name},sizeof({name}))' for name in zeros]
+    reset = f'void {prefix}reset(void) {{' + ''.join(resets) + '}\n'
+    reset += f'int {prefix}reset_probe(void) {{' + ''.join(probes) + f'{prefix}reset();return ' + ' && '.join(comparisons) + ';}\n'
+    source = NOTICE + '#include "map.h"\n#define MAP0_S00\n#define CHUNK_SIZE 40\n#undef g_MapOverlayHdr\n' + namespace + ''.join(callback_code) + 'static u8 Map_RoomIdxGet(q19_12,q19_12);\n' + data + ''.join(initials) + room + reset
+    # PORT: ISO C empty initializers retain zero values explicitly.
+    source = re.sub(r'\{\s*}', '{0}', source)
+    # PORT: Animation linkStatus is an unsigned PS1 byte; retain 0xff sentinel.
+    source = source.replace('false, NO_VALUE,', 'false, (u8)NO_VALUE,')
+    source += f'const s_MapOverlayHdr* {prefix}descriptor(void) {{ return &g_MapOverlayHdr; }}\n'
+    source += f'int {prefix}load_data(void) {{ return port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15c84,224,MAP_ROOM_IDXS) || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15d64,25,sharedData_800DF2DC_0_s00); }}\n'
+    (output / (lane + '.c')).write_text(source, encoding='utf-8')
+    print(f'{lane}: {len(writable)+len(zeros)} writable data objects; original room callback; {len(callbacks)-1} guarded callbacks')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--decomp', type=Path, required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    args = parser.parse_args()
+    prepare(args.decomp, args.out)

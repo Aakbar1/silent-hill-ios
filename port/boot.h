@@ -80,6 +80,11 @@ typedef struct {
     s_SubCharacter npcs[NPC_COUNT_MAX];
     s32 unused_229C;
     bool enablePlayerMatchAnim;
+    s32 loadingScreenIdx;
+    q3_12 cameraAngleY;
+    u8 playerStopFlags;
+    s8 targetNpcIdx,npcIdxs[CHARA_GROUP_COUNT];
+    q19_12 field_275C,field_2760,field_2764;
     q3_12 lightIntensity;
     GsCOORDINATE2 *lightBoneCoord,*lensFlareBoneCoord;
     VECTOR3 lightPosition;
@@ -101,13 +106,13 @@ enum { GameState_Init=0, GameState_KonamiLogo=1, GameState_KcetLogo=2,
  GameState_MainLoadScreen=10, GameState_InGame=11, GameState_InventoryScreen=14,
  GameState_MainMenu=7, GameState_Unk16=22,
  GameState_LoadSavegameScreen=8,GameState_MovieOpening=9,GameState_OptionScreen=18,
- SysState_Gameplay=0, SysFlag_DemoActive=2, BgmStatusFlag_None=0, BgmStatusFlag_Pause=1,
- AudioStreamingState_None=0, SyncMode_Wait=0, SyncMode_Count=-1, SyncMode_Wait8=8 };
+ BgmStatusFlag_None=0, BgmStatusFlag_Pause=1,
+ AudioStreamingState_None=0, SyncMode_Wait=0, SyncMode_Count=-1, SyncMode_Wait2=2, SyncMode_Wait8=8 };
 enum {MainMenuEntry_Load=0,MainMenuEntry_Continue=1,MainMenuEntry_Start=2,MainMenuEntry_Option=3,MainMenuEntry_Extra=4,MainMenuEntry_Count=5,
 MainMenuState_Start=0,MainMenuState_Main=1,MainMenuState_LoadGame=2,MainMenuState_DifficultySelector=3,MainMenuState_NewGameStart=4,
-ProcessFlag_BootDemo=32,ProcessFlag_Continue=16,ProcessFlag_NewGame=4,SysState_OptionsMenu=1,MapIdx_MAP0_S00=0,
 GameDifficulty_Easy=-1,GameDifficulty_Hard=1,Sfx_MenuMove=1305,Sfx_MenuStartGame=1281,Sfx_MenuConfirm=1307,Sfx_MenuCancel=1306,
-PaperMapIdx_OldTown=0,InvItemId_Unequipped=0};
+PortMenuConstants_End=0};
+#include "map_constants.h"
 typedef s32 e_GameState;
 #define STICK_DEADZONE 64
 #define DEFAULT_MAP_MESSAGE_LENGTH 100
@@ -157,6 +162,8 @@ extern _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*10
 #define FS_BUFFER_0 ((void*)port_fs_buffers[0])
 #define FS_BUFFER_1 ((void*)port_fs_buffers[1])
 #define FS_BUFFER_3 ((void*)port_fs_buffers[3])
+#define FS_BUFFER_4 ((void*)port_fs_buffers[4])
+int port_player_map_anim_load(u32 file,s_AnmHeader* destination);
 #define IMAGE_BUFFER_3 FS_BUFFER_3
 #define FS_BUFFER_5 ((void*)port_fs_buffers[5])
 #define FS_BUFFER_6 ((void*)port_fs_buffers[6])
@@ -208,11 +215,12 @@ void GameState_Init_Update(void);
 #define PORT_OTHER_STATES(X) \
  X(GameState_AutoLoadSavegame_Update) \
  X(GameState_LoadSavegameScreen_Update) \
- X(GameState_LoadScreen_Update) X(GameState_InGame_Update) X(GameState_MapEvent_Update) \
+ X(GameState_InGame_Update) X(GameState_MapEvent_Update) \
  X(GameState_ItemScreens_Update) X(GameState_PaperMapScreen_Update) \
  X(GameState_LoadStatusScreen_Update) X(GameState_LoadMapScreen_Update) X(GameState_Credits_Update)
 #define DECLARE_STATE(name) void name(void);
 PORT_OTHER_STATES(DECLARE_STATE)
+DECLARE_STATE(GameState_LoadScreen_Update)
 DECLARE_STATE(GameState_MovieIntroFadeIn_Update)
 DECLARE_STATE(GameState_MovieIntroAlternate_Update)
 DECLARE_STATE(GameState_MovieIntro_Update)
@@ -301,11 +309,7 @@ void GameFs_OptionBinLoad(void);
 void SysWork_StateSetNext(s32 state);
 void Fs_QueueReset(void);
 extern s32 g_MemCard_SavegameCount;
-typedef struct {s32 unused;} PortMapPoint;
-// PORT: Declaration-only seams for guarded map calls; this is not a decoded or
-// active map header. No gameplay consumer may treat it as s_MapOverlayHdr.
-extern struct PortMapHeader {PortMapPoint* mapPoints;} g_MapOverlayHdr;
-void Chara_PositionSet(const PortMapPoint* point);
+#include "map.h"
 s32 Math_Sin(s32 angle);
 s32 Math_Cos(s32 angle);
 void port_unimplemented(const char* name);

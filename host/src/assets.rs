@@ -273,7 +273,8 @@ pub struct MapInstance {
 }
 #[derive(Debug)]
 pub struct MapBuffer<'a> {
-    pub flags: u8,
+    /// field_1 counts billboard records; it is independent of the subcell count.
+    pub billboard_count: u8,
     pub bounds: [i16; 4],
     pub instances: Vec<MapInstance>,
     pub unknown: WireArray<'a, 8>,
@@ -356,7 +357,7 @@ pub fn decode_ipd(data: &[u8]) -> Result<Map<'_>> {
         }
         let cells = usize::from(buffer.byte(2)?);
         buffers.push(MapBuffer {
-            flags: buffer.byte(1)?,
+            billboard_count: buffer.byte(1)?,
             bounds: [
                 buffer.i16(4)?,
                 buffer.i16(6)?,
@@ -364,7 +365,7 @@ pub fn decode_ipd(data: &[u8]) -> Result<Map<'_>> {
                 buffer.i16(10)?,
             ],
             instances,
-            unknown: WireArray::from_blob(b, buffer.u32(16)?, cells)?,
+            unknown: WireArray::from_blob(b, buffer.u32(16)?, usize::from(buffer.byte(1)?))?,
             positions: WireArray::from_blob(b, buffer.u32(20)?, cells)?,
         });
     }
@@ -757,6 +758,27 @@ mod tests {
         assert_eq!(map.lm.models[0].meshes[0].vertices_xy.len(), 3);
         assert_eq!(map.buffers[0].instances[0].model_index, 0);
         put(&mut data, 536, 1);
+        assert!(decode_ipd(&data).is_err());
+    }
+    #[test]
+    fn ipd_billboard_and_visibility_counts_are_independent() {
+        let mut data = vec![0; 460];
+        data[0] = 20;
+        put(&mut data, 4, 392);
+        data[392] = b'0';
+        data[393] = 6;
+        data[9] = 1;
+        put(&mut data, 24, 412);
+        data[413] = 2;
+        data[414] = 1;
+        put(&mut data, 428, 436);
+        put(&mut data, 432, 452);
+        let map = decode_ipd(&data).unwrap();
+        assert_eq!(map.buffers[0].unknown.len(), 2);
+        assert_eq!(map.buffers[0].positions.len(), 1);
+        data[413] = 3;
+        assert!(decode_ipd(&data).is_ok()); // Three records still fit in this file.
+        data[413] = 4;
         assert!(decode_ipd(&data).is_err());
     }
     #[test]

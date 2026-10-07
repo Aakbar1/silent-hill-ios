@@ -1,0 +1,11 @@
+# Diagnostic: skip the opening movie and expose the first unlinked world consumer.
+# This is deliberately excluded from passing milestones.
+0 0000
+1400 0008
+1401 0000
+1510 4000
+1511 0000
+1650 4000
+1651 0000
+2201 0008
+2202 0000

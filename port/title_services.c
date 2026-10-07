@@ -2,7 +2,6 @@
 #include "boot.h"
 #include <stdio.h>
 s32 g_MemCard_SavegameCount;
-struct PortMapHeader g_MapOverlayHdr;
 void SysWork_StateSetNext(s32 state) {g_SysWork.sysState=state;g_SysWork.sysStateCounter=0;}
 void Fs_QueueReset(void) {Fs_QueueInitialize();}
 void MemCard_SysDisable(void) {}
@@ -23,8 +22,6 @@ void GameBoot_InGameStartup(void) {
         default: port_unimplemented("GameBoot_InGameStartup/native world loading");
     }
 }
-void GameBoot_MapLoad(s32 map) {(void)map;port_unimplemented("GameBoot_MapLoad/native map descriptor");}
-void Chara_PositionSet(const PortMapPoint* point) {(void)point;port_unimplemented("Chara_PositionSet/native player records");}
 int sh_save_init_probe(void) {
     GameBoot_SavegameInitialize(0,GameDifficulty_Easy);
     u32 difficulty; memcpy(&difficulty,(const u8*)g_SavegamePtr+0x260,4);
