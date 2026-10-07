@@ -10,6 +10,8 @@ struct Options {
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
     input: Option<PathBuf>,
+    headless: bool,
+    check: silent_hill_boot::native::ReplayCheck,
 }
 
 fn options() -> Result<Options, String> {
@@ -21,11 +23,53 @@ fn options() -> Result<Options, String> {
         frames: None,
         screenshot: None,
         input: None,
+        headless: false,
+        check: Default::default(),
     };
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
+            Some("--headless") => result.headless = true,
+            Some("--expect-state") => {
+                result.check.state = Some(
+                    args.next()
+                        .ok_or("--expect-state needs a number")?
+                        .to_str()
+                        .ok_or("invalid state")?
+                        .parse()
+                        .map_err(|_| "invalid state")?,
+                )
+            }
+            Some("--expect-step") => {
+                result.check.step = Some(
+                    args.next()
+                        .ok_or("--expect-step needs a number")?
+                        .to_str()
+                        .ok_or("invalid step")?
+                        .parse()
+                        .map_err(|_| "invalid step")?,
+                )
+            }
+            Some("--min-movie-frames") => {
+                result.check.min_movie_frames = args
+                    .next()
+                    .ok_or("--min-movie-frames needs a number")?
+                    .to_str()
+                    .ok_or("invalid count")?
+                    .parse()
+                    .map_err(|_| "invalid count")?
+            }
+            Some("--expect-movie-skips") => {
+                result.check.movie_skips = Some(
+                    args.next()
+                        .ok_or("--expect-movie-skips needs a number")?
+                        .to_str()
+                        .ok_or("invalid count")?
+                        .parse()
+                        .map_err(|_| "invalid count")?,
+                )
+            }
             Some("--inspect-assets") => {
                 result.inspect = true;
                 result.inspect_assets = true;
@@ -91,7 +135,7 @@ fn run() -> Result<(), String> {
     }
     if let Some(path) = &options.screenshot {
         let private_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/work/core")
+            .join("../../../private/work/core2")
             .canonicalize()
             .map_err(|e| format!("private output directory: {e}"))?;
         let parent = path
@@ -101,7 +145,7 @@ fn run() -> Result<(), String> {
             .canonicalize()
             .map_err(|e| format!("screenshot parent: {e}"))?;
         if !parent.starts_with(&private_root) {
-            return Err("screenshots must be inside private/work/core/".into());
+            return Err("screenshots must be inside private/work/core2/".into());
         }
         if path.exists()
             && !path
@@ -109,7 +153,7 @@ fn run() -> Result<(), String> {
                 .map_err(|e| e.to_string())?
                 .starts_with(&private_root)
         {
-            return Err("resolved screenshot target is outside private/work/core/".into());
+            return Err("resolved screenshot target is outside private/work/core2/".into());
         }
     }
     let replay = options
@@ -120,6 +164,22 @@ fn run() -> Result<(), String> {
                 .and_then(|text| silent_hill_boot::pad::ReplayPad::parse(&text))
         })
         .transpose()?;
+    if options.headless {
+        return silent_hill_boot::native::run_headless(
+            disc,
+            options.frames.unwrap_or(600),
+            options.screenshot,
+            replay.ok_or("--headless requires --input")?,
+            options.check,
+        );
+    }
+    if options.check.state.is_some()
+        || options.check.step.is_some()
+        || options.check.min_movie_frames != 0
+        || options.check.movie_skips.is_some()
+    {
+        return Err("milestone expectations require --headless".into());
+    }
     silent_hill_boot::native::run(
         disc,
         options.frames.unwrap_or(600),

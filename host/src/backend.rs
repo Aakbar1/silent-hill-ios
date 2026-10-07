@@ -13,6 +13,20 @@ pub trait GpuBackend: Send {
     fn read(&self, rect: [i32; 4]) -> Vec<u16>;
     fn clear(&mut self, rect: [i32; 4], color: [u8; 3]);
     fn frame(&self, x: i32, y: i32, w: u32, h: u32) -> Vec<u32>;
+    /// RGB24 display reads three packed bytes per pixel from the same VRAM.
+    fn frame_rgb24(&self, x: i32, y: i32, w: u32, h: u32) -> Vec<u32> {
+        let words_per_row = (w * 3).div_ceil(2);
+        let words = self.read([x, y, words_per_row as i32, h as i32]);
+        let bytes: Vec<u8> = words.into_iter().flat_map(u16::to_le_bytes).collect();
+        let mut pixels = Vec::with_capacity((w * h) as usize);
+        for row in bytes.chunks_exact(words_per_row as usize * 2) {
+            for rgb in row[..w as usize * 3].as_chunks::<3>().0 {
+                pixels
+                    .push((u32::from(rgb[0]) << 16) | (u32::from(rgb[1]) << 8) | u32::from(rgb[2]));
+            }
+        }
+        pixels
+    }
     fn primitives(&self) -> u64;
 }
 
@@ -60,6 +74,12 @@ pub trait SpuBackend: Send {
     fn read_register(&self, offset: u16) -> Result<u16, String>;
     fn transfer_write(&mut self, address: u32, bytes: &[u8]) -> Result<(), String>;
     fn transfer_read(&self, address: u32, bytes: &mut [u8]) -> Result<(), String>;
+    /// Interleaved signed PCM from the CD decoder. Return false if no CD sink exists.
+    fn cd_input(&mut self, _pcm: &[i16], _sample_rate: u32, _channels: u8) -> Result<bool, String> {
+        Ok(false)
+    }
+    /// Clear queued CD samples on skip/end/reset without resetting the SPU voices.
+    fn cd_stop(&mut self) {}
     fn voice(&mut self, index: u8, voice: VoiceRegisters) -> Result<(), String> {
         if index >= 24 {
             return Err("SPU voice index exceeds 23".into());

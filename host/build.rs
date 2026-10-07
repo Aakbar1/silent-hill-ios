@@ -84,6 +84,7 @@ fn main() {
         ("main", "src/main/main.c"),
         ("game_main", "src/bodyprog/sys/game_main.c"),
         ("konami", "src/screens/b_konami/b_konami.c"),
+        ("stream", "src/screens/stream/stream.c"),
         ("fade", "src/bodyprog/screen/screen_fade.c"),
         ("screen", "src/bodyprog/screen/screen_draw.c"),
         ("vsync", "src/bodyprog/sys/vsync.c"),
@@ -100,6 +101,12 @@ fn main() {
         // Function bodies are read from the pinned decomp, not reimplemented game state machines.
         let selected = match name {
             "konami" => original.clone(),
+            "stream" => between(
+                &original,
+                "void GameState_MovieIntroFadeIn_Update",
+                "s32 max_frame =",
+            )
+            .to_owned(),
             "settings" => between(
                 &original,
                 "void Settings_ScreenAndVolUpdate",
@@ -187,6 +194,19 @@ fn main() {
             native = native.replace(
                 "ptr = &g_GameWorkPtr->config.controllerConfig;",
                 "ptr = &g_GameWorkPtr->config.controllerConfig.enter;",
+            );
+        }
+        if name == "stream" {
+            // PORT: STREAM's PS1 image symbol aliases the native image descriptor.
+            native = native.replace(
+                "Screen_BackgroundImgDraw(g_MemCardWarningImg)",
+                "Screen_BackgroundImgDraw(&g_MemCardWarningImg)",
+            );
+            native = native
+                .replace("static s32  g_Debug_MoviePlayerIdx = 0;", "")
+                .replace("static s32 g_Debug_MoviePlayerIdx = 0;", "");
+            native = format!(
+                "static s32 g_Debug_MoviePlayerIdx;\nvoid sh_stream_reset(void) {{ g_Debug_MoviePlayerIdx=0; }}\n{native}"
             );
         }
         // PORT: The native OT is a separate allocation; name its tail instead of PS1 BSS adjacency.

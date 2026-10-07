@@ -43,7 +43,7 @@ typedef struct { u16 enter,cancel,skip,action,aim,light,run,view,stepLeft,stepRi
 STATIC_ASSERT_SIZEOF(s_ControllerConfig,28);
 typedef struct { s_ControllerConfig controllerConfig;
     s32 screenPositionX,screenPositionY,soundType,volumeBgm,volumeSe,
-        extraWeaponCtrl,brightness,vibrationEnabled,extraBloodColor,autoLoad; } PortOptions;
+        extraWeaponCtrl,brightness,vibrationEnabled,extraBloodColor,autoLoad,extraOptionsEnabled; } PortOptions;
 typedef struct { u8 tPage[2], u, v; s16 clutX, clutY; } s_FsImageDesc;
 STATIC_ASSERT_SIZEOF(s_FsImageDesc, 8);
 STATIC_ASSERT_SIZEOF(SPRT, 20);
@@ -61,7 +61,7 @@ typedef struct {
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)
-typedef struct { struct { u32 held; } buttonFlags; } PortController;
+typedef struct { struct { u32 held,clicked,released,pulsed; } buttonFlags; } PortController;
 extern PortGameWork g_GameWork;
 extern PortSysWork g_SysWork;
 extern PortGameWorkConst* g_GameWorkConst;
@@ -70,11 +70,13 @@ extern PortController* g_Controller0;
 enum { GameState_Init=0, GameState_KonamiLogo=1, GameState_KcetLogo=2,
  GameState_MovieIntroFadeIn=3, GameState_AutoLoadSavegame=4, GameState_MovieIntroAlternate=5, GameState_MovieIntro=6,
  GameState_MainLoadScreen=10, GameState_InGame=11, GameState_InventoryScreen=14,
+ GameState_MainMenu=7, GameState_Unk16=22,
  SysState_Gameplay=0, SysFlag_DemoActive=2, BgmStatusFlag_None=0, BgmStatusFlag_Pause=1,
- AudioStreamingState_None=0, SyncMode_Wait=0, SyncMode_Count=-1 };
+ AudioStreamingState_None=0, SyncMode_Wait=0, SyncMode_Count=-1, SyncMode_Wait8=8 };
 enum {ControllerFlag_None=0,ControllerFlag_Select=1,ControllerFlag_Start=8,
     ControllerFlag_L2=256,ControllerFlag_R2=512,ControllerFlag_L1=1024,ControllerFlag_R1=2048,
     ControllerFlag_Triangle=4096,ControllerFlag_Circle=8192,ControllerFlag_Cross=16384,ControllerFlag_Square=32768};
+enum {ControllerFlag_LStickHighLeft=0x80000,ControllerFlag_LStickHighRight=0x20000};
 enum {SavegameEntryType_NoMemCard=0,SavegameEntryType_OutOfBlocks=4,SavegameEntryType_Save=8,
     MemCardGameProcessId_Load_Game=2,MemCardWorkResult_Success=1,AudioMode_Mono=1,AudioMode_Stereo=2};
 #define INPUT_ACTION_COUNT 14
@@ -157,16 +159,20 @@ void port_game_state_next(s32 next);
 void MainLoop(void);
 void GameState_Init_Update(void);
 #define PORT_OTHER_STATES(X) \
- X(GameState_MovieIntroFadeIn_Update) \
- X(GameState_AutoLoadSavegame_Update) X(GameState_MovieIntroAlternate_Update) \
- X(GameState_MovieIntro_Update) X(GameState_MainMenu_Update) \
- X(GameState_LoadSavegameScreen_Update) X(GameState_MovieOpening_Update) \
+ X(GameState_AutoLoadSavegame_Update) X(GameState_MainMenu_Update) \
+ X(GameState_LoadSavegameScreen_Update) \
  X(GameState_LoadScreen_Update) X(GameState_InGame_Update) X(GameState_MapEvent_Update) \
- X(GameState_ExitMovie_Update) X(GameState_ItemScreens_Update) X(GameState_PaperMapScreen_Update) \
- X(GameState_DebugMoviePlayer_Update) X(GameState_Options_Update) \
+ X(GameState_ItemScreens_Update) X(GameState_PaperMapScreen_Update) \
+ X(GameState_Options_Update) \
  X(GameState_LoadStatusScreen_Update) X(GameState_LoadMapScreen_Update) X(GameState_Credits_Update)
 #define DECLARE_STATE(name) void name(void);
 PORT_OTHER_STATES(DECLARE_STATE)
+DECLARE_STATE(GameState_MovieIntroFadeIn_Update)
+DECLARE_STATE(GameState_MovieIntroAlternate_Update)
+DECLARE_STATE(GameState_MovieIntro_Update)
+DECLARE_STATE(GameState_MovieOpening_Update)
+DECLARE_STATE(GameState_ExitMovie_Update)
+DECLARE_STATE(GameState_DebugMoviePlayer_Update)
 #undef DECLARE_STATE
 void ResetCallback(void);
 int CdInit(void);
@@ -218,6 +224,12 @@ void port_load_vram(s32 x, s32 y, s32 w, s32 h, const u16* data);
 void port_clear_vram(s32 x, s32 y, s32 w, s32 h, u8 r, u8 g, u8 b);
 void port_draw_packet(const u32* words, u32 count);
 void port_draw_env(s32 x, s32 y, s32 w, s32 h, s32 ox, s32 oy);
-int port_present(s32 x, s32 y, s32 w, s32 h, s32 state, s32 step);
+int port_present(s32 x, s32 y, s32 w, s32 h, s32 state, s32 step, s32 rgb24);
+int port_movie_begin(u32 file, u32 last_frame);
+int port_movie_tick(void);
+void port_movie_end(s32 skipped);
+void open_main(s32 file,s16 last_frame);
+void Screen_RectInterlacedClear(s16 x,s16 y,s16 w,s16 h,u8 r,u8 g,u8 b);
+void Text_Debug_PositionSet(s32 x,s32 y);
 int port_run_game(void);
 #endif

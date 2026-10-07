@@ -95,8 +95,12 @@ s32 Game_StateStepSet(s32 index,s32 value) {
 // PORT: Only B_KONAMI is integrated. Other overlays need native descriptors.
 static u32 active_dynamic_overlay;
 int port_overlay_activate(u32 file_id) {
-    if (file_id!=FILE_1ST_B_KONAMI_BIN) return 1;
-    sh_b_konami_reset(); active_dynamic_overlay=file_id; return 0;
+    switch (file_id) {
+        case FILE_1ST_B_KONAMI_BIN: sh_b_konami_reset(); break;
+        case FILE_VIN_STREAM_BIN: sh_stream_reset(); break;
+        default: return 1;
+    }
+    active_dynamic_overlay=file_id; return 0;
 }
 void port_game_state_next(s32 next) {
     printf("STATE %d -> %d at VBlank %d\n",g_GameWork.gameState,next,vblanks);
@@ -129,9 +133,9 @@ void Fs_QueueUpdate(void) {
     u32 lba=g_FileTable[job.file].startSector;
     if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
     printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.image?" TIM":"");
-    if (job.file==FILE_1ST_B_KONAMI_BIN) {
+    if (job.file==FILE_1ST_B_KONAMI_BIN || job.file==FILE_VIN_STREAM_BIN) {
         if (port_overlay_activate((u32)job.file)) longjmp(stop,2);
-        printf("NATIVE OVERLAY B_KONAMI selected; initial data restored (id=%u)\n",active_dynamic_overlay);
+        printf("NATIVE OVERLAY selected; initial data restored (id=%u)\n",active_dynamic_overlay);
     }
     if (job.image) {
         const u8* p=(const u8*)job.destination;
@@ -255,7 +259,7 @@ int VSync(int mode) {
     if (vsync_callback) vsync_callback();
     vblanks++;
     hblanks+=263;
-    if (port_present(GsDISPENV.disp.x,GsDISPENV.disp.y,display_enabled?GsDISPENV.disp.w:0,display_enabled?GsDISPENV.disp.h:0,g_GameWork.gameState,g_GameWork.gameStateSteps[0])) longjmp(stop,1);
+    if (port_present(GsDISPENV.disp.x,GsDISPENV.disp.y,display_enabled?GsDISPENV.disp.w:0,display_enabled?GsDISPENV.disp.h:0,g_GameWork.gameState,g_GameWork.gameStateSteps[0],GsDISPENV.isrgb24)) longjmp(stop,1);
     return vblanks;
 }
 
@@ -302,10 +306,37 @@ void Joy_ControllerDataUpdate(void) {
     u32 previous=controller.buttonFlags.held;
     const u8* p=pad_buffers[0];
     controller.buttonFlags.held=p && p[0]==0 ? (u32)(u16)~((u16)p[2]|((u16)p[3]<<8)):0;
+    controller.buttonFlags.clicked=controller.buttonFlags.held&~previous;
+    controller.buttonFlags.released=previous&~controller.buttonFlags.held;
+    controller.buttonFlags.pulsed=controller.buttonFlags.clicked;
     // PORT: Record input edges for replay evidence; no change to the held packet.
     if (previous!=controller.buttonFlags.held) printf("PAD held=0x%04x at VBlank %d\n",controller.buttonFlags.held,vblanks);
 }
 void Joy_Update(void) { Joy_ReadP1(); Joy_ControllerDataUpdate(); }
+void Text_Debug_PositionSet(s32 x,s32 y) {(void)x;(void)y;}
+// PORT: Native STR service replaces STREAM's SDK/CD/MDEC blocking loop. State
+// handlers above remain upstream; num_frames is the original end-frame limit.
+void open_main(s32 file,s16 last_frame) {
+    Fs_QueueWaitForEmpty();
+    Screen_RectInterlacedClear(0,16,480,480,0,0,0);
+    if (port_movie_begin((u32)file,(u32)last_frame)) longjmp(stop,2);
+    DISPENV saved=GsDISPENV;
+    GsDISPENV.disp=(RECT){0,16,320,240}; GsDISPENV.isrgb24=1;
+    SetDispMask(1);
+    s32 skipped=0;
+    for (;;) {
+        Joy_Update();
+        if ((controller.buttonFlags.clicked&g_GameWork.config.controllerConfig.skip) || MainLoop_ShouldWarmReset()) {skipped=1;break;}
+        int result=port_movie_tick();
+        if (result==2) {port_movie_end(0);longjmp(stop,2);}
+        VSync(0);
+        if (result==1) break;
+    }
+    port_movie_end(skipped);
+    GsDISPENV=saved;
+    Screen_RectInterlacedClear(0,16,480,480,0,0,0);
+    VSync(0); GsSwapDispBuff();
+}
 #define STOP_STATE(name) void name(void) {printf("STUB " #name " (beyond boot scope)\n");stop_code=3;longjmp(stop,1);}
 PORT_OTHER_STATES(STOP_STATE)
 

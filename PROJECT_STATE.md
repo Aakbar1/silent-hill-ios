@@ -1,20 +1,9 @@
-﻿# Core lane checkpoint
+﻿# core2 checkpoint
 
-## Goal and constraints
-Progress from merged Konami boot toward the first controllable map, in brief order. Branch lane/core. Game bytes/captures remain under ../../private/work/core/. No system installations, pushes, merges or GPU/SPU lane edits.
+Goal: title, New Game and the first controllable map, then transitions and all map overlays. Own only the core2 brief paths. No GPU/SPU edits, game bytes/captures in Git, installs, pushes or merges.
 
-## Committed checkpoints
-1. game/decomp submodule pinned to d9e28f8315c7938117224f21516786d9d149a145, SH_DECOMP_DIR override, root workspace and data-free Windows CI. Only explicitly required standalone manifest/profile removals outside core directories. See docs/core/BUILD.md.
-2. psxdisc archive reads by file ID; GPU/SPU/pad traits, software raster default, VRAM transfers, keyboard/XInput and tick replay. See docs/core/SEAMS.md.
-3. Explicit model/map/collision/DMS disk32 decode and save roundtrip; native asset store/checked C leaf views; fixed-width SDK declarations and C layout gates. Full C gameplay consumers still need adapters when linked. See docs/core/ABI.md.
-4. Partial overlay milestone: B_KONAMI exports namespaced, writable initial image restored on load; full native KCET and original USA settings/FS helpers linked. Remaining four screens and 43 maps are not linked. See docs/core/OVERLAYS.md.
+Working step 1: STREAM state handlers compiled from pinned upstream into sh_stream_* namespace; debug static resets on activation. Native bounded STR/XA reader uses psxmedia, 15 fps on virtual 60 Hz VBlank, RGB24 packed VRAM through GpuBackend, CD PCM/stop through SpuBackend (silent fallback logs absent sink). Original open_main end-frame limit preserved; Start uses configured clicked skip flag. Headless runner checks ticks/state/step/video frames/skips. Capture path now private/work/core2.
 
-## Verified current state
-- fmt, workspace/all-targets clippy with warnings denied, workspace build, 234 unit/integration + 3 doctests pass. Selected native C builds /W4 /WX.
-- MSVC x86/x64 wire assertions pass. Installed LLVM frontend checks actual iOS arm64/LP64 SDK/wire/native layouts and rejects a negative control. Remote CI configured, not run.
-- Disc audit: 622 assets decode, TEST2.DMS rejects unsupported runtime layout; complete audit exits nonzero. No bounds gate weakened.
-- 850-tick neutral replay succeeds and visibly renders KCET (state 2/step 6). Neutral 1600 requested stops after 989 at MovieIntroFadeIn (state 3, code 3). Actual final frame saved/presented. Input Start at 850/release 851 reaches the same guard at 929, proving the game reacts to the pad packet.
-- Private captures/logs: kcet-850.png/log, final-stop.png/final-neutral.log, kcet-skip-stop.png/log; original step2/step3 evidence retained. Captures visually reviewed. No game data/screenshots in Git.
+Verified: native C /W4 /WX build; host 18 unit tests pass; release neutral 1900 ticks reaches state 6, decodes 147 frames and 370944 stereo XA sample frames. intro-1900.png visually inspected (actual movie frame). No audible SPU sink present. Title still has an explicit guard; end/skip/return and first map not yet proven. Build/test details and old core history: docs/core/BUILD.md, ABI.md, OVERLAYS.md, SEAMS.md.
 
-## Open work and decisions
-Step 4 remains partial; step 5 title/New Game/walking is not achieved. Broad original-header probe still fails 43 size assertion diagnostics (expected opt-in gate, not the native passing configuration). Do not disable those assertions: port resident/map clients to native records and decoder adapters, plus GTE/scratch/packet contracts, then add all overlay namespaces/data-reset descriptors. STREAM/memory-card/native gameplay services and physical controller verification remain pending. Coordinate GPU/SPU lane adapters through the host traits.
+Next: link title/text with native records, then original remaining screens and save service; resolve gameplay ABI/GTE/assets before linking first map. Retain all wire checks; do not fake a loaded map or successful native save UI.

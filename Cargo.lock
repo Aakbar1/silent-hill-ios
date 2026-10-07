@@ -1776,6 +1776,7 @@ dependencies = [
  "cc",
  "png",
  "psxdisc",
+ "psxmedia",
  "sh-touch",
  "softbuffer",
  "windows-sys 0.61.2",
