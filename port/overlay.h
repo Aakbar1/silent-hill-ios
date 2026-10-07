@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#ifndef SH_NATIVE_OVERLAY_H
+#define SH_NATIVE_OVERLAY_H
+// PORT: Native per-overlay namespaces replace the original same-address exports.
+#define GameState_KonamiLogo_Update sh_b_konami_GameState_KonamiLogo_Update
+#define GameState_KcetLogo_Update sh_b_konami_GameState_KcetLogo_Update
+#define GameState_KcetLogo_MemCardCheck sh_b_konami_GameState_KcetLogo_MemCardCheck
+#define BootScreen_ImageSegmentDraw sh_b_konami_BootScreen_ImageSegmentDraw
+#define BootScreen_KonamiScreenDraw sh_b_konami_BootScreen_KonamiScreenDraw
+#define BootScreen_KcetScreenDraw sh_b_konami_BootScreen_KcetScreenDraw
+void sh_b_konami_reset(void);
+int sh_b_konami_reset_probe(void);
+int port_overlay_activate(unsigned int file_id);
+#endif

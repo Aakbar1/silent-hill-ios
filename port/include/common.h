@@ -33,6 +33,9 @@ typedef uint32_t u_long;
 #define PORT_VER_JAP1 0
 #define PORT_VER_JAP2 0
 #define VERSION_IS(v) PORT_VER_##v
+#define VERSION_EQUAL_OR_NEWER(v) PORT_VER_##v
+#define PORT_OLDER_JAP0 0
+#define VERSION_EQUAL_OR_OLDER(v) PORT_OLDER_##v
 #define PORT_REGION_NTSCJ 0
 #define PORT_REGION_NTSC 1
 #define VERSION_REGION_IS(v) PORT_REGION_##v

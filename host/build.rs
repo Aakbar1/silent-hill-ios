@@ -88,6 +88,9 @@ fn main() {
         ("screen", "src/bodyprog/screen/screen_draw.c"),
         ("vsync", "src/bodyprog/sys/vsync.c"),
         ("background", "src/bodyprog/screen/background_draw.c"),
+        ("settings", "src/bodyprog/sys/settings_reset.c"),
+        ("fs_screens", "src/bodyprog/sys/fs_screens.c"),
+        ("bg_etc", "src/bodyprog/world/world_draw.c"),
     ];
     for (name, relative) in inputs {
         let source = decomp.join(relative);
@@ -96,19 +99,25 @@ fn main() {
         // PORT: Compile boot functions against the native interface, excluding unrelated headers/code.
         // Function bodies are read from the pinned decomp, not reimplemented game state machines.
         let selected = match name {
-            "konami" => format!(
-                "{}\n{}",
-                between(
-                    &original,
-                    "void GameState_KonamiLogo_Update",
-                    "s32 GameState_KcetLogo_MemCardCheck"
-                ),
-                between(
-                    &original,
-                    "void BootScreen_ImageSegmentDraw",
-                    "void BootScreen_KcetScreenDraw"
-                )
-            ),
+            "konami" => original.clone(),
+            "settings" => between(
+                &original,
+                "void Settings_ScreenAndVolUpdate",
+                "const s32 __pad_rodata",
+            )
+            .to_owned(),
+            "fs_screens" => between(
+                &original,
+                "void GameFs_TitleGfxSeek",
+                "void GameFs_OptionBinLoad",
+            )
+            .to_owned(),
+            "bg_etc" => between(
+                &original,
+                "void GameFs_BgEtcGfxLoad",
+                "void GameFs_BgItemLoad",
+            )
+            .to_owned(),
             "background" => format!(
                 "q0_8 g_Screen_BackgroundImgGamma = Q8(0.5f);\n{}",
                 between(
@@ -151,6 +160,35 @@ fn main() {
         if name == "game_main" {
             native = native.replace("    s32 gameState;", "");
         }
+        if name == "konami" {
+            // PORT: The sole writable overlay static is separate native data,
+            // restored from its compiled initial image on every native load.
+            native = native
+                .replace(
+                    "    static u8 nextGameState = GameState_Init; // 0x800CA4F0",
+                    "",
+                )
+                .replace("nextGameState", "sh_b_konami_data.next_state")
+                // PORT: Both logo emitters use the same unsigned 32-bit OT tag view.
+                .replace("s32*  ptr;", "u32*  ptr;")
+                // PORT: USA excludes the only consumer of this NTSC-J local.
+                .replace("                    s32 curTime;", "")
+                // PORT: Packet arithmetic uses native pointers, never u32.
+                .replace(
+                    "(g_ActiveBufferIdx << 0xF) + (u32)TEMP_MEMORY_ADDR",
+                    "(PACKET*)(TEMP_MEMORY_ADDR + (g_ActiveBufferIdx << 15))",
+                );
+            native = format!(
+                "typedef struct {{ u8 next_state; }} ShBootOverlayData;\nstatic const ShBootOverlayData sh_b_konami_initial={{GameState_Init}};\nstatic ShBootOverlayData sh_b_konami_data={{GameState_Init}};\nvoid sh_b_konami_reset(void) {{ sh_b_konami_data=sh_b_konami_initial; }}\nint sh_b_konami_reset_probe(void) {{ sh_b_konami_data.next_state=255; sh_b_konami_reset(); return sh_b_konami_data.next_state==GameState_Init; }}\n{native}"
+            );
+        }
+        if name == "settings" {
+            // PORT: Name the first field of the contiguous native binding array.
+            native = native.replace(
+                "ptr = &g_GameWorkPtr->config.controllerConfig;",
+                "ptr = &g_GameWorkPtr->config.controllerConfig.enter;",
+            );
+        }
         // PORT: The native OT is a separate allocation; name its tail instead of PS1 BSS adjacency.
         native = native.replace(
             "(GsOT*)&g_OtTags1[g_ActiveBufferIdx + 1][0]",
@@ -169,7 +207,7 @@ fn main() {
             )
             .replace(
                 "ptr = &g_OtTags0[g_ActiveBufferIdx][15]",
-                "ptr = (s32*)&g_OtTags0[g_ActiveBufferIdx][15]",
+                "ptr = (u32*)&g_OtTags0[g_ActiveBufferIdx][15]",
             )
             .replace(
                 "ot = &g_OtTags0[g_ActiveBufferIdx][5]",
@@ -195,6 +233,7 @@ fn main() {
     }
     for file in [
         "port/boot.h",
+        "port/overlay.h",
         "port/include/common.h",
         "port/include/types.h",
         "port/runtime.c",

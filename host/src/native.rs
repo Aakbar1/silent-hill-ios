@@ -587,3 +587,22 @@ pub fn run_with_backends(
     );
     worker_result
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn boot_overlay_namespace_load_and_initial_data_reset() {
+        unsafe extern "C" {
+            fn port_overlay_activate(file_id: u32) -> i32;
+            fn sh_b_konami_reset_probe() -> i32;
+        }
+        // SAFETY: No game worker runs in tests. Only one test accesses these
+        // native overlay globals; layout/reader tests have no shared state.
+        unsafe {
+            assert_eq!(port_overlay_activate(4), 0);
+            assert_eq!(sh_b_konami_reset_probe(), 1);
+            assert_eq!(port_overlay_activate(u32::MAX), 1);
+            assert_eq!(port_overlay_activate(4), 0);
+        }
+    }
+}

@@ -1,0 +1,4 @@
+# Press Start for one VBlank while the real KCET state is in its logo delay.
+0 0000
+850 0008
+851 0000

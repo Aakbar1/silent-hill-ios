@@ -6,13 +6,13 @@
 #include <setjmp.h>
 
 _Alignas(8) u8 port_scratch[1024];
-_Alignas(8) u8 port_fs_buffers[2][1024*1024];
+// PORT: Separate named screen destinations; PS1 overlap lifecycle is unported.
+_Alignas(8) u8 port_fs_buffers[8][1024*1024];
 _Alignas(8) u8 port_packets[2][131072];
 _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*1024];
 PortGameWork g_GameWork;
 PortSysWork g_SysWork;
-static PortGameWorkConst config;
-PortGameWorkConst* g_GameWorkConst = &config;
+PortGameWorkConst* g_GameWorkConst = &g_GameWork;
 static PortController controller;
 PortController* g_Controller0 = &controller;
 s32 g_ActiveBufferIdx, g_TickCount, g_VBlanks, g_UncappedVBlanks;
@@ -26,6 +26,16 @@ GsOT g_OrderingTable2[2] = {{4,g_OtTags0[0],0,0,0},{4,g_OtTags0[1],0,0,0}};
 s_FsImageDesc g_Font16AtlasImg={{0,16},0,240,304,511};
 s_FsImageDesc g_KonamiLogoImg={{0,12},0,0,0,0};
 s_FsImageDesc g_KcetLogoImg={{0,14},0,0,0,1};
+s_FsImageDesc g_MemCardWarningImg={{0,28},0,0,0,2};
+s_FsImageDesc g_TitleImg={{1,13},32,0,224,15};
+s_FsImageDesc g_ItemInspectionImg={{1,5},0,16,224,14};
+// PORT: No memory-card backend: report absent cards, never synthesize saves.
+static PortMemCardEntry absent_cards[2];
+PortMemCardEntry* g_MemCard_ActiveMemCardSlotSaves;
+s32 g_SelectedSaveSlotIdx,g_SlotElementSelectedIdx[2],g_SelectedDeviceId,g_SelectedFileIdx,g_Savegame_SelectedElementIdx;
+PortMemCardEntry* MemCard_ActiveMemCardSlotGet(s32 slot) {return &absent_cards[slot==1?1:0];}
+void MemCard_ProcessSet(s32 process,s32 device,s32 file,s32 element) {(void)process;(void)device;(void)file;(void)element;printf("STUB memory-card operation (no backend)\n");}
+s32 MemCard_LastMemCardResultGet(void) {return 0;}
 DRAWENV GsDRAWENV;
 DISPENV GsDISPENV;
 PACKET* GsOUT_PACKET_P;
@@ -76,6 +86,18 @@ void Game_StateStepIncrement(s32 index) {
     for (s32 i=index+1;i<3;i++) g_GameWork.gameStateSteps[i]=0;
     if (!index) g_SysWork.gameStateStepCounter=0;
 }
+s32 Game_StateStepSet(s32 index,s32 value) {
+    g_GameWork.gameStateSteps[index]=value;
+    for (s32 i=index+1;i<3;i++) g_GameWork.gameStateSteps[i]=0;
+    if (!index) g_SysWork.gameStateStepCounter=0;
+    return value;
+}
+// PORT: Only B_KONAMI is integrated. Other overlays need native descriptors.
+static u32 active_dynamic_overlay;
+int port_overlay_activate(u32 file_id) {
+    if (file_id!=FILE_1ST_B_KONAMI_BIN) return 1;
+    sh_b_konami_reset(); active_dynamic_overlay=file_id; return 0;
+}
 void port_game_state_next(s32 next) {
     printf("STATE %d -> %d at VBlank %d\n",g_GameWork.gameState,next,vblanks);
     g_GameWork.gameStatePrev=g_GameWork.gameState;
@@ -98,6 +120,7 @@ void Fs_QueueStartReadTim(s32 file,void* buffer,s_FsImageDesc* image) {
     jobs[job_last++%32]=(Job){file,buffer,image};
 }
 void Fs_QueueStartRead(s32 file,void* buffer) { Fs_QueueStartReadTim(file,buffer,NULL); }
+void Fs_QueueStartSeek(s32 file) { (void)file; } // PORT: Native archive reads have no drive seek delay.
 static u32 word(const u8* p) { u32 result; memcpy(&result,p,4); return result; }
 void Fs_QueueUpdate(void) {
     if (!Fs_QueueGetLength()) return;
@@ -106,6 +129,10 @@ void Fs_QueueUpdate(void) {
     u32 lba=g_FileTable[job.file].startSector;
     if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
     printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.image?" TIM":"");
+    if (job.file==FILE_1ST_B_KONAMI_BIN) {
+        if (port_overlay_activate((u32)job.file)) longjmp(stop,2);
+        printf("NATIVE OVERLAY B_KONAMI selected; initial data restored (id=%u)\n",active_dynamic_overlay);
+    }
     if (job.image) {
         const u8* p=(const u8*)job.destination;
         const u8* end=p+bytes;
@@ -243,6 +270,8 @@ STUB0(ItemScreen_TmdGsFCallInit) STUB0(func_800890B8) STUB0(SD_Init) STUB1(SD_Ca
 STUB0(Sd_TaskPoolExecute) STUB1(func_80089090) STUB0(func_80089128) STUB0(func_8008D78C)
 STUB0(WorldGfx_HarryCharaLoad) STUB0(GameFs_BgItemLoad) STUB1(Map_EffectTexturesLoad)
 STUB0(nullsub_800334C8)
+STUB1(Demo_SequenceAdvance) STUB0(Demo_DemoDataRead)
+void Sd_GlobalVolumeSet(s32 maximum,s32 music,s32 effects) {(void)maximum;(void)music;(void)effects;} // PORT: Silent fallback; libsd volume application is pending.
 #define STUB_RETURN(name,type,value) type name(void) {static bool seen;if (!seen) {printf("STUB " #name "\n");seen=true;}return value;}
 STUB_RETURN(CdInit,int,1) STUB_RETURN(MainLoop_ShouldWarmReset,s32,0)
 STUB_RETURN(MemCard_ElementsUpdate,bool,true) STUB_RETURN(Sd_AudioStreamingCheck,s32,0)
@@ -270,8 +299,11 @@ void PadSetAct(int port,u8* values,int count) { (void)port;(void)values;(void)co
 void Joy_Init(void) { PadInitDirect(pad0,pad1); PadStartCom(); }
 void Joy_ReadP1(void) { pad_refresh(); }
 void Joy_ControllerDataUpdate(void) {
+    u32 previous=controller.buttonFlags.held;
     const u8* p=pad_buffers[0];
     controller.buttonFlags.held=p && p[0]==0 ? (u32)(u16)~((u16)p[2]|((u16)p[3]<<8)):0;
+    // PORT: Record input edges for replay evidence; no change to the held packet.
+    if (previous!=controller.buttonFlags.held) printf("PAD held=0x%04x at VBlank %d\n",controller.buttonFlags.held,vblanks);
 }
 void Joy_Update(void) { Joy_ReadP1(); Joy_ControllerDataUpdate(); }
 #define STOP_STATE(name) void name(void) {printf("STUB " #name " (beyond boot scope)\n");stop_code=3;longjmp(stop,1);}
