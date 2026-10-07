@@ -6,9 +6,6 @@ rust-version = "1.88"
 license = "GPL-3.0-only"
 description = "Native PlayStation SPU synthesis and Silent Hill sequence clocks"
 
-# Core removes this when adding the lane to the parent workspace.
-[workspace]
-
 [features]
 default = ["output"]
 output = ["dep:cpal", "dep:rtrb"]
@@ -17,9 +14,6 @@ output = ["dep:cpal", "dep:rtrb"]
 psxmedia = { path = "../psxmedia" }
 cpal = { version = "0.16", optional = true }
 rtrb = { version = "0.3", optional = true }
-
-[profile.release]
-debug = 1
 
 [[example]]
 name = "device"

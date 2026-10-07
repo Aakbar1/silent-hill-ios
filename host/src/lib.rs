@@ -8,3 +8,4 @@ pub mod movie;
 pub mod native;
 pub mod raster;
 pub mod saves;
+pub mod spu_cpal;
