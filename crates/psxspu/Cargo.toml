@@ -1,0 +1,26 @@
+[package]
+name = "psxspu"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "GPL-3.0-only"
+description = "Native PlayStation SPU synthesis and Silent Hill sequence clocks"
+
+# Core removes this when adding the lane to the parent workspace.
+[workspace]
+
+[features]
+default = ["output"]
+output = ["dep:cpal", "dep:rtrb"]
+
+[dependencies]
+psxmedia = { path = "../psxmedia" }
+cpal = { version = "0.16", optional = true }
+rtrb = { version = "0.3", optional = true }
+
+[profile.release]
+debug = 1
+
+[[example]]
+name = "device"
+required-features = ["output"]
