@@ -153,3 +153,41 @@ overlay renders are ignored under this crate's `target/`. Dependencies use the
 and [softbuffer surface API](https://docs.rs/softbuffer/0.4.8/softbuffer/struct.Surface.html).
 Regenerate coverage after editing the independent expected-case specification with
 `python crates/touch/tools/build_coverage.py`, then run `cargo fmt` and tests.
+
+## Native game integration (touchwire)
+
+`host/src/pad_touch.rs` implements the real host's `PadSource`. Run the release
+host with `--input touch` for mouse/native touch, or `--input PATH.jsonl` for a
+native touch replay. Native JSONL is separate from the standalone engine format:
+it contains `touch` records with a completed-VBlank `tick`, contact ID, phase and
+logical-point x/y; `check` records assert exact tick/state/step and optional
+menu/option-entry. It cannot inject pad buttons, context, bindings or targets.
+Coordinates in the supplied native replays use 640x448 points with zero insets;
+live input reads window DPI/bounds. Keyboard/controller packets are not sampled
+in either touch mode. Focus loss and scene changes release input. Mouse capture
+can leave the window without cancelling native fingers or losing its release.
+
+```powershell
+python crates/touch/tools/verify_native.py --exe target/release/silent-hill-boot.exe --disc 'C:/Claude Projects/Silent Hill iOS/private/disc/Silent Hill (USA).bin' --repeat 2
+& crates/touch/tools/verify_native_mouse.ps1 -Exe target/release/silent-hill-boot.exe -Disc 'C:/Claude Projects/Silent Hill iOS/private/disc/Silent Hill (USA).bin'
+```
+
+The native milestone manifest is `milestones.json`. The menu replay skips the
+intro, enters New Game's difficulty selector, backs out, then opens options.
+It does not confirm a difficulty/start the unported world. The second replay
+directly taps the original brightness row; normal C navigation/highlight guards
+remain in charge. Full-screen movie taps use the live skip binding; movies show
+no overlay. Low-opacity original chip/row/stick shapes are composited on display
+copies through `GpuBackend`, leaving VRAM/readbacks unchanged. Visibility checks
+count game pixels before compositing; captures/logs/hashes stay under
+`private/work/touchwire/`.
+
+Current limitations: title/difficulty previous/next/OK/back are labelled pad
+fallbacks because their cursors are private C statics. OPTION row taps use its
+existing selected-entry getter and ordinary pad navigation. A read-only native
+prefix accessor supplies boot/title/options/movie/inventory/map/dialogue/exploring
+mode and live bindings/run/weapon options; aiming, ownership and puzzle targets
+need core-owned accessors. Unavailable gameplay chips stay hidden. The accessor
+matches `port/boot.h` in this checkout and must migrate with core3's records.
+Windowed replay is verified; `--headless` explicitly fails until core3 exposes
+backend injection. Root milestone registration also belongs to the director.

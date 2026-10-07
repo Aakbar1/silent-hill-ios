@@ -1,0 +1,14 @@
+{"type":"touch","tick":1400,"id":1,"phase":"down","x":400,"y":200}
+{"type":"touch","tick":1400,"id":1,"phase":"up","x":400,"y":200}
+{"type":"check","tick":1500,"id":"intro_skip_title","state":7,"step":1,"menu":1}
+{"type":"touch","tick":1510,"id":2,"phase":"down","x":552,"y":416}
+{"type":"touch","tick":1510,"id":2,"phase":"up","x":552,"y":416}
+{"type":"check","tick":1640,"id":"new_game_difficulty","state":7,"step":1,"menu":3}
+{"type":"touch","tick":1650,"id":3,"phase":"down","x":608,"y":416}
+{"type":"touch","tick":1650,"id":3,"phase":"up","x":608,"y":416}
+{"type":"check","tick":1700,"id":"difficulty_back_title","state":7,"step":1,"menu":1}
+{"type":"touch","tick":1740,"id":4,"phase":"down","x":108,"y":408}
+{"type":"touch","tick":1740,"id":4,"phase":"up","x":108,"y":408}
+{"type":"touch","tick":1780,"id":5,"phase":"down","x":552,"y":416}
+{"type":"touch","tick":1780,"id":5,"phase":"up","x":552,"y":416}
+{"type":"check","tick":2100,"id":"options_touch_only","state":18,"step":1,"option_entry":0}

@@ -508,6 +508,7 @@ impl ApplicationHandler<Frame> for App {
         }
     }
     fn window_event(&mut self, el: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        crate::pad_touch::window_event(&event, self.window.as_deref());
         match event {
             WindowEvent::KeyboardInput { event, .. } => {
                 if let PhysicalKey::Code(code) = event.physical_key {

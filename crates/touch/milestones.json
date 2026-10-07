@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "cases": [
+    {"name":"menu-touch-only","input":"native-menu.jsonl","frames":2100,"state":18,"step":1,"option_entry":0},
+    {"name":"brightness-direct-tap","input":"native-brightness.jsonl","frames":2400,"state":18,"step":3,"option_entry":1}
+  ],
+  "pending": [
+    "core3 headless backend injection and root milestone registration",
+    "direct title/difficulty row taps need live private cursor getters",
+    "aiming/ownership/puzzle context and original UI handlers need core-owned hooks"
+  ]
+}

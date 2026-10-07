@@ -3,6 +3,7 @@ pub mod asset_store;
 pub mod assets;
 pub mod backend;
 pub mod pad;
+pub mod pad_touch;
 pub use psxdisc as disc;
 pub mod movie;
 pub mod native;

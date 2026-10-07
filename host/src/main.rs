@@ -162,6 +162,16 @@ fn run() -> Result<(), String> {
         }
         return Ok(());
     }
+    if silent_hill_boot::pad_touch::accepts(options.input.as_deref()) {
+        return silent_hill_boot::pad_touch::run(
+            disc,
+            options.frames.unwrap_or(600),
+            options.screenshot,
+            options.input.as_deref().expect("touch input"),
+            options.headless,
+            options.check,
+        );
+    }
     if let Some(path) = &options.screenshot {
         let private_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../private/work/core2")
