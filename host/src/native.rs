@@ -565,6 +565,12 @@ extern "C" fn port_present(
 ) -> i32 {
     host(|host| {
         host.frames += 1;
+        // SAFETY: Presentation runs synchronously on the sole C worker.
+        // PORT: Optional numeric gameplay telemetry; no game bytes or captures.
+        unsafe extern "C" {
+            fn port_player_trace(frame: u32);
+        }
+        unsafe { port_player_trace(host.frames as u32) };
         // PORT: One virtual NTSC VBlank is exactly 735 hardware mixer samples.
         // The original libsd sequencer remains a separate, currently guarded seam.
         if let Err(error) = host.spu.advance_to(host.frames * 735) {
@@ -1018,6 +1024,7 @@ mod tests {
             fn sh_save_init_probe() -> i32;
             fn sh_option_reset_probe() -> i32;
             fn port_queue_image_probe() -> i32;
+            fn port_player_controls_probe() -> u32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
@@ -1027,6 +1034,7 @@ mod tests {
             assert_eq!(sh_save_init_probe(), 1);
             assert_eq!(sh_option_reset_probe(), 1);
             assert_eq!(port_queue_image_probe(), 1);
+            assert_eq!(port_player_controls_probe(), 511);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }

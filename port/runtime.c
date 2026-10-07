@@ -358,7 +358,10 @@ void open_main(s32 file,s16 last_frame) {
     VSync(0); GsSwapDispBuff();
 }
 #define STOP_STATE(name) void name(void) {printf("STUB " #name " (beyond boot scope)\n");stop_code=3;longjmp(stop,1);}
+// PORT: Keep the old guard under a separate name; gameplay now has its original dispatcher.
+#define GameState_InGame_Update port_previous_InGame_guard
 PORT_OTHER_STATES(STOP_STATE)
+#undef GameState_InGame_Update
 void port_unimplemented(const char* name) {printf("BLOCKED native service: %s at state=%d step=%d VBlank=%d\n",name,g_GameWork.gameState,g_GameWork.gameStateSteps[0],vblanks);stop_code=3;longjmp(stop,1);}
 
 extern int sh_main(void);

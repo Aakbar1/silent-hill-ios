@@ -83,14 +83,18 @@ void func_8008B398(void) {
 // PORT: The current native sound task bridge logs SFX requests. Keep stop
 // requests separate from SD_Call play commands until SFX voice linkage exists.
 void Sd_SfxStop(u16 sound) { printf("SFX_STOP %u (native SFX voice linkage pending)\n",sound); }
-void Screen_BackgroundMotionBlur(s32 mode) {(void)mode;port_unimplemented("Screen_BackgroundMotionBlur/native world renderer");}
+// PORT: No-draw bridge while the parallel world lane links these render services.
+void Screen_BackgroundMotionBlur(s32 mode) {(void)mode;}
 void AreaLoad_UpdatePlayerPosition(void) {port_unimplemented("AreaLoad_UpdatePlayerPosition");}
 void Gfx_LoadScreenMapEffectsUpdate(s32 first,s32 second) {
-    (void)first;(void)second;port_unimplemented("Gfx_LoadScreenMapEffectsUpdate/native environment");
+    // PORT: Loading render effects do not block the original startup dispatcher.
+    (void)first;(void)second;
 }
-void Gfx_EffectsUpdate(void) {port_unimplemented("Gfx_EffectsUpdate/native environment");}
+// PORT: No-draw bridge; environment/gameplay initialization remains guarded separately.
+void Gfx_EffectsUpdate(void) {}
 void WorldGfx_CharaDraw(e_CharaId id,GsCOORDINATE2* coords,s32 shift,q3_12 timer,s32 palette) {
-    (void)id;(void)coords;(void)shift;(void)timer;(void)palette;port_unimplemented("WorldGfx_CharaDraw/native renderer");
+    // PORT: No-draw bridge for the world lane; animation still runs in original C.
+    (void)id;(void)coords;(void)shift;(void)timer;(void)palette;
 }
 int port_animation_sample(s_AnmHeader* anm,s32 first,s32 second,q19_12 alpha,s32 bone,s32* out) {
     GsCOORDINATE2 coords[32]={0};
