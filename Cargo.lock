@@ -1680,7 +1680,10 @@ dependencies = [
 name = "psxgpu"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "cc",
+ "pollster",
+ "wgpu",
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ struct Options {
     input: Option<PathBuf>,
     headless: bool,
     audio: silent_hill_boot::spu_cpal::AudioMode,
+    renderer: silent_hill_boot::gpu_wgpu::Options,
     check: silent_hill_boot::native::ReplayCheck,
 }
 
@@ -26,6 +27,7 @@ fn options() -> Result<Options, String> {
         input: None,
         headless: false,
         audio: Default::default(),
+        renderer: Default::default(),
         check: Default::default(),
     };
     let mut args = std::env::args_os().skip(1);
@@ -40,6 +42,9 @@ fn options() -> Result<Options, String> {
                         .to_str()
                         .ok_or("invalid audio mode")?,
                 )?;
+            }
+            Some("--renderer" | "--scale" | "--stats" | "--wide" | "--16:9") => {
+                result.renderer.argument(&arg, &mut args)?;
             }
             Some("--min-lit-pixels") => {
                 result.check.min_lit_pixels = args
@@ -146,6 +151,7 @@ fn options() -> Result<Options, String> {
 
 fn run() -> Result<(), String> {
     let options = options()?;
+    silent_hill_boot::gpu_wgpu::configure(options.renderer)?;
     let started = std::time::Instant::now();
     let mut disc = GameDisc::open(&options.disc)
         .map_err(|e| format!("disc open/release verification: {e}"))?;

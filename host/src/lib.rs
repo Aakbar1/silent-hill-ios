@@ -4,6 +4,7 @@ pub mod assets;
 pub mod backend;
 pub mod gameplay;
 pub mod gte;
+pub mod gpu_wgpu;
 pub mod pad;
 pub mod pad_touch;
 pub use psxdisc as disc;

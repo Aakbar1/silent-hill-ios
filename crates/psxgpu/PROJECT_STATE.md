@@ -1,6 +1,40 @@
 # GPU lane checkpoint — 2026-10-07
 
-## Goal and ownership
+## gpuwire host integration checkpoint
+
+- New host adapter/presenter/CLI module is implemented; actual native.rs hooks,
+  psxspu workspace/parent lockfile edits stay outside this lane's ownership.
+  Parsed flags alone do not select the GPU in this working branch. Full pass is pending.
+- Resumed private main a08d10e plus proposed hooks/brightness guard: fmt, Clippy,
+  release C /W4 /WX pass; workspace 274 tests pass, 0 fail, 3 existing ignored.
+  Main excludes GPU/SPU members; explicit GPU gates pass 43 tests with wgpu and
+  36 without it, plus Clippy both ways. Eight host adapter tests pass.
+- 1x game state checks pass 9/9 with each renderer; RGB24 movie PNG is exact.
+  Image comparison still passes only 6/9 at <=9 channel delta; keep soft default.
+- Final 4x repeated suite: 18/18 executions, 9/9 identical PNG pairs. Evidence:
+  private/work/gpuwire/milestones/20261007T134619383215Z/results.json. Both suites
+  explicitly disable audio because main's SPU factory is still unconnected.
+- Windowed wgpu title at 4x presents its final frame in 1280x896: mean 16.672 ms,
+  max 41.408 ms, 59.98 paced fps (includes decode/readback). GPU PNG is 1280x1792:
+  private/work/gpuwire/title-wgpu-core3-final-4x.png. Wide 1592x896 and soft 1x
+  320x224 window checks also present final frames.
+- Initial repeated 4x suite found six varying brightness subpixels. Private
+  traces show 116 different incoming G3 packets but identical native VRAM
+  checksums. options.c reads BORDER_ARROWS[-1] with no direction held. A marked
+  generated-source guard is proposed for core3; corrected private repeat gate passes.
+- Do not hide malformed incoming triangles, relax image gates or change PS1
+  raster semantics to match the fallback. Core3 must reconcile its calibration.
+- Hardened invalid-frame/presentation checks and initial surface configuration.
+  Fixed cached-device teardown crash; queued frames survive backend destruction.
+  Precise sidecars preserve native VRAM and change only scaled geometry; director
+  must add the newer trait override from core-hooks-main.patch after branch merge.
+- Evidence and exact proposals: private/work/gpuwire/. core-hooks-main.patch targets
+  main a08d10e and supersedes old lockfile/workspace hunks; choose wgpu-enabled host
+  dependency at merge. See HOST_INTEGRATION.md. No rebase/merge/push/main edits.
+  No Metal/iPhone verification. Local root gates still stop at old psxspu table;
+  main has removed nested tables. Do not restore them or claim the full pass.
+
+## Standalone GPU goal and ownership
 
 Standalone native GPU/GTE backend for core's host-owned GpuBackend adapter. Own only
 `crates/psxgpu/`; root REPORT.md is the explicitly required uncommitted handoff.

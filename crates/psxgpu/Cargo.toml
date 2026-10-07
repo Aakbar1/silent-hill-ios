@@ -6,8 +6,6 @@ rust-version = "1.88"
 license = "GPL-3.0-only"
 description = "Native PS1 GPU packet renderer, VRAM and GTE"
 
-# Remove this table when the director adds the crate to the parent workspace.
-
 [features]
 default = ["wgpu"]
 wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
