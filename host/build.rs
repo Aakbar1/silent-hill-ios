@@ -27,6 +27,67 @@ fn fixed_long(text: &str) -> String {
 
 fn main() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
+        // PORT: Extend the existing worker inside its module without editing the
+        // parallel core lane. No copied game bytes or alternate game logic.
+        let out = PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR"));
+        let native = repo.join("host/src/native.rs");
+        let bridge = repo.join("ios/host_bridge.rs");
+        println!("cargo:rerun-if-changed={}", native.display());
+        println!("cargo:rerun-if-changed={}", bridge.display());
+        let native_source = fs::read_to_string(native)
+            .expect("shared native worker")
+            .replace("\r\n", "\n");
+        let clock_marker = "        if host.proxy.is_some() {\n";
+        assert_eq!(
+            native_source.matches(clock_marker).count(),
+            1,
+            "review iOS clock seam after core changes"
+        );
+        // PORT: Use the same 60Hz clock for every UIKit tick, including blank
+        // display frames. The desktop proxy/pacing branch stays unchanged.
+        let native_source = native_source.replace(
+            clock_marker,
+            "        if host.proxy.is_none() { ios_clock(); }\n        if host.proxy.is_some() {\n",
+        );
+        fs::write(
+            out.join("native_ios.rs"),
+            format!(
+                "{}\n{}",
+                native_source,
+                fs::read_to_string(bridge).expect("iOS worker bridge")
+            ),
+        )
+        .expect("iOS worker extension");
+        println!("cargo:rerun-if-env-changed=SH_IOS_RUST_CHECK_ONLY");
+        if std::env::var("SH_IOS_RUST_CHECK_ONLY").as_deref() == Ok("1") {
+            assert_ne!(std::env::consts::OS, "macos", "CI must compile native C");
+            println!("cargo:warning=Rust type-check ONLY: native C and UIKit are NOT compiled");
+            return;
+        }
+        println!(
+            "cargo:rerun-if-changed={}",
+            repo.join("ios/app.m").display()
+        );
+        cc::Build::new()
+            .file(repo.join("ios/app.m"))
+            .flag("-fobjc-arc")
+            .flag("-fblocks")
+            .flag("-Wall")
+            .flag("-Wextra")
+            .warnings_into_errors(true)
+            .compile("sh_ios_app");
+        for framework in [
+            "UIKit",
+            "Foundation",
+            "CoreGraphics",
+            "AVFoundation",
+            "UniformTypeIdentifiers",
+        ] {
+            println!("cargo:rustc-link-lib=framework={framework}");
+        }
+        println!("cargo:rustc-link-lib=objc");
+    }
     let decomp = std::env::var_os("SH_DECOMP_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| repo.join("game/decomp"));
@@ -68,7 +129,12 @@ fn main() {
         "cargo:rerun-if-changed={}",
         decomp.join("src/screens/options/options.c").display()
     );
-    let option = std::process::Command::new("python")
+    let python = if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
+        "python3"
+    } else {
+        "python"
+    };
+    let option = std::process::Command::new(python)
         .arg(repo.join("tools/prepare_option.py"))
         .arg("--decomp")
         .arg(&decomp)

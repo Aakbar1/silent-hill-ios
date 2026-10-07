@@ -19,7 +19,7 @@ from assets import generate
 
 IOS = Path(__file__).resolve().parents[1]
 NAME = "SilentHillPort"
-EXE = "silenthill-shell"
+EXE = "silent-hill-ios"
 TARGETS = {"device": ("aarch64-apple-ios", "iphoneos", "iPhoneOS"), "simulator": ("aarch64-apple-ios-sim", "iphonesimulator", "iPhoneSimulator")}
 
 
@@ -54,7 +54,8 @@ def validate_ipa(path):
         assert info["CFBundleIdentifier"] == "com.bramley.silenthillport"
         assert info["UIFileSharingEnabled"] and info["LSSupportsOpeningDocumentsInPlace"]
         assert info["UISupportedInterfaceOrientations"] == ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
-        assert {ext for t in info["UTExportedTypeDeclarations"] for ext in t["UTTypeTagSpecification"]["public.filename-extension"]} == {"bin", "cue"}
+        assert {ext for t in info["UTExportedTypeDeclarations"] for ext in t["UTTypeTagSpecification"]["public.filename-extension"]} == {"bin"}
+        assert info["CFBundleExecutable"] == EXE
         assert (ipa.getinfo(prefix + EXE).external_attr >> 16) & 0o111
         assert not any("_CodeSignature" in n or n.endswith("embedded.mobileprovision") for n in ipa.namelist())
         assert any(n.startswith(prefix + "LaunchScreen.storyboardc/") for n in ipa.namelist())
@@ -81,7 +82,7 @@ def dry_run():
         archive(app, root / "fixture.ipa")
         validate_ipa(root / "fixture.ipa")
     for mode, (target, sdk, _) in TARGETS.items():
-        print(f"{mode}: SDKROOT=$(xcrun --sdk {sdk} --show-sdk-path) IPHONEOS_DEPLOYMENT_TARGET=15.0 cargo build --locked --release --target {target}")
+        print(f"{mode}: SDKROOT=$(xcrun --sdk {sdk} --show-sdk-path) IPHONEOS_DEPLOYMENT_TARGET=15.0 cargo build --manifest-path ios/app/Cargo.toml --locked --release --target {target}")
     print("PASS: plist, storyboard XML, 9 generated icons, IPA layout/permissions/signature-file exclusions (fixtures only).")
 
 
@@ -100,10 +101,14 @@ def build(mode):
     env = os.environ.copy()
     env["SDKROOT"] = run(["xcrun", "--sdk", sdk, "--show-sdk-path"], capture_output=True, text=True).stdout.strip()
     env["IPHONEOS_DEPLOYMENT_TARGET"] = "15.0"
-    # Keep the output path independent of a future root workspace.
-    env["CARGO_TARGET_DIR"] = str(IOS / "shell/target")
-    run(["cargo", "build", "--manifest-path", IOS / "shell/Cargo.toml", "--locked", "--release", "--target", target], env=env)
-    shutil.copy2(IOS / "shell/target" / target / "release" / EXE, app / EXE)
+    if env.get("SH_IOS_RUST_CHECK_ONLY"):
+        raise SystemExit("Packaging must compile C and UIKit; SH_IOS_RUST_CHECK_ONLY is forbidden.")
+    env["CARGO_TARGET_DIR"] = str(IOS.parent / "target")
+    # cc gets Apple's clang and SDK explicitly. No system install.
+    env["CC"] = run(["xcrun", "--sdk", sdk, "--find", "clang"], capture_output=True, text=True).stdout.strip()
+    env["AR"] = run(["xcrun", "--sdk", sdk, "--find", "ar"], capture_output=True, text=True).stdout.strip()
+    run(["cargo", "build", "--manifest-path", IOS / "app/Cargo.toml", "--locked", "--release", "--target", target], env=env)
+    shutil.copy2(IOS.parent / "target" / target / "release" / EXE, app / EXE)
     (app / EXE).chmod(0o755)
     generate(out / "Assets.xcassets")
     partial = out / "asset-info.plist"

@@ -15,11 +15,13 @@ jobs:
   build:
     # macos-15 is Apple Silicon; the arm64 simulator cannot run on an Intel host.
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
-      CARGO_TARGET_DIR: ${{ github.workspace }}/ios/shell/target
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Rust stable with both iOS targets
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -27,7 +29,7 @@ jobs:
           components: rustfmt,clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ios/shell
+          workspaces: ios/app -> ../../target
           cache-on-failure: true
       - name: Confirm Apple Silicon and Xcode
         run: |
@@ -35,7 +37,9 @@ jobs:
           xcodebuild -version
           xcrun simctl list runtimes
       - name: Bundle dry run
-        run: python3 ios/scripts/package.py --dry-run
+        run: |
+          python3 ios/scripts/package.py --dry-run
+          python3 ios/scripts/test_pipeline.py
       - name: Build and package unsigned device app
         run: python3 ios/scripts/package.py --mode device
       - name: Upload unsigned iPhone IPA
@@ -51,9 +55,21 @@ jobs:
           IPHONEOS_DEPLOYMENT_TARGET: '15.0'
         run: |
           export SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)"
-          cargo clippy --manifest-path ios/shell/Cargo.toml --locked --target aarch64-apple-ios -- -D warnings
+          export CC="$(xcrun --sdk iphoneos --find clang)"
+          export AR="$(xcrun --sdk iphoneos --find ar)"
+          cargo clippy --manifest-path ios/app/Cargo.toml -p silent-hill-boot --lib --locked --target aarch64-apple-ios -- -D warnings
+          cargo clippy --manifest-path ios/app/Cargo.toml --locked --target aarch64-apple-ios -- -D warnings
       - name: Build simulator app (local ad-hoc signature only)
         run: python3 ios/scripts/package.py --mode simulator
+      - name: Check simulator Rust (and native C) with Clippy
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+        run: |
+          export SDKROOT="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          export CC="$(xcrun --sdk iphonesimulator --find clang)"
+          export AR="$(xcrun --sdk iphonesimulator --find ar)"
+          cargo clippy --manifest-path ios/app/Cargo.toml -p silent-hill-boot --lib --locked --target aarch64-apple-ios-sim -- -D warnings
+          cargo clippy --manifest-path ios/app/Cargo.toml --locked --target aarch64-apple-ios-sim -- -D warnings
       - name: Boot, install, launch, verify and screenshot
         run: python3 ios/scripts/simulator.py
       - name: Upload simulator evidence (also on failure)
@@ -64,5 +80,6 @@ jobs:
           path: |
             ios/out/simulator/*.png
             ios/out/simulator/*.log
+            ios/out/simulator/*.txt
           if-no-files-found: warn
           retention-days: 14
