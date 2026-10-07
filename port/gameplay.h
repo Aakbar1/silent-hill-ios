@@ -50,10 +50,8 @@ void Lm_MaterialFlagsApply(s_LmHeader* lm);
 void Model_MaterialFlagsApply(s_ModelHeader* model,s32 index,const s_Material* mat,s32 flags);
 enum {UnkGfxEnum_0=0,CollisionTriggerFlag_Map=1,HarryBone_Root=0,HarryBone_Torso=1,
     ItemToggleFlag_FlashlightOff=2,InvItemGroup_MeleeWeapons=4,InvItemGroup_GunWeapons=5,
-    InvItemId_KitchenKnife=128,InvItemId_HealthDrink=32,PlayerCutsceneState_RunForward=0,
+    PlayerCutsceneState_RunForward=0,
     GameDifficulty_Normal=0};
-#define playerExtra g_SysWork.playerWork.extra
-#define playerCombat g_SysWork.playerCombat
 #define DEFAULT_PLAYER_CYLINDER_FIELD_2 Q12(0.23f)
 #define INV_ITEM_GROUP(id) ((id)>>5)
 #define Math_Vector3Set(p,x,y,z) ((p)->vx=(x),(p)->vy=(y),(p)->vz=(z))
@@ -92,4 +90,13 @@ void SysWork_SavegameReadPlayer(void);
 GsCOORDINATE2* vwGetViewCoord(void);
 s32 Lzc(s32 value);
 void port_world_boot_note(void);
+void port_harry_empty_hand(void);
+void WorldGfx_HarryMeshSwap(s_Skeleton* skeleton,s32 status);
+void func_80045468(s_Skeleton* skeleton,s32* indices,bool visible);
+void func_8007E9C4(void);
+void func_8004C564(u8 arg0,s8 attack);
+void func_8008B398(void);
+void port_player_spawn_note(void);
+void Sd_SfxStop(u16 sound);
+void Screen_BackgroundMotionBlur(s32 mode);
 #endif

@@ -95,14 +95,14 @@ s32 Game_StateStepSet(s32 index,s32 value) {
     if (!index) g_SysWork.gameStateStepCounter=0;
     return value;
 }
-// PORT: Only B_KONAMI is integrated. Other overlays need native descriptors.
+// PORT: Screens and migrated map descriptors select native namespaces.
 static u32 active_dynamic_overlay;
 int port_overlay_activate(u32 file_id) {
     switch (file_id) {
         case FILE_1ST_B_KONAMI_BIN: sh_b_konami_reset(); break;
         case FILE_VIN_STREAM_BIN: sh_stream_reset(); break;
         case FILE_VIN_OPTION_BIN: sh_option_reset(); break;
-        default: return 1;
+        default: if(port_map_activate(file_id)) return 1; break;
     }
     active_dynamic_overlay=file_id; return 0;
 }
@@ -144,8 +144,18 @@ void Fs_QueueUpdate(void) {
     u32 type=g_FileTable[job.file].type;
     // PORT: Pointer-bearing records are decoded to separately owned native
     // graphs. ANM headers likewise hold checked native pose/keyframe pointers.
-    if (type==FileType_Anm || type==FileType_Plm || type==FileType_Ilm) {
+    if(type==FileType_Anm && job.destination==FS_BUFFER_4) {
+        // PORT: FS_BUFFER_4 is a frame block within the original player ANM
+        // arena, not a second ANM header. Publish a bounded owned frame patch.
+        if(job.has_image || port_player_map_anim_load((u32)job.file,(s_AnmHeader*)FS_BUFFER_0)) longjmp(stop,2);
+    } else if (type==FileType_Ipd) {
+        if(job.has_image || port_asset_load_ipd((u32)job.file,(s_IpdHeader*)job.destination,g_MapOverlayHdr.mapInfo->plmFileIdx)) longjmp(stop,2);
+    } else if (type==FileType_Anm || type==FileType_Plm || type==FileType_Ilm) {
         if (job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
+    } else if(job.file>=FILE_VIN_MAP0_S00_BIN && job.file<=FILE_VIN_MAP7_S03_BIN) {
+        // PORT: Native map descriptors contain only compiled GPL C data.
+        // Reading an overlay's machine code cannot initialize native objects.
+        if(port_overlay_activate((u32)job.file)) port_unimplemented("map overlay not linked");
     } else if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
     printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.has_image?" TIM":"");
     if (job.file==FILE_1ST_B_KONAMI_BIN || job.file==FILE_VIN_STREAM_BIN || job.file==FILE_VIN_OPTION_BIN) {
@@ -295,7 +305,7 @@ STUB0(Demo_GameRandSeedSet) STUB0(Demo_PresentIntervalUpdate) STUB0(Game_WarmBoo
 STUB0(MemCard_SysInit) STUB0(MemCard_SysEnable) STUB0(MemCard_InitStatus) STUB0(MemCard_Update)
 STUB0(ItemScreen_TmdGsFCallInit) STUB0(func_800890B8) STUB0(SD_Init) STUB1(SD_Call)
 STUB0(Sd_TaskPoolExecute) STUB1(func_80089090) STUB0(func_80089128) STUB0(func_8008D78C)
-STUB0(GameFs_BgItemLoad) STUB1(Map_EffectTexturesLoad)
+STUB0(GameFs_BgItemLoad)
 STUB0(nullsub_800334C8)
 STUB1(Demo_SequenceAdvance) STUB0(Demo_DemoDataRead)
 void Sd_GlobalVolumeSet(s32 maximum,s32 music,s32 effects) {(void)maximum;(void)music;(void)effects;} // PORT: Silent fallback; libsd volume application is pending.

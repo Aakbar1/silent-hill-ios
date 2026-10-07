@@ -1,4 +1,5 @@
-# Complete WorldInit, then reproduce the native map-descriptor guard (not a passing milestone).
+# Historical input path for NORMAL New Game. The old map-descriptor guard is now passed.
+# Use new-game-opening.txt for the opening movie and new-game-opening-skip.txt for the current blocker.
 0 0000
 1400 0008
 1401 0000

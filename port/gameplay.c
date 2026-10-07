@@ -81,3 +81,22 @@ void port_world_boot_note(void) {
         g_SysWork.playerWork.player.health,g_ActiveCollisionTriggers.flags,
         g_WorldEnvWork.fog.nearDistance,g_WorldEnvWork.fog.farDistance);
 }
+void port_harry_empty_hand(void) {
+    WorldGfx_HarryMeshSwap(&g_WorldGfxWork.harryModel.skeleton,MESH_SWAP_STATUS(HarrySwappableMesh_None,HarryVariantMesh_RightHandEmpty));
+}
+void port_player_spawn_note(void) {
+    const s_SubCharacter* player=&g_SysWork.playerWork.player;
+    printf("PLAYER_SPAWN map=%d xyz=(%d,%d,%d) heading=%d camera_heading=%d loading=%d\n",
+        g_SavegamePtr->mapIdx,player->position.vx,player->position.vy,player->position.vz,
+        player->rotation.vy,g_SysWork.cameraAngleY,g_SysWork.loadingScreenIdx);
+}
+// PORT: Startup stops the four weapon gas SFX in the original func_8008B398.
+// The native sound task bridge already accepts these stop commands.
+void func_8008B398(void) {
+    g_SysWork.field_275C=0;g_SysWork.field_2760=0;g_SysWork.field_2764=0;
+    for(u16 sound=1300;sound<=1303;sound++) Sd_SfxStop(sound);
+}
+// PORT: The current native sound task bridge logs SFX requests. Keep stop
+// requests separate from SD_Call play commands until SFX voice linkage exists.
+void Sd_SfxStop(u16 sound) { printf("SFX_STOP %u (native SFX voice linkage pending)\n",sound); }
+void Screen_BackgroundMotionBlur(s32 mode) {(void)mode;port_unimplemented("Screen_BackgroundMotionBlur/native world renderer");}

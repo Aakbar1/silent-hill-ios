@@ -15,7 +15,7 @@ def between(text, start, end):
 
 
 def function(text, name):
-    match = re.search(r'^(?:static\s+)?(?:inline\s+)?(?:void|s32|u32|s8|s16|bool)\s+' + re.escape(name) + r'\([^;{}]*\)[^{;]*\{', text, re.M)
+    match = re.search(r'^(?:static\s+)?(?:inline\s+)?(?:void|s32|u32|s8|u8|s16|u16|bool)\s+' + re.escape(name) + r'\([^;{}]*\)[^{;]*\{', text, re.M)
     if not match:
         raise ValueError(f'missing pinned function {name}')
     # Ignore braces in comments/literals while preserving their source positions.
@@ -38,7 +38,7 @@ def generate(decomp, out):
     data = ['/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n',
             '// PORT: Native work records with host pointers; never disk views.\n',
             '#ifndef SH_NATIVE_GAMEPLAY_RECORDS_H\n#define SH_NATIVE_GAMEPLAY_RECORDS_H\n',
-            'typedef s16 q4_12; typedef s16 q7_8; typedef s32 q23_8;\n',
+            'typedef s16 q4_12; typedef s16 q7_8; typedef s32 q23_8; typedef s16 q11_4; typedef s32 q27_4; typedef u32 q24_8; typedef s8 q0_7;\n',
             'typedef struct {u32 flg;MATRIX coord,workm;void* param;struct _GsCOORDINATE2* super;struct _GsCOORDINATE2* sub;} ShCoordinatePlaceholder;\n']
     # Preserve the original coordinate tag used by animation callbacks.
     data[-1] = 'typedef struct _GsCOORDINATE2 {u32 flg;MATRIX coord,workm;void* param;struct _GsCOORDINATE2* super;struct _GsCOORDINATE2* sub;} GsCOORDINATE2;\nSTATIC_ASSERT_SIZEOF(GsCOORDINATE2,96);\n'
@@ -74,18 +74,19 @@ def generate(decomp, out):
     assets.append(no_includes(read('include/bodyprog/formats/texture.h')))
     assets.append(no_includes(read('include/bodyprog/formats/lm.h')))
     collision = no_includes(read('include/bodyprog/formats/ipd.h'))
-    assets.append(collision[:collision.index('/** @brief IPD file model info.')])
-    assets.append('#endif\n')
+    assets.append(collision)
     assets.append(no_includes(read('include/bodyprog/chara/chara_model.h')))
     text = ''.join(assets)
     for name, old, new in [('s_MeshHeader',24,48),('s_ModelHeader',16,24),('s_Material',24,32),
                            ('s_IpdCollisionData',308,352),('s_Bone',20,40),('s_BoneNode',24,48),
-                           ('s_Skeleton',1356,2712),('s_CharaModel',1376,2736)]:
+                           ('s_Skeleton',1356,2712),('s_CharaModel',1376,2736),
+                           ('s_IpdModelInfo',16,24),('s_IpdModelInstance',36,40),('s_IpdModelBuffer',24,40)]:
         original = f'STATIC_ASSERT_SIZEOF({name}, {old});'
         if text.count(original) != 1:
             raise ValueError(f'upstream native asset declaration drift: {name}')
         text = text.replace(original, f'// PORT: {name} holds decoded native pointers (PS1 size {old}).\nSTATIC_ASSERT_SIZEOF({name}, {new});')
     text += 'STATIC_ASSERT_SIZEOF(s_LmHeader,40);\nSTATIC_ASSERT_SIZEOF(s_ModelInfo,32);\n#endif\n'
+    text += 'STATIC_ASSERT_SIZEOF(s_IpdHeader,464);\n_Static_assert(offsetof(s_IpdHeader,collisionData)==112,"native IPD collision");\n_Static_assert(offsetof(s_IpdModelInfo,modelHdr)==16,"native IPD model");\n_Static_assert(offsetof(s_IpdModelBuffer,modelInstances)==16,"native IPD instances");\n_Static_assert(offsetof(s_IpdCollisionData,subcellCheckIdxs)==92,"native collision checks");\n'
     text += '_Static_assert(offsetof(s_LmHeader,materials)==8,"native LM materials");\n_Static_assert(offsetof(s_LmHeader,modelHdrs)==24,"native LM models");\n_Static_assert(offsetof(s_ModelHeader,meshHdrs)==16,"native model meshes");\n_Static_assert(offsetof(s_MeshHeader,primitives)==8,"native mesh primitives");\n_Static_assert(offsetof(s_AnmHeader,bindPoses)==24,"native ANM poses");\n_Static_assert(offsetof(s_AnmHeader,keyframes)==32,"native ANM frames");\n'
     (out / 'native_asset_records.h').write_text(text)
     env = between(read('include/bodyprog/gfx/world.h'), 'typedef struct _Fog', '#endif')
@@ -95,21 +96,22 @@ def generate(decomp, out):
     selections = {
         'src/bodyprog/world/bodyprog_anim_800445A4.c':['Anim_BoneInit'],
         'src/bodyprog/world/bodyprog_bone_80044F14.c':['Bone_ModelIdxGet','Skeleton_Init','func_80045014',
-            'func_8004506C','func_80045108','Skeleton_BoneModelAssign','func_80045258','func_800452EC','func_800453E8'],
+            'func_8004506C','func_80045108','Skeleton_BoneModelAssign','func_80045258','func_800452EC','func_800453E8','func_80045468'],
         'src/bodyprog/gfx/materials.c':['Lm_MaterialFileIdxApply','Lm_MaterialFsImageApply','Material_FsImageApply',
             'Lm_MaterialFlagsApply','Model_MaterialFlagsApply','LmHeader_ModelCountGet','Bone_ModelAssign'],
         'src/bodyprog/world/world_draw.c':['WorldGfx_HarryCharaLoad','Chara_FsImageCalc','WorldGfx_PlayerModelProcessLoad','WorldGfx_CharaModelProcessLoad',
-            'World_Init','WorldGfx_HeldItemModelFree','WorldGfx_CharaModelsFree','Chara_ModelFree','WorldObjects_Clear'],
+            'World_Init','WorldGfx_HeldItemModelFree','WorldGfx_CharaModelsFree','Chara_ModelFree','WorldObjects_Clear','WorldGfx_HarryMeshSwap'],
         'src/bodyprog/world/world_effects.c':['Game_FlashlightAttributesFix','Game_TurnFlashlightOn','Game_TurnFlashlightOff'],
         'src/bodyprog/events/game_sys_states.c':['SysWork_SavegameReadPlayer'],
-        'src/bodyprog/player_control.c':['Game_PlayerInfoInit'],
-        'src/bodyprog/game_boot/game_boot.c':['GameBoot_WorldInit'],
+        'src/bodyprog/game_boot/game_boot.c':['GameBoot_WorldInit','GameBoot_MapLoad','GameState_LoadScreen_Update','GameBoot_LoadingScreen'],
         'src/bodyprog/gfx/bodyprog_80055028.c':['WorldEnv_Init','WorldEnv_FogDistanceSet'],
         'src/bodyprog/world/bodyprog_80040B74.c':['func_80040BAC'],
         'src/bodyprog/gfx/billboard_draw.c':['func_8005B55C'],
         'src/bodyprog/collision/collision.c':['Collision_Init','Collision_FlagsSet'],
+        'src/bodyprog/player_control.c':['Game_PlayerInfoInit','GameFs_PlayerMapAnimLoad'],
     }
     source.append('static PACKET g_Map_GfxPackets[2][0xA10];\nstatic GsCOORDINATE2* g_ViewCoord;\n')
+    source.append('static void GameBoot_LoadingScreen(void);\nstatic s32 g_MapAreaLoadCounter;\n')
     source.append(between(read('src/bodyprog/gfx/billboard_draw.c'), 's_800AE204 D_800AE204', '// Used in `Gfx_BillboardDraw`'))
     source.append(between(read('src/bodyprog/gfx/bodyprog_80055028.c'), 's32 D_800AE1C0[]', '// ========================================'))
     for path, names in selections.items():
@@ -117,6 +119,16 @@ def generate(decomp, out):
         source.append(f'#line 1 "{path}"\n')
         for name in names:
             code = function(original, name)
+            if name == 'func_80045468':
+                code = code.replace('Bone_ModelIdxGet(arg1,', 'Bone_ModelIdxGet((s8*)arg1,').replace('1 << 31', '1u << 31')
+            if name == 'GameFs_PlayerMapAnimLoad':
+                code = code.replace('g_GameWork.mapAnimIdx = mapIdx', 'g_GameWork.mapAnimIdx = (s8)mapIdx')
+            if name == 'GameBoot_MapLoad':
+                code = code.replace('g_OvlDynamic', 'port_overlay_dynamic')
+            if name == 'GameState_LoadScreen_Update':
+                for sfx in (1501,1502):
+                    assert f'Sfx_Unk{sfx} = {sfx}' in read('include/bodyprog/sound/sfx_id_enum.h')
+                    code=code.replace(f'Sfx_Unk{sfx}',str(sfx))
             # PORT: Native-width pointers and explicit PS1 field narrowing.
             replacements = {
                 'translationInitial[i] << anmHdr->scaleLog2':'translationInitial[i] * (s32)(1u << anmHdr->scaleLog2)',
@@ -162,7 +174,13 @@ def generate(decomp, out):
             if name == 'GameBoot_WorldInit':
                 code = code[:code.rindex('}')] + '\n    port_world_boot_note();\n}\n'
             code = re.sub(r'(\*\(u16\*\)&curPrim->u[0-3]) = (field_14 \+ .*?);', r'\1 = (u16)(\2);', code)
+            # PORT: Upstream source-local aliases must not rewrite qualified
+            # member names in unrelated generated functions.
+            aliases = [name for name in ('playerExtra', 'playerCombat') if re.search(r'(?<!\.)\b' + name + r'\b', code)]
+            for alias in aliases:
+                source.append(f'#define {alias} g_SysWork.' + ('playerWork.extra' if alias == 'playerExtra' else 'playerCombat') + '\n')
             source.append(code)
+            source.extend(f'#undef {alias}\n' for alias in aliases)
     (out / 'gameplay_consumers.c').write_text(''.join(source))
 
 

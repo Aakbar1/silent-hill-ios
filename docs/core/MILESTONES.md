@@ -1,8 +1,8 @@
-# core2 replay evidence
+# core4 replay evidence
 
 The requested pass is incomplete: movie playback works, OPTION is linked, and title/difficulty selection works; SAVELOAD, STF_ROLL, opening gameplay and all map transitions remain open.
 
-`tools/milestones.cmd` builds release C with /W4 /WX. Its default full-brief gate exits 2 while required milestones are pending. `tools/milestones.cmd --available --repeat 2` runs the implemented suite headlessly, with no live input or wall-clock pacing, in fresh processes. It checks exit 0, exact tick count/state/step, applicable menu selections/movie counters, and at least 1000 nonblack pixels. Repeated runs must produce identical PNG SHA-256 values. These are native determinism checks, not original-PS1 golden-image comparisons. Each replay has a 180-second process timeout.
+`tools/milestones.cmd` builds release C with /W4 /WX. Its default full-brief gate exits 2 while required milestones are pending. `tools/milestones.cmd --available --repeat 2` runs the implemented suite headlessly with audio explicitly off, no live input or wall-clock pacing, in fresh processes. It checks exit 0, exact tick count/state/step, applicable menu selections/movie counters, and at least 1000 nonblack pixels. Repeated runs must produce identical PNG SHA-256 values. These are native determinism checks; PS1 golden-image comparisons and audible playback remain unverified. Each replay has a 180-second process timeout.
 
 | Replay | Ticks | Expected endpoint |
 |---|---:|---|
@@ -11,6 +11,7 @@ The requested pass is incomplete: movie playback works, OPTION is linked, and ti
 | movie-intro.txt | 9800 | natural movie end, 2060 decoded frames, title state 7 / step 1 |
 | title.txt | 1650 | Start skip after 22 decoded frames, visible title |
 | new-game-menu.txt | 1650 | original difficulty selector, menu 3 |
+| new-game-opening.txt | 2200 | original spawn -> opening movie, state 9 / step 0; 153 cumulative movie frames |
 | options.txt | 1850 | OPTION, state 18 / step 1 / EXIT selected |
 | options-reentry.txt | 2500 | OPTION -> title -> OPTION, state 18 / step 1 / EXIT selected |
 | options-brightness.txt | 1750 | brightness screen, state 18 / step 3 |
@@ -18,8 +19,10 @@ The requested pass is incomplete: movie playback works, OPTION is linked, and ti
 
 `--only options-brightness options-controller` selects a debug subset and still requires `--available`; it cannot bypass the full-brief gate. `--disc PATH` overrides the player-owned disc path. Input rows are completed-VBlank tick, active-high pad hex, optional axes; the original game derives clicks and menu pulse timing.
 
-Core3 captures, logs and results.json live under `C:/Claude Projects/Silent Hill iOS/private/work/core3/milestones/<UTC run>/`. The current nine-case suite passed twice (18 runs, 9 matching PNG SHA-256 comparisons) at `20261007T130453535579Z`. No game assets or captures are in Git. Core2 captures are historical. Core3 found and fixed a queued TIM descriptor lifetime bug: the native queue now copies the descriptor on submission, matching the pinned Fs_QueueStartReadTim implementation. The reproduced KCET atlas corruption and failed hash comparison are retained privately at `20261007T130209388924Z`.
+Core4 captures, logs and results.json live under `C:/Claude Projects/Silent Hill iOS/private/work/core4/milestones/<UTC run>/`. Ten cases passed twice (20 runs, 10 matching PNG SHA-256 comparisons) at `20261007T142509849872Z`. No game assets or captures are in Git. Historical core3 evidence remains under private/work/core3, including its queued-TIM lifetime fix and earlier corruption captures.
 
-`new-game-blocker.txt` is a diagnostic replay, excluded from passing milestones. At tick 1650, NORMAL confirmation initializes the original save record and completes GameBoot_WorldInit (23 models/skeleton nodes, 18 bones, health 409600, collision flags 1). GameBoot_MapLoad/native map descriptor then stops with native code 3/process exit 1. This is not a first-map result. Its current private log/capture are `private/work/core3/new-game-map-load-guard.log/png`. No passing first_map.txt was added because no controllable map or player path has been reached. A deliberately wrong title state still exits 1, and the full-brief gate still exits 2.
+`new-game-blocker.txt` retains the historical input path; the descriptor guard is now passed. `new-game-opening.txt` reaches the movie after native descriptor/frame loading and original spawn/reset. Spawn is (-25395,0,657408), heading/initial camera heading 2048; movement and camera follow are unverified. At tick 2200 the 153 cumulative frames comprise 22 intro and 131 opening frames.
+
+`new-game-opening-skip.txt` is excluded from passing milestones. Start at 2201 reaches state 10/step 0, then the original loading dispatcher stops at map0_s00/GameBoot_LoadScreen_PlayerRun at 2204 (native code 3, process exit 1). Private evidence: new-game-opening.png/.log and new-game-world-guard.png/.log under private/work/core4. No first_map.txt pass was added. A deliberately wrong opening endpoint exits 1; the full-brief gate still exits 2.
 
 Native saves: `LOCALAPPDATA/SilentHillIOS/saves/slot-NNN.shs`, 330 stable slot identities (two original cards × 15 files × 11 saves). Each file is the exact 636-byte original save payload, preserving unknown bytes and signed bit patterns. Writes sync a new temporary file then atomically replace the slot. Tests exercise actual Windows replacement and malformed-length rejection. C read/write hooks are bounded; SAVELOAD/memory-card UI and settings persistence remain unconnected, so cards still report absent.

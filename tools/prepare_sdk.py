@@ -5,6 +5,7 @@ import re
 from prepare_option import prepare as prepare_option
 from prepare_gte import generate as prepare_gte
 from prepare_gameplay import generate as prepare_gameplay
+from prepare_maps import prepare as prepare_maps
 
 
 def prepare(decomp: Path, output: Path):
@@ -26,6 +27,7 @@ def prepare(decomp: Path, output: Path):
     prepare_option(decomp, output)
     prepare_gte(decomp, output)
     prepare_gameplay(decomp, output)
+    prepare_maps(decomp, output)
 
 
 if __name__ == "__main__":

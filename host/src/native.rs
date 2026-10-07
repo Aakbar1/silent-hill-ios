@@ -71,6 +71,111 @@ fn host<R>(f: impl FnOnce(&mut Host) -> R) -> R {
 }
 
 #[unsafe(no_mangle)]
+unsafe extern "C" fn port_map_data_read(
+    id: u32,
+    offset: u32,
+    size: u32,
+    destination: *mut u8,
+) -> i32 {
+    if destination.is_null() {
+        return 1;
+    }
+    host(|h| {
+        match h
+            .disc
+            .read_entry_range(id, u64::from(offset), u64::from(size))
+        {
+            Ok(bytes) => {
+                // SAFETY: The generated map loader passes an array of exactly size
+                // bytes. Only numeric room-grid data is read; no code is executed.
+                unsafe {
+                    destination.copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
+                }
+                0
+            }
+            Err(error) => {
+                h.error = Some(error.to_string());
+                1
+            }
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_player_map_anim_load(
+    id: u32,
+    destination: *mut crate::gameplay::NativeAnmHeader,
+) -> i32 {
+    if destination.is_null() {
+        return 1;
+    }
+    host(|h| {
+        let result = (|| {
+            let entry = h.disc.entry(id).map_err(|e| e.to_string())?;
+            if entry.name != "HB_M0S00.ANM" {
+                return Err("map animation fragment identity is not linked".to_owned());
+            }
+            let base = h
+                .disc
+                .entries()
+                .iter()
+                .position(|entry| entry.name == "HB_BASE.ANM")
+                .ok_or("player base animation absent")? as u32;
+            let handle = h.assets.open(&mut h.disc, base)?;
+            let frames = h.disc.read_entry(id).map_err(|e| e.to_string())?;
+            let native = h.assets.patch_player_map_animation(handle, &frames)?;
+            // SAFETY: C passes the player header's native descriptor storage.
+            // The Store retains the patched frame arena for this worker.
+            unsafe {
+                destination.copy_from_nonoverlapping(native, 1);
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(error) => {
+                h.error = Some(error);
+                1
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_asset_load_ipd(
+    id: u32,
+    destination: *mut crate::maps::NativeMapHeader,
+    global_file: i32,
+) -> i32 {
+    if destination.is_null() {
+        return 1;
+    }
+    host(|h| {
+        let result = (|| {
+            let handle = h.assets.open(&mut h.disc, id)?;
+            let globals = if global_file >= 0 {
+                vec![h.assets.open(&mut h.disc, global_file as u32)?]
+            } else {
+                vec![]
+            };
+            let graph = h.assets.native_map(handle, &globals)?;
+            // SAFETY: C supplies a native IPD descriptor destination. Every
+            // pointer refers to separate allocations retained by AssetStore.
+            unsafe {
+                destination.copy_from_nonoverlapping(graph, 1);
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(error) => {
+                h.error = Some(error);
+                1
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
 unsafe extern "C" fn port_read_file(id: u32, bytes: u32, destination: *mut u8) -> i32 {
     host(|h| {
         // PORT: Refuse raw pointer-bearing images at the legacy byte-copy API.

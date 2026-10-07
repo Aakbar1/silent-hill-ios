@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Native load boundary: immutable bytes, decoded graphs and non-reused identities.
 use crate::assets::{self, DecodeError, Dms, Lm, Map};
-use crate::gameplay::{Animation, NativeAnimation, NativeLm, NativeLmHeader};
+use crate::gameplay::{Animation, NativeAnimation, NativeLm, NativeLmHeader, SharedNativeLm};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
@@ -43,8 +43,10 @@ struct Stored {
     file_id: u32,
     kind: AssetKind,
     bytes: Box<[u8]>,
-    lm: Option<NativeLm>,
+    lm: Option<SharedNativeLm>,
     animation: Option<NativeAnimation>,
+    map: Option<crate::maps::NativeMap>,
+    map_globals: Vec<u32>,
 }
 #[derive(Default)]
 pub struct AssetStore {
@@ -83,6 +85,8 @@ impl AssetStore {
             bytes: bytes.into_boxed_slice(),
             lm: None,
             animation: None,
+            map: None,
+            map_globals: Vec::new(),
         }));
         Ok(handle)
     }
@@ -199,9 +203,11 @@ impl AssetStore {
                 NativeAsset::Map(map) => map.lm,
                 _ => return Err("asset is not a model graph".into()),
             };
-            entry.lm = Some(NativeLm::new(&lm));
+            entry.lm = Some(std::rc::Rc::new(std::cell::RefCell::new(NativeLm::new(
+                &lm,
+            ))));
         }
-        Ok(entry.lm.as_mut().unwrap().header.as_mut())
+        Ok(entry.lm.as_ref().unwrap().borrow_mut().header.as_mut())
     }
     pub fn native_animation(
         &mut self,
@@ -217,6 +223,66 @@ impl AssetStore {
             entry.animation = Some(NativeAnimation::new(&anm));
         }
         Ok(entry.animation.as_mut().unwrap().header.as_mut())
+    }
+    pub fn native_map(
+        &mut self,
+        handle: u32,
+        globals: &[u32],
+    ) -> Result<*mut crate::maps::NativeMapHeader, String> {
+        let entry = self.entry(handle)?;
+        if entry.kind != AssetKind::Ipd {
+            return Err("asset is not an IPD graph".into());
+        }
+        if entry.map.is_some() && entry.map_globals != globals {
+            return Err("IPD global source identities changed; close and reopen the map".into());
+        }
+        if entry.map.is_none() {
+            self.native_lm(handle)?;
+            let local = self.entry(handle)?.lm.as_ref().unwrap().clone();
+            let global_models = globals
+                .iter()
+                .map(|&global| {
+                    if !matches!(self.get(global)?, NativeAsset::Lm(_)) {
+                        return Err("IPD global source is not an LM graph".to_owned());
+                    }
+                    self.native_lm(global)?;
+                    Ok(self.entry(global)?.lm.as_ref().unwrap().clone())
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let map = match self.get(handle)? {
+                NativeAsset::Map(map) => crate::maps::NativeMap::new(&map, local, global_models)
+                    .map_err(|e| e.to_string())?,
+                _ => unreachable!(),
+            };
+            self.entries[(handle - 1) as usize].as_mut().unwrap().map = Some(map);
+            self.entries[(handle - 1) as usize]
+                .as_mut()
+                .unwrap()
+                .map_globals = globals.to_vec();
+        }
+        Ok(self.entries[(handle - 1) as usize]
+            .as_mut()
+            .unwrap()
+            .map
+            .as_mut()
+            .unwrap()
+            .header
+            .as_mut())
+    }
+    pub fn patch_player_map_animation(
+        &mut self,
+        handle: u32,
+        bytes: &[u8],
+    ) -> Result<*mut crate::gameplay::NativeAnmHeader, String> {
+        self.native_animation(handle)?;
+        let animation = self.entries[(handle - 1) as usize]
+            .as_mut()
+            .unwrap()
+            .animation
+            .as_mut()
+            .unwrap();
+        animation.patch_map_frames(bytes)?;
+        Ok(animation.header.as_mut())
     }
 }
 #[derive(Default, Debug)]

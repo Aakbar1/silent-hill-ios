@@ -32,7 +32,7 @@ def main():
         if unknown:
             raise SystemExit("unknown milestones: " + ", ".join(sorted(unknown)))
         cases = [case for case in cases if case["name"] in args.only]
-    private = root.parent.parent / "private/work/core3"
+    private = root.parent.parent / "private/work/core4"
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     executable = root / "target/release/silent-hill-boot.exe"
@@ -44,7 +44,7 @@ def main():
         for repeat in range(args.repeat):
             stem = case["name"] + f"-{repeat+1}"
             screenshot = output / (stem + ".png")
-            command = [str(executable), "--headless", "--frames", str(case["frames"]), "--input", str(replays / case["input"]), "--screenshot", str(screenshot)]
+            command = [str(executable), "--headless", "--audio", "off", "--frames", str(case["frames"]), "--input", str(replays / case["input"]), "--screenshot", str(screenshot)]
             if args.disc:
                 command += ["--disc", str(args.disc.resolve())]
             for key, flag in flags.items():
