@@ -1,0 +1,16 @@
+[package]
+name = "sys-combat"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+build = "build.rs"
+
+# PORT: This checkout lacks the brief's root crates/* glob. Keep the harness
+# independent until the director registers it; do not edit core's Cargo files.
+[workspace]
+
+[dependencies]
+psxdisc = { path = "../psxdisc" }
+
+[build-dependencies]
+cc = "1.2"
