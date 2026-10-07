@@ -1,6 +1,23 @@
 ﻿# core2 checkpoint
 
-## Goal and constraints
+## Active core3 work
+Branch lane/core3. Goal: exact GTE, native world bootstrap, opening map walking,
+43 map overlays and area transitions. Own host (except gpu_wgpu.rs, spu_cpal.rs,
+pad_touch.rs, platform_ios.rs), port, non-submodule game, tools, docs/core and
+root Cargo files. Submodule initialised at d9e28f8315c7938117224f21516786d9d149a145.
+Game bytes and captures must remain under private/work/core3.
+
+GTE step: host delegates PsyQ/COP2 to psxgpu's native C engine, with exact
+integer results by default. Build-time SDK macro lowering covers transfer,
+command and composite helpers; 65 command variants cover all 22 commands and
+match direct engine register results. `--features precise-vertices` adds optional
+polygon metadata without changing logic or integer flags. Backends can opt into
+the backward-compatible packet_precise hook; the menu raster ignores metadata.
+Standalone psxgpu/psxspu workspaces are excluded by the root manifest rather than
+edited. fmt, workspace/all-targets clippy -D warnings and workspace tests passed;
+the three GTE tests also pass with precise-vertices. First map remains unproven.
+
+## Inherited core2 goal and constraints
 Reach title -> New Game -> first controllable opening map, then two area transitions/back and all 43 overlays. Own only the core2 brief paths. Branch lane/core2; no merge/push/main edits or system installs. Decomp d9e28f8315c7938117224f21516786d9d149a145 is read-only. Game bytes/captures remain outside Git under private/work/core2.
 
 ## Current result

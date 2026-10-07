@@ -229,7 +229,11 @@ unsafe extern "C" fn port_draw_packet(words: *const u32, count: u32) {
     }
     // SAFETY: C supplies a packet allocated by the real boot code, with its length tag.
     let packet = unsafe { std::slice::from_raw_parts(words, count as usize) };
-    host(|state| state.gpu.packet(packet));
+    let positions = crate::gte::packet_positions(words, packet);
+    host(|state| match positions {
+        Some(positions) => state.gpu.packet_precise(packet, &positions),
+        None => state.gpu.packet(packet),
+    });
 }
 #[unsafe(no_mangle)]
 extern "C" fn port_draw_env(x: i32, y: i32, w: i32, h: i32, ox: i32, oy: i32) {

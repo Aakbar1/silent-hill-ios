@@ -283,7 +283,6 @@ void Sd_GlobalVolumeSet(s32 maximum,s32 music,s32 effects) {(void)maximum;(void)
 #define STUB_RETURN(name,type,value) type name(void) {static bool seen;if (!seen) {printf("STUB " #name "\n");seen=true;}return value;}
 STUB_RETURN(CdInit,int,1) STUB_RETURN(MainLoop_ShouldWarmReset,s32,0)
 STUB_RETURN(MemCard_ElementsUpdate,bool,true) STUB_RETURN(Sd_AudioStreamingCheck,s32,0)
-STUB0(InitGeom)
 void SpuInit(void) { port_spu_reset(); printf("SPU backend reset (silent fallback)\n"); }
 // PORT: libpad reads host PadSource packets. Boot uses held bits only; the full
 // game-owned joy/libkpad mode, pulse and vibration algorithms remain to be linked.

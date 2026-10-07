@@ -1530,6 +1530,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "psxgpu"
+version = "0.1.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "psxmedia"
 version = "0.1.0"
 dependencies = [
@@ -1776,6 +1783,7 @@ dependencies = [
  "cc",
  "png",
  "psxdisc",
+ "psxgpu",
  "psxmedia",
  "sh-touch",
  "softbuffer",

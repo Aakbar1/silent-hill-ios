@@ -5,6 +5,7 @@
 #include "overlay.h"
 #include <psyq/libgte.h>
 #include <psyq/libgpu.h>
+#include "gte_native.h"
 // PORT: MSVC allocates mixed-type PsyQ GsOT_TAG bitfields as 8 bytes. Keep the wire tag 4 bytes.
 typedef u8 PACKET;
 typedef u32 GsOT_TAG;
