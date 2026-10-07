@@ -1,0 +1,68 @@
+name: iOS unsigned IPA and simulator
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # macos-15 is Apple Silicon; the arm64 simulator cannot run on an Intel host.
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/ios/shell/target
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust stable with both iOS targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+          components: rustfmt,clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ios/shell
+          cache-on-failure: true
+      - name: Confirm Apple Silicon and Xcode
+        run: |
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - name: Bundle dry run
+        run: python3 ios/scripts/package.py --dry-run
+      - name: Build and package unsigned device app
+        run: python3 ios/scripts/package.py --mode device
+      - name: Upload unsigned iPhone IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SilentHillPort-unsigned-ipa
+          path: ios/out/device/SilentHillPort-unsigned.ipa
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Compile iOS-specific code with Clippy
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+        run: |
+          export SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)"
+          cargo clippy --manifest-path ios/shell/Cargo.toml --locked --target aarch64-apple-ios -- -D warnings
+      - name: Build simulator app (local ad-hoc signature only)
+        run: python3 ios/scripts/package.py --mode simulator
+      - name: Boot, install, launch, verify and screenshot
+        run: python3 ios/scripts/simulator.py
+      - name: Upload simulator evidence (also on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SilentHillPort-simulator-evidence
+          path: |
+            ios/out/simulator/*.png
+            ios/out/simulator/*.log
+          if-no-files-found: warn
+          retention-days: 14

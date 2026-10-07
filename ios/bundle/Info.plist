@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.bramley.silenthillport</string>
+  <key>CFBundleExecutable</key><string>silenthill-shell</string>
+  <key>CFBundleName</key><string>SilentHillPort</string>
+  <key>CFBundleDisplayName</key><string>Silent Hill Port</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>MinimumOSVersion</key><string>15.0</string>
+  <key>LSRequiresIPhoneOS</key><true/>
+  <key>UIDeviceFamily</key><array><integer>1</integer></array>
+  <key>UISupportedInterfaceOrientations</key><array>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>UIRequiresFullScreen</key><true/>
+  <key>UIStatusBarHidden</key><true/>
+  <key>UIViewControllerBasedStatusBarAppearance</key><true/>
+  <key>UILaunchStoryboardName</key><string>LaunchScreen</string>
+  <key>UIFileSharingEnabled</key><true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key><true/>
+  <key>CFBundleDocumentTypes</key><array><dict>
+    <key>CFBundleTypeName</key><string>Player-owned disc image</string>
+    <key>CFBundleTypeRole</key><string>Viewer</string>
+    <key>LSHandlerRank</key><string>Alternate</string>
+    <key>LSItemContentTypes</key><array>
+      <string>com.bramley.silenthillport.disc-bin</string>
+      <string>com.bramley.silenthillport.disc-cue</string>
+    </array>
+    <key>CFBundleTypeExtensions</key><array><string>bin</string><string>cue</string></array>
+  </dict></array>
+  <key>UTExportedTypeDeclarations</key><array>
+    <dict>
+      <key>UTTypeIdentifier</key><string>com.bramley.silenthillport.disc-bin</string>
+      <key>UTTypeDescription</key><string>Raw disc image</string>
+      <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>bin</string></array></dict>
+    </dict>
+    <dict>
+      <key>UTTypeIdentifier</key><string>com.bramley.silenthillport.disc-cue</string>
+      <key>UTTypeDescription</key><string>Disc cue sheet</string>
+      <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>cue</string></array></dict>
+    </dict>
+  </array>
+</dict></plist>
