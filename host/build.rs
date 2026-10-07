@@ -123,6 +123,36 @@ fn main() {
     fs::create_dir_all(generated.join("psyq")).expect("generated SDK directory");
     println!(
         "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_gte.py").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        decomp.join("include/psyq/inline_c.h").display()
+    );
+    let gte = std::process::Command::new("python")
+        .arg(repo.join("tools/prepare_gte.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate native PsyQ GTE");
+    assert!(gte.success(), "native GTE generation failed");
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_gameplay.py").display()
+    );
+    let records = std::process::Command::new("python")
+        .arg(repo.join("tools/prepare_gameplay.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate native gameplay records");
+    assert!(records.success(), "native gameplay generation failed");
+    println!(
+        "cargo:rerun-if-changed={}",
         repo.join("tools/prepare_option.py").display()
     );
     println!(
@@ -601,6 +631,10 @@ fn main() {
         "port/disk32.h",
         "port/layout_check.c",
         "port/title_services.c",
+        "port/gte_native.h",
+        "port/gte_services.c",
+        "port/gameplay.h",
+        "port/gameplay.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
@@ -608,6 +642,10 @@ fn main() {
         .file(repo.join("port/runtime.c"))
         .file(repo.join("port/layout_check.c"))
         .file(repo.join("port/title_services.c"))
+        .file(repo.join("port/gte_services.c"))
+        .file(generated.join("gte_command_probe.c"))
+        .file(generated.join("gameplay_consumers.c"))
+        .file(repo.join("port/gameplay.c"))
         .file(generated.join("sine.c"))
         .file(generated.join("option.c"))
         .define("SH_CHECK_BOOT_LAYOUT", None)

@@ -118,15 +118,21 @@ void port_game_state_next(s32 next) {
 }
 
 // PORT: Asynchronous hardware CD commands are represented by a bounded native job queue.
-typedef struct { s32 file; void* destination; s_FsImageDesc* image; } Job;
+typedef struct { s32 file; void* destination; bool has_image; s_FsImageDesc image; } Job;
 static Job jobs[32];
 static s32 job_first, job_last;
 void Fs_QueueInitialize(void) { job_first=job_last=0; }
 s32 Fs_QueueGetLength(void) { return job_last-job_first; }
-void Fs_QueueStartReadTim(s32 file,void* buffer,s_FsImageDesc* image) {
+s32 Fs_QueueStartReadTim(s32 file,void* buffer,s_FsImageDesc* image) {
     if (job_last-job_first>=32) longjmp(stop,2);
-    jobs[job_last++%32]=(Job){file,buffer,image};
+    // PORT: Match Fs_QueueStartReadTim: capture the descriptor by value. Harry's
+    // descriptor is a local and must not be borrowed past queue submission.
+    Job job={.file=file,.destination=buffer,.has_image=image!=NULL};
+    if(image) job.image=*image;
+    jobs[job_last++%32]=job;
+    return job_last-1;
 }
+bool Fs_QueueIsEntryLoaded(s32 index) {return index>=0 && index<job_first;}
 void Fs_QueueStartRead(s32 file,void* buffer) { Fs_QueueStartReadTim(file,buffer,NULL); }
 void Fs_QueueStartSeek(s32 file) { (void)file; } // PORT: Native archive reads have no drive seek delay.
 static u32 word(const u8* p) { u32 result; memcpy(&result,p,4); return result; }
@@ -135,13 +141,18 @@ void Fs_QueueUpdate(void) {
     Job job=jobs[job_first++%32];
     u32 bytes=(u32)Fs_GetFileSize(job.file);
     u32 lba=g_FileTable[job.file].startSector;
-    if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
-    printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.image?" TIM":"");
+    u32 type=g_FileTable[job.file].type;
+    // PORT: Pointer-bearing records are decoded to separately owned native
+    // graphs. ANM headers likewise hold checked native pose/keyframe pointers.
+    if (type==FileType_Anm || type==FileType_Plm || type==FileType_Ilm) {
+        if (job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
+    } else if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
+    printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.has_image?" TIM":"");
     if (job.file==FILE_1ST_B_KONAMI_BIN || job.file==FILE_VIN_STREAM_BIN || job.file==FILE_VIN_OPTION_BIN) {
         if (port_overlay_activate((u32)job.file)) longjmp(stop,2);
         printf("NATIVE OVERLAY selected; initial data restored (id=%u)\n",active_dynamic_overlay);
     }
-    if (job.image) {
+    if (job.has_image) {
         const u8* p=(const u8*)job.destination;
         const u8* end=p+bytes;
         if (word(p)!=0x10) { fprintf(stderr,"Invalid TIM magic\n"); longjmp(stop,2); }
@@ -150,7 +161,7 @@ void Fs_QueueUpdate(void) {
             u32 length=word(p);
             if (length<12 || p+length>end) longjmp(stop,2);
             RECT rect; memcpy(&rect,p+4,8);
-            rect.x=job.image->clutX; rect.y=job.image->clutY;
+            rect.x=job.image.clutX; rect.y=job.image.clutY;
             if ((u32)rect.w*(u32)rect.h*2>length-12) longjmp(stop,2);
             port_load_vram(rect.x,rect.y,rect.w,rect.h,(const u16*)(p+12));
             p+=length;
@@ -159,12 +170,20 @@ void Fs_QueueUpdate(void) {
         u32 length=word(p);
         RECT rect; memcpy(&rect,p+4,8);
         if (length<12 || p+length>end || (u32)rect.w*(u32)rect.h*2>length-12) longjmp(stop,2);
-        rect.x=(s16)(job.image->u+((job.image->tPage[1]&15)<<6));
-        rect.y=(s16)(job.image->v+((job.image->tPage[1]<<4)&256));
+        rect.x=(s16)(job.image.u+((job.image.tPage[1]&15)<<6));
+        rect.y=(s16)(job.image.v+((job.image.tPage[1]<<4)&256));
         port_load_vram(rect.x,rect.y,rect.w,rect.h,(const u16*)(p+12));
     }
 }
 void Fs_QueueWaitForEmpty(void) { while (Fs_QueueGetLength()) { Fs_QueueUpdate(); VSync(0); } }
+int port_queue_image_probe(void) {
+    s_FsImageDesc image={{0,27},0,0,736,480};
+    Fs_QueueInitialize();Fs_QueueStartReadTim(FILE_CHARA_HERO_TIM,FS_BUFFER_1,&image);
+    memset(&image,0xa5,sizeof(image));
+    int pass=jobs[0].has_image && jobs[0].image.tPage[1]==27 &&
+        jobs[0].image.clutX==736 && jobs[0].image.clutY==480;
+    Fs_QueueInitialize();return pass;
+}
 // PORT: Decrypted overlays are data only. Their C functions are statically linked native code.
 void Fs_DecryptOverlay(s32* dst,const s32* src,s32 bytes) {
     u32 seed=0;
@@ -276,14 +295,13 @@ STUB0(Demo_GameRandSeedSet) STUB0(Demo_PresentIntervalUpdate) STUB0(Game_WarmBoo
 STUB0(MemCard_SysInit) STUB0(MemCard_SysEnable) STUB0(MemCard_InitStatus) STUB0(MemCard_Update)
 STUB0(ItemScreen_TmdGsFCallInit) STUB0(func_800890B8) STUB0(SD_Init) STUB1(SD_Call)
 STUB0(Sd_TaskPoolExecute) STUB1(func_80089090) STUB0(func_80089128) STUB0(func_8008D78C)
-STUB0(WorldGfx_HarryCharaLoad) STUB0(GameFs_BgItemLoad) STUB1(Map_EffectTexturesLoad)
+STUB0(GameFs_BgItemLoad) STUB1(Map_EffectTexturesLoad)
 STUB0(nullsub_800334C8)
 STUB1(Demo_SequenceAdvance) STUB0(Demo_DemoDataRead)
 void Sd_GlobalVolumeSet(s32 maximum,s32 music,s32 effects) {(void)maximum;(void)music;(void)effects;} // PORT: Silent fallback; libsd volume application is pending.
 #define STUB_RETURN(name,type,value) type name(void) {static bool seen;if (!seen) {printf("STUB " #name "\n");seen=true;}return value;}
 STUB_RETURN(CdInit,int,1) STUB_RETURN(MainLoop_ShouldWarmReset,s32,0)
 STUB_RETURN(MemCard_ElementsUpdate,bool,true) STUB_RETURN(Sd_AudioStreamingCheck,s32,0)
-STUB0(InitGeom)
 void SpuInit(void) { port_spu_reset(); printf("SPU backend reset (silent fallback)\n"); }
 // PORT: libpad reads host PadSource packets. Boot uses held bits only; the full
 // game-owned joy/libkpad mode, pulse and vibration algorithms remain to be linked.

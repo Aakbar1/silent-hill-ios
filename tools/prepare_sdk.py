@@ -3,6 +3,8 @@ from pathlib import Path
 import argparse
 import re
 from prepare_option import prepare as prepare_option
+from prepare_gte import generate as prepare_gte
+from prepare_gameplay import generate as prepare_gameplay
 
 
 def prepare(decomp: Path, output: Path):
@@ -22,6 +24,8 @@ def prepare(decomp: Path, output: Path):
     gpu = section("include/gpu.h", "/** @brief 2D screen-space line.", "/** @brief Primitive color.")
     (output / "gpu_records.h").write_text("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n#define RECT_VERT_COUNT 4\n" + gpu)
     prepare_option(decomp, output)
+    prepare_gte(decomp, output)
+    prepare_gameplay(decomp, output)
 
 
 if __name__ == "__main__":

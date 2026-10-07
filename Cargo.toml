@@ -1,5 +1,8 @@
 [workspace]
-members = ["host", "game/compiler-probe", "crates/*", "ios/shell"]
+members = ["host", "game/compiler-probe", "crates/psxdisc", "crates/psxmedia", "crates/touch", "ios/shell"]
+# GPU/SPU lane crates retain their standalone workspaces. Consumers may depend
+# on them without treating their manifests as a second root of this workspace.
+exclude = ["crates/psxgpu", "crates/psxspu"]
 default-members = ["host"]
 resolver = "2"
 

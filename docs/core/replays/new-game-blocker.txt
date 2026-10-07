@@ -1,4 +1,4 @@
-# Reproduce the current New Game world-initialization guard (not a passing milestone).
+# Complete WorldInit, then reproduce the native map-descriptor guard (not a passing milestone).
 0 0000
 1400 0008
 1401 0000

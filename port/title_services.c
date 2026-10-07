@@ -23,7 +23,6 @@ void GameBoot_InGameStartup(void) {
         default: port_unimplemented("GameBoot_InGameStartup/native world loading");
     }
 }
-void GameBoot_WorldInit(void) {port_unimplemented("GameBoot_WorldInit/native model, animation and collision consumers");}
 void GameBoot_MapLoad(s32 map) {(void)map;port_unimplemented("GameBoot_MapLoad/native map descriptor");}
 void Chara_PositionSet(const PortMapPoint* point) {(void)point;port_unimplemented("Chara_PositionSet/native player records");}
 int sh_save_init_probe(void) {

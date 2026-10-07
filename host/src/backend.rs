@@ -7,6 +7,11 @@ use crate::raster::Raster;
 pub trait GpuBackend: Send {
     fn begin_ordering_table(&mut self) {}
     fn packet(&mut self, words: &[u32]);
+    /// Optional unrounded GTE positions, in polygon order. Exact packet words
+    /// remain authoritative. Existing backends can continue consuming only them.
+    fn packet_precise(&mut self, words: &[u32], _positions: &[[f32; 2]]) {
+        self.packet(words);
+    }
     fn end_ordering_table(&mut self) {}
     fn env(&mut self, clip: [i32; 4], offset: [i32; 2]);
     fn load(&mut self, rect: [i32; 4], pixels: &[u16]);
