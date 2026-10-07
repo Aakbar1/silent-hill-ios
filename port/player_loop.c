@@ -16,7 +16,6 @@ void Player_CombatUpdate(s_SubCharacter* player,GsCOORDINATE2* coords) {
 void func_8008A3AC(s_SubCharacter* player) {(void)player;port_unimplemented("func_8008A3AC/native combat slice");}
 void Game_NpcUpdate(void) {port_unimplemented("Game_NpcUpdate/native NPC animation/collision scheduling");}
 void func_8005E89C(void) {port_unimplemented("func_8005E89C/map effects state");}
-void WorldGfx_Draw(s32 pass) {(void)pass;} // PORT: No-draw bridge for the world lane.
 void Player_ReceiveDamage(s_SubCharacter* player,s_PlayerExtra* extra) {
     (void)player;(void)extra;port_unimplemented("Player_ReceiveDamage");
 }

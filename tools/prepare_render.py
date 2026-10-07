@@ -1,13 +1,13 @@
 """Prepare pinned GPL world rendering C, never reading the player's disc.
 
-SPDX-License-Identifier: GPL-3.0-only. Native sidecars preserve the parallel
-player lane's records. Only calls to its explicit rendering guards are rebound.
+SPDX-License-Identifier: GPL-3.0-only. World and player share one environment
+record. Only calls to explicit rendering services are rebound.
 """
 from pathlib import Path
 import argparse
 import re
 import subprocess
-from prepare_gameplay import between, function
+from prepare_gameplay import between, function, prepare_shared_types
 from prepare_camera import narrow, NOTICE
 from prepare_maps import initializer
 
@@ -109,12 +109,14 @@ mod render_milestone {
         });
         // SAFETY: This isolated opt-in test is the sole C worker; jumps remain in C.
         let stopped = unsafe { port_run_game() };
-        assert_eq!(stopped, 3, "retain the unlinked player startup guard");
+        assert_eq!(stopped, 3, "retain the original BGM layer-controller guard");
         host(|h| {
-            assert_eq!((h.frames, h.state, h.step), (2207, 10, 5));
+            // The last presented frame precedes the guarded state 11/step 2 update.
+            assert_eq!((h.frames, h.state, h.step), (2266, 11, 0));
             assert_eq!((h.movie_frames, h.movie_skips), (154, 2));
         });
         // SAFETY: The original game returned before the rendering diagnostic starts.
+        // C also checks the exact guard name, live state/step and VBlank.
         assert_eq!(unsafe { port_capture_render_boundary() }, 0);
         host(|h| {
             assert!(h.error.is_none(), "host error: {:?}", h.error);
@@ -139,11 +141,8 @@ mod render_milestone {
 
 
 def generate(decomp, out):
+    prepare_shared_types(decomp, out)
     def read(path): return (decomp / path).read_text()
-    game = read('include/game.h')
-    effects = between(game, '/** @brief Map effects info.', '/** @brief Main system workspace.')
-    effects = effects.replace('STATIC_ASSERT_SIZEOF(s_SysWork_2388, 392);',
-        '// PORT: Native transition data pointer changes the work-record ABI.\nSTATIC_ASSERT_SIZEOF(s_SysWork_2388, 400);')
     body = read('include/bodyprog/bodyprog.h')
     scratch = between(body, 'typedef struct _GteScratchData', 'typedef struct\n{\n    /* 0x0 */ s8  field_0;')
     scratch2 = between(body, 'typedef struct\n{\n    /* 0x0   */ DVECTOR  screenXy_0', '// Something for inventory items.')
@@ -157,14 +156,9 @@ def generate(decomp, out):
     scratch=scratch.replace('} s_GteScratchData;',extra+'} s_GteScratchData;\ntypedef s_GteScratchData s_GteScratchData2;\n')
     scratch=re.sub(r'/\* 0x[^*]*\*/','',scratch)
     scratch += 'STATIC_ASSERT_SIZEOF(s_GteScratchData,3732);\n_Static_assert(offsetof(s_GteScratchData,screenZ_168)==1024,"native render depths");\n_Static_assert(offsetof(s_GteScratchData,field_21C)==2560,"native render colors");\n'
-    enums = between(body, 'typedef enum _PrimitiveType', 'typedef enum _LoadingScreenId')
-    # Enums containing the named special environment flags are pointer-free.
-    enums += between(game, 'typedef enum _SpecialEnvEventFlags', 'typedef enum _UnkGfxEnum')
-    header = NOTICE + '#ifndef SH_RENDER_GENERATED_H\n#define SH_RENDER_GENERATED_H\n#include "world.h"\n' + enums + effects + scratch
-    header += '\nenum {UnkGfxEnum_1=1,UnkGfxEnum_2=2};\n'
-    header += 'typedef struct {u8 presetIdx0,presetIdx1;} s_MapEnvPresetIdxs;\n'
+    header = NOTICE + '#ifndef SH_RENDER_GENERATED_H\n#define SH_RENDER_GENERATED_H\n#include "world.h"\n#include "shared_types.h"\n' + scratch
     header += between(body,'typedef struct\n{\n    /* 0x0 */ s_800AE204*','} s_800AE4DC;')+'} s_800AE4DC;\nSTATIC_ASSERT_SIZEOF(s_800AE4DC,16);\n'
-    header += 'extern s_SysWork_2388 port_render_env;\nextern s_MapEffectsInfo MAP_EFFECTS_INFOS[21];\nextern s32 D_800AE1C0[];\n'
+    header += 'extern s_MapEffectsInfo MAP_EFFECTS_INFOS[21];\nextern s32 D_800AE1C0[];\n'
     header += 'void SetPriority(void*,s32,s32);void port_render_world_objects(s_WorldGfxWork*);void port_render_held_item(void);\n'
     sources = []
     selections = {
@@ -190,7 +184,8 @@ def generate(decomp, out):
     for path, names in selections.items():
         for name in names:
             code = function(read(path), name).removeprefix('static ')
-            code = code.replace('g_SysWork.field_2388', 'port_render_env')
+            # PORT: Share the player's appended environment work; keep earlier FFI offsets.
+            code = code.replace('g_SysWork.field_2388', 'g_SysWork.gameplayEnvironment')
             if name=='Gfx_BillboardDraw':
                 code=code.replace('g_ViewCoord','vwGetViewCoord()')
                 code=code.replace('func_8005A478(&sp90,','func_8005A478((s_GteScratchData*)&sp90,').replace('func_8005A838(&sp90,','func_8005A838((s_GteScratchData*)&sp90,')
@@ -221,7 +216,7 @@ def generate(decomp, out):
             if name=='func_80057A3C':code=code.replace('SVECTOR3* arg3)', 'SVECTOR* arg3)')
             code = code.replace('ApplyMatrixLV(&viewMat, &g_SysWork.lightPosition,', 'ApplyMatrixLV(&viewMat, (VECTOR*)&g_SysWork.lightPosition,')
             if name == 'Gfx_EffectsUpdate':
-                code = code.replace('{\n', '{\n    port_render_env.isFlashlightOn = g_SysWork.field_2388.isFlashlightOn;\n', 1)
+                code = code.replace('{\n', '{\n    g_SysWork.gameplayEnvironment.isFlashlightOn = g_SysWork.field_2388.isFlashlightOn;\n', 1)
             code = code.replace('WorldObjects_DrawAllObjects(', 'port_render_world_objects(')
             code = code.replace('WorldGfx_HeldItemDraw(', 'port_render_held_item(')
             code = code.replace('CHARA_FILE_INFOS[charaId].field_6', 'CHARA_FILE_INFOS[charaId].cameraOffsetY')
@@ -256,9 +251,9 @@ def generate(decomp, out):
             # PORT: Generic field_N names belong to unrelated records of
             # different widths. Do not infer their type across record scopes.
             view=re.sub(r'\b(q3_12|q7_8|q11_4|u8|s8|s16|u16)\s+(field_\w+)\s*;',
-                r'\1 port_hidden_\2;',header + read('include/bodyprog/gfx/world.h'))
+                r'\1 port_hidden_\2;',header + (out / 'shared_types.h').read_text() + read('include/bodyprog/gfx/world.h'))
             code = narrow(code, view)
-            code = code.replace('port_render_env.field_4 = (u8)(primData)', 'port_render_env.field_4 = (s8*)primData')
+            code = code.replace('g_SysWork.gameplayEnvironment.field_4 = (u8)(primData)', 'g_SysWork.gameplayEnvironment.field_4 = (s8*)primData')
             code = re.sub(r'^(\s*\w+(?:(?:->|\.)\w+|\[[^]]+\])*(?:->|\.)[rgb][0-3]?\s*=(?!=))\s*([^;]+);',r'\1 (u8)(\2);',code,flags=re.M)
             code = re.sub(r'(flags\.field_00\[[^]]+\]\s*=(?!=))\s*([^;]+);',r'\1 (u8)(\2);',code)
             code = re.sub(r'(effectsInfo\.field_E\s*=(?!=))\s*([^;]+);',r'\1 (u8)(\2);',code)
@@ -297,7 +292,7 @@ def generate(decomp, out):
     constants += 'extern s_800AE204 D_800AE204[26];\n'
     constants += initializer(read('src/bodyprog/gfx/billboard_draw.c'),'D_800AE4DC')
     constants += initializer(read('src/bodyprog/gfx/billboard_draw.c'),'D_800AE500')
-    (out / 'render_consumers.c').write_text(NOTICE + '#include "render_generated.h"\n#include "render_services.h"\n#include "render_gte.h"\nstatic s_GteScratchData port_render_scratch;\ns_SysWork_2388 port_render_env;\n' + constants + ''.join(sources))
+    (out / 'render_consumers.c').write_text(NOTICE + '#include "render_generated.h"\n#include "render_services.h"\n#include "render_gte.h"\nstatic s_GteScratchData port_render_scratch;\n' + constants + ''.join(sources))
     # PORT: Bind only rendering calls in generated GPL callers. Player source and
     # its fail-closed guards remain intact and available to the parallel lane.
     path = out / 'gameplay_consumers.c'

@@ -37,7 +37,8 @@ def prepare(decomp, output):
     def read(path):
         return (decomp / path).read_text(encoding='utf-8')
     game = read('include/game.h')
-    constants = ''.join(enumeration(game, name) for name in ['PaperMapIdx', 'SysState', 'ProcessFlags', 'SysFlags','SpecialEnvEventFlags','UnkGfxEnum'])
+    constants = '#include "shared_types.h"\n'
+    constants += ''.join(enumeration(game, name) for name in ['PaperMapIdx', 'SysState', 'ProcessFlags', 'SysFlags'])
     constants += enumeration(read('include/bodyprog/items.h'), 'InvItemLoadFlags')
     constants += enumeration(read('include/bodyprog/bodyprog.h'), 'LoadingScreenId')
     constants += enumeration(read('include/bodyprog/items.h'), 'InvItemId')

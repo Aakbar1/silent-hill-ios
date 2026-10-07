@@ -204,8 +204,8 @@ fn main() {
         .status()
         .expect("generate OPTION native state");
     assert!(option.success(), "OPTION state generation failed");
-    // PORT: Rendering prep binds only rendering guards in generated callers;
-    // the parallel player lane's source and work records remain untouched.
+    // PORT: Rendering prep shares the player's environment declarations/work;
+    // only rendering services in generated callers are rebound.
     println!(
         "cargo:rerun-if-changed={}",
         repo.join("tools/prepare_render.py").display()

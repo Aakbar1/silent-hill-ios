@@ -4,6 +4,8 @@
 
 Reference remains `d9e28f8315c7938117224f21516786d9d149a145`, GPL-3.0-only, Copyright (C) 2026 shdecompilations. Generation reads pinned source, never owned executable bytes. Extracted data and replay captures remain outside Git in `../../private/work/player/`. No renderer/world lane files, dependencies, main branch or system installation were changed.
 
+World/player merge reconciliation: [RECONCILE.md](RECONCILE.md). Shared declarations now come from generated `shared_types.h`, including the original two-byte `s_MapEnvPresetIdxs`. Rendering and startup use the same appended `gameplayEnvironment` and one copy of the original environment functions/preset tables. World services replace the no-draw player rendering bridges. The owned-disc opening still reaches the exact BGM guard above; the rendering test requires that guard before its separate static capture. This does not complete movement or the BGM controller.
+
 ## Implemented
 
 - Original NPC clear/init, InGameInit, empty-group model-load selection, bone-info setup, spawn/persistence flag handling and ground-height initialization. MAP0_S00 starts with empty character groups. Actual NPC asset publication still stops at missing character file/model ownership; full enemy/cutscene character setup is not claimed.
@@ -28,5 +30,5 @@ Rust workspace tests: 299 passed including doctests, zero failed, three existing
 2. Migrate the damage, upper/lower-body movement, position/wall-collision, animation and bone-transform delegates; run the original player input in its original update position. Nearby trigger classification and the full NPC update remain guarded.
 3. Implement the opening callback's native DMS/character loading and freeze/unfreeze/reset state, then unguard encountered footsteps/Cheryl callbacks in order. Do not set completion flags or inject positions to make the movement gate pass.
 4. Continue the combat integration recipe in `../sys/combat.md`: real attack/LOS/collision providers, stable native NPC graphs and complete AI are still required. Reconcile combat's `D_800297B8[]` declaration with upstream's const pointer and this lane's `HARRY_BASE_ANIM_INFOS` storage before linking the full slice.
-5. World lane: replace or connect the marked no-draw bridges for loading effects, character/world/object drawing, particles and black borders while retaining the original logic/timing now linked here. Coordinate use of the appended native environment record.
+5. Reconciliation connected loading effects, character/world drawing and motion blur, and shares the appended environment record. Object registration, particles and black borders remain pending; retain the original logic/timing when linking them.
 6. Director: update the core-owned root checkpoint and add the eight new C units to the permanent arm64 CI source list. The private `check-player-clang.py` exercised them locally; the unchanged baseline checker alone still covers only 18 units.
