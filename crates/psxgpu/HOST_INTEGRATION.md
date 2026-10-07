@@ -1,5 +1,11 @@
 # gpuwire host handoff
 
+Parity follow-up: [PARITY.md](PARITY.md) adjudicates the fallback differences
+against documented PS1 rules and the software oracle. The renderer parity gate
+passes; core must reconcile the proposed host patch and run exact integration
+gates before the one-line default switch. The gpuwire results below remain
+historical evidence, not a current independent reference or a patched-host pass.
+
 `host/src/gpu_wgpu.rs` implements the existing `GpuBackend` using
 `Processor<WgpuRenderer>`. It strips PsyQ tags, retains GP0 state across ordering
 tables, translates host clip/offset rectangles, preserves packed RGB24 transfers,

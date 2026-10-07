@@ -1,5 +1,8 @@
 # Core integration
 
+For the current parity/default-switch decision and 4x/6x measurements, see
+[PARITY.md](PARITY.md). The host fallback is not the independent PS1 oracle.
+
 `psxgpu` is standalone. Its `Renderer` trait is an internal raster target, not a replacement
 for the host-owned `GpuBackend` trait. Implement the host trait in `host/` by forwarding to
 `Processor<SoftwareRenderer>` or `Processor<WgpuRenderer>`. The host trait did not exist in
@@ -150,6 +153,7 @@ cargo clippy --manifest-path crates/psxgpu/Cargo.toml --all-targets -- -D warnin
 cargo test --manifest-path crates/psxgpu/Cargo.toml
 cargo test --manifest-path crates/psxgpu/Cargo.toml --no-default-features
 cargo run --release --manifest-path crates/psxgpu/Cargo.toml --example benchmark -- 600 feedback
+cargo run --release --manifest-path crates/psxgpu/Cargo.toml --example benchmark -- 600 feedback 6
 cargo run --release --manifest-path crates/psxgpu/Cargo.toml --example replay -- 'C:/Claude Projects/Silent Hill iOS/private/work/gpu/map.psxcap'
 ```
 
