@@ -1,0 +1,30 @@
+[package]
+name = "psxgpu"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "GPL-3.0-only"
+description = "Native PS1 GPU packet renderer, VRAM and GTE"
+
+# Remove this table when the director adds the crate to the parent workspace.
+[workspace]
+
+[features]
+default = ["wgpu"]
+wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
+
+[dependencies]
+wgpu = { version = "=24.0.5", optional = true, default-features = false, features = ["dx12", "metal", "wgsl"] }
+bytemuck = { version = "1.25", optional = true, features = ["derive"] }
+pollster = { version = "0.4", optional = true }
+
+[build-dependencies]
+cc = "1.6"
+
+[[example]]
+name = "replay"
+required-features = ["wgpu"]
+
+[[example]]
+name = "benchmark"
+required-features = ["wgpu"]
