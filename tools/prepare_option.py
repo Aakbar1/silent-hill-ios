@@ -45,6 +45,9 @@ def prepare(decomp: Path, output: Path):
     # PORT: Fixed destinations, pointer arithmetic and explicit PS1 narrowings.
     source = source.replace("ot     = &g_OtTags", "ot     = (GsOT*)&g_OtTags")
     source = source.replace("s_Line2d* localLine;", "const s_Line2d* localLine;")
+    # PORT: Preserve direction 1/2 borders; no direction must not index arrow -1.
+    source = source.replace("for (i = dir - 1; i < dir; i++)",
+        "// PORT: No held direction has no border arrow; avoid BORDER_ARROWS[-1].\n    if (dir != 0) for (i = dir - 1; i < dir; i++)")
     source = source.replace("interpAlpha = Math_Sin(", "interpAlpha = (s16)Math_Sin(")
     source = source.replace("false, g_GameWork.config.volumeBgm", "false, (u8)g_GameWork.config.volumeBgm")
     source = source.replace("true, g_GameWork.config.volumeSe", "true, (u8)g_GameWork.config.volumeSe")

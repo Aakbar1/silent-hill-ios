@@ -75,6 +75,13 @@ pub struct VoiceRegisters {
 /// byte offsets. Register address units inside voice registers remain PS1 units.
 pub trait SpuBackend: Send {
     fn reset(&mut self);
+    /// Advance the hardware mixer on the game's virtual sample clock.
+    fn advance_to(&mut self, _sample: u64) -> Result<(), String> {
+        Ok(())
+    }
+    fn finish(&mut self) -> Result<(), String> {
+        Ok(())
+    }
     fn write_register(&mut self, offset: u16, value: u16) -> Result<(), String>;
     fn read_register(&self, offset: u16) -> Result<u16, String>;
     fn transfer_write(&mut self, address: u32, bytes: &[u8]) -> Result<(), String>;

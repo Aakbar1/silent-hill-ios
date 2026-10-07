@@ -245,8 +245,7 @@ impl WgpuGpu {
     pub fn error(&self) -> Option<String> {
         self.error.lock().expect("GPU error mutex").clone()
     }
-    /// PORT: opt-in core3 GTE sidecars affect only scaled presentation. The director
-    /// must forward the newer GpuBackend::packet_precise hook to this method.
+    /// PORT: opt-in GTE sidecars affect only scaled presentation.
     pub fn packet_precise(&mut self, words: &[u32], positions: &[[f32; 2]]) {
         self.submit_packet(words, Some(positions));
     }
@@ -325,6 +324,9 @@ impl WgpuGpu {
     }
 }
 impl GpuBackend for WgpuGpu {
+    fn packet_precise(&mut self, words: &[u32], positions: &[[f32; 2]]) {
+        WgpuGpu::packet_precise(self, words, positions);
+    }
     fn packet(&mut self, words: &[u32]) {
         self.submit_packet(words, None);
     }
@@ -866,7 +868,9 @@ mod tests {
         let native = gpu.frame(0, 0, 8, 8);
         let integer = frame_texture(true).unwrap().read_pixels().unwrap();
         gpu.clear([0, 0, 8, 8], [0; 3]);
-        gpu.packet_precise(&packet, &[[1.5, 1.5], [5.5, 1.5], [1.5, 5.5]]);
+        // Exercise the erased host boundary, not just the inherent method.
+        let backend: &mut dyn GpuBackend = &mut gpu;
+        backend.packet_precise(&packet, &[[1.5, 1.5], [5.5, 1.5], [1.5, 5.5]]);
         assert_eq!(gpu.frame(0, 0, 8, 8), native);
         let retained = frame_texture(true).unwrap();
         let precise = retained.read_pixels().unwrap();

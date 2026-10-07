@@ -1,4 +1,7 @@
-﻿# core4 checkpoint
+# core5 checkpoint (core4 gameplay boundary retained below)
+
+## core5 hand-off installed
+Applied gpuwire core-hooks-main.patch with the conflicting core4 screenshot-root hunk adapted to private/work, plus brightness-upstream.patch. Desktop/headless factories now select the configured GPU and SpuCpal; precise vertices cross the erased GPU trait boundary. Mixer advance uses 735 samples per virtual VBlank, and desktop/headless shutdown checks finish errors. Original libsd sequencing/SFX linkage is still pending; backend selection does not establish audible game sound. No dependency changes. Initial workspace tests (276 + 3 doctests, 3 ignored) and all-target precise-vertices clippy pass under MSVC /WX. First-map startup remains the next task; no walking claim.
 
 ## Goal and constraints
 Load MAP0_S00 through the original New Game flow, stand and walk using original gameplay, verify a fixed path and camera follow, then MAP0_S01 and transitions. Goal 4 is NOT achieved. Branch lane/core4. Own the brief's host/port/game/tools/docs/core/state/Cargo scope; gpuwire files and registration lines untouched. No main, merge, push or system installs. Pinned submodule d9e28f8315c7938117224f21516786d9d149a145 initialized and unchanged. Game data and captures stay in private/work/core4.
