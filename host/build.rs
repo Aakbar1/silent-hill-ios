@@ -12,7 +12,7 @@ fn main() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let decomp = std::env::var_os("SH_DECOMP_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| repo.join("../../reference/silent-hill-decomp"));
+        .unwrap_or_else(|| repo.join("game/decomp"));
     println!("cargo:rerun-if-env-changed=SH_DECOMP_DIR");
     let head = std::process::Command::new("git")
         .arg("-C")
@@ -29,10 +29,7 @@ fn main() {
         "d9e28f8315c7938117224f21516786d9d149a145",
         "unexpected decomp revision: review the boot transforms before updating the pin"
     );
-    println!(
-        "cargo:rerun-if-changed={}",
-        decomp.join(".git/HEAD").display()
-    );
+    println!("cargo:rerun-if-changed={}", decomp.join(".git").display());
     println!(
         "cargo:rerun-if-changed={}",
         decomp.join("include").display()
@@ -41,8 +38,10 @@ fn main() {
         "cargo:rerun-if-changed={}",
         decomp.join("src/main/filetable.c.USA.inc").display()
     );
-    let generated = repo.join("../../private/work/boot/native-source");
-    fs::create_dir_all(&generated).expect("private generated-source directory");
+    // PORT: Generated reference C contains no game bytes; OUT_DIR permits data-free CI builds.
+    let generated =
+        PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("native-source");
+    fs::create_dir_all(&generated).expect("generated-source directory");
     let mut build = cc::Build::new();
     build
         .include(repo.join("port"))
@@ -51,6 +50,7 @@ fn main() {
         .include(decomp.join("include"))
         .include(decomp.join("src/main"))
         .flag("/std:c11")
+        .flag("/W4")
         .warnings_into_errors(true);
     let inputs = [
         ("main", "src/main/main.c"),
