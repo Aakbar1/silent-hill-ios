@@ -13,7 +13,13 @@ fn main() -> psxgpu::Result<()> {
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(240)
         .clamp(1, 10000);
-    let mut gpu = Processor::new(pollster::block_on(WgpuRenderer::new(4))?);
+    let scale = std::env::args()
+        .nth(3)
+        .map(|s| s.parse::<u32>())
+        .transpose()
+        .map_err(|_| psxgpu::Error("scale must be an integer in 1..=8".into()))?
+        .unwrap_or(4);
+    let mut gpu = Processor::new(pollster::block_on(WgpuRenderer::new(scale))?);
     let display = psxgpu::Display {
         disabled: false,
         mode: 1,
@@ -44,8 +50,14 @@ fn main() -> psxgpu::Result<()> {
         ]);
     }
     for _ in 0..8 {
+        gpu.renderer_mut().fill(Rect::new(0, 0, 320, 240), 0)?;
         gpu.gp0_words(&words)?;
         gpu.renderer_mut().flush()?;
+        if feedback {
+            gpu.renderer_mut()
+                .copy(Rect::new(0, 0, 256, 240), 0, 256, 0)?;
+            gpu.gp0_words(&[0xe1000110, 0x66608080, 0, 0, xy(256, 240)])?;
+        }
         gpu.renderer_mut().render_scanout(display, false, &target)?;
     }
     gpu.renderer().wait_idle();
@@ -53,7 +65,9 @@ fn main() -> psxgpu::Result<()> {
     let mut submit_seconds = 0.0;
     let mut wait_seconds = 0.0;
     let mut decode_seconds = 0.0;
+    let mut frame_ms = Vec::with_capacity(frames as usize);
     for _ in 0..frames {
+        let frame_start = std::time::Instant::now();
         let t = std::time::Instant::now();
         gpu.renderer_mut().fill(Rect::new(0, 0, 320, 240), 0)?;
         gpu.gp0_words(&words)?;
@@ -69,16 +83,29 @@ fn main() -> psxgpu::Result<()> {
         let t = std::time::Instant::now();
         gpu.renderer().wait_idle();
         wait_seconds += t.elapsed().as_secs_f64();
+        frame_ms.push(frame_start.elapsed().as_secs_f64() * 1000.0);
     }
     let elapsed = start.elapsed().as_secs_f64();
-    println!("adapter={:?}\nscale=4 frames={frames} triangles/frame=1200 (textured, gouraud, 400 transparent), native draw area=320x240\ncompleted seconds={elapsed:.6} fps={:.2} ms/frame={:.3}",
+    println!("adapter={:?}\nscale={scale} frames={frames} triangles/frame=1200 (textured, gouraud, 400 transparent), native draw area=320x240\ncompleted seconds={elapsed:.6} fps={:.2} ms/frame={:.3}",
         gpu.renderer().adapter_info(),f64::from(frames)/elapsed,elapsed*1000.0/f64::from(frames));
     println!(
         "submit ms/frame={:.3} completion wait ms/frame={:.3}",
         submit_seconds * 1000.0 / f64::from(frames),
         wait_seconds * 1000.0 / f64::from(frames)
     );
-    println!("scanout=1280x960 rgba8unorm; framebuffer copy+blend={feedback}; clear each frame");
+    frame_ms.sort_by(f64::total_cmp);
+    println!(
+        "completed p50={:.3} p95={:.3} p99={:.3} max={:.3} ms",
+        frame_ms[frame_ms.len() / 2],
+        frame_ms[((frame_ms.len() - 1) as f64 * 0.95).ceil() as usize],
+        frame_ms[((frame_ms.len() - 1) as f64 * 0.99).ceil() as usize],
+        frame_ms[frame_ms.len() - 1]
+    );
+    println!(
+        "scanout={}x{} rgba8unorm; framebuffer copy+blend={feedback}; clear each frame",
+        320 * scale,
+        240 * scale
+    );
     println!(
         "decode ms/frame={:.3} flush ms/frame={:.3}",
         decode_seconds * 1000.0 / f64::from(frames),

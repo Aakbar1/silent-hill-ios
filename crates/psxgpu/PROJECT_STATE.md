@@ -1,5 +1,24 @@
 # GPU lane checkpoint — 2026-10-07
 
+## Parity lane handoff — supersedes the fallback-as-oracle default objection
+
+- Read integration notes; initialized game/decomp submodule at pinned d9e28f8.
+- Nine hand-authored expected-word rule tests reproduce host odd-half blending,
+  half-pixel Gouraud/coverage, missing dither and lost CLUT bit15. All pass.
+- psxgpu software/wgpu exact at 1x, including masks/scaled words; 4x/6x native
+  words and all integer anchors also exact. No renderer semantic change needed.
+- Private 1,747-scanout brightness trace: full native VRAM matches software/wgpu
+  and all recorded hashes; proposed host shim makes all host words exact too.
+- Proposed host-raster.patch and evidence are in private/work/parity/. No host/
+  edits. Retained host Raster tests pass 4/4; patch apply check passes this branch.
+- Final synthetic PC workload means: 4x 5.584 ms, 6x 8.580 ms; phone performance
+  and Metal unverified. Timings include submission/wait, exclude gameplay/readback.
+- psxgpu gates: 54 tests with wgpu, 45 without; fmt/Clippy both clean, C /W4 /WX.
+- PARITY.md: renderer parity gate GO; unchanged-host default flip NO-GO until core
+  reconciles patch/brightness guard/hooks and passes exact current milestone gates.
+- Old gpuwire notes below are historical. PARITY.md distinguishes documented rule
+  correctness from pixel attribution and independently measured hardware goldens.
+
 ## gpuwire host integration checkpoint
 
 - New host adapter/presenter/CLI module is implemented; actual native.rs hooks,
