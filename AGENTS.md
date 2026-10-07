@@ -13,6 +13,8 @@ Read PLAN.md once. Your task is in the brief you were given.
   in a local venv are fine. If you need a system tool, stop and ask under "Requests".
 - Rust stable: `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` must pass before you stop. C code must compile without new warnings.
 - Do not change game behaviour on purpose; we are porting, not redesigning. Mark every intentional deviation with `// PORT:` and a reason.
+- Disk hygiene: never copy the disc image (it's 616 MB); open it in place. Before you stop, delete bulky scratch output (frame dumps, captures, WAVs, test copies)
+  from `private/work/<lane>/`, keeping only the logs and the few files your report cites. Keep the total under 200 MB.
 - Commit to your own branch with clear messages. Do not merge, push, or touch main.
 
 Finish by writing `REPORT.md` in the repo root (do not commit it; it is gitignored), 30 lines max:
