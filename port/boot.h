@@ -285,6 +285,8 @@ void SysWork_StateSetNext(s32 state);
 void Fs_QueueReset(void);
 extern s32 g_MemCard_SavegameCount;
 typedef struct {s32 unused;} PortMapPoint;
+// PORT: Declaration-only seams for guarded map calls; this is not a decoded or
+// active map header. No gameplay consumer may treat it as s_MapOverlayHdr.
 extern struct PortMapHeader {PortMapPoint* mapPoints;} g_MapOverlayHdr;
 void Chara_PositionSet(const PortMapPoint* point);
 s32 Math_Sin(s32 angle);

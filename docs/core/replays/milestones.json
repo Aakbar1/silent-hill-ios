@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "verified": [
+    {"name":"kcet", "input":"boot.txt", "frames":850, "state":2, "step":6, "min_lit_pixels":1000},
+    {"name":"movie-intro", "input":"movie-intro.txt", "frames":1900, "state":6, "step":0, "min_movie_frames":147, "movie_skips":0, "min_lit_pixels":1000},
+    {"name":"movie-end-title", "input":"movie-intro.txt", "frames":9800, "state":7, "step":1, "menu":1, "min_movie_frames":2060, "movie_skips":0, "min_lit_pixels":1000},
+    {"name":"title-skip", "input":"title.txt", "frames":1650, "state":7, "step":1, "menu":1, "min_movie_frames":22, "movie_skips":1, "min_lit_pixels":1000},
+    {"name":"new-game-menu", "input":"new-game-menu.txt", "frames":1650, "state":7, "step":1, "menu":3, "movie_skips":1, "min_lit_pixels":1000},
+    {"name":"options", "input":"options.txt", "frames":1850, "state":18, "step":1, "option_entry":0, "movie_skips":1, "min_lit_pixels":1000},
+    {"name":"options-reentry", "input":"options-reentry.txt", "frames":2500, "state":18, "step":1, "option_entry":0, "movie_skips":1, "min_lit_pixels":1000},
+    {"name":"options-brightness", "input":"options-brightness.txt", "frames":1750, "state":18, "step":3, "option_entry":1, "movie_skips":1, "min_lit_pixels":1000},
+    {"name":"options-controller", "input":"options-controller.txt", "frames":1750, "state":18, "step":4, "option_entry":2, "movie_skips":1, "min_lit_pixels":1000}
+  ],
+  "pending": [
+    "SAVELOAD overlay and memory-card UI connected to native save files",
+    "STF_ROLL overlay",
+    "New Game opening and first controllable MAP0_S00/MAP0_S01 path",
+    "all 43 native map overlays with reset and two area transitions and return"
+  ]
+}
