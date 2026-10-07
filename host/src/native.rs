@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::{
     asset_store::{AssetInfo, AssetKind, AssetStore, NativeSpan},
-    backend::{GpuBackend, SilentSpu, SpuBackend},
+    backend::{GpuBackend, SpuBackend},
     disc::{DiscImage, GameDisc},
     movie::Movie,
     pad::{KeyboardController, LiveInput, PadSource, ReplayPad},
-    raster::Raster,
     saves::SaveStore,
 };
 use std::{
     cell::RefCell,
     fs::File,
-    num::NonZeroU32,
     path::{Path, PathBuf},
-    rc::Rc,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -22,7 +19,6 @@ use std::{
 };
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::PhysicalKey,
@@ -31,6 +27,7 @@ use winit::{
 
 unsafe extern "C" {
     fn port_run_game() -> i32;
+    fn port_run_world_probe() -> i32;
     fn sh_title_menu_state() -> i32;
     fn sh_option_selected_entry() -> i32;
     static g_ScreenFade_Status: i32;
@@ -67,6 +64,52 @@ fn host<R>(f: impl FnOnce(&mut Host) -> R) -> R {
             .borrow_mut()
             .as_mut()
             .expect("native worker host installed"))
+    })
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_water_texture_name(destination: *mut u8) -> i32 {
+    if destination.is_null() {
+        return 1;
+    }
+    host(|h| {
+        // PORT: D_8002B2CC is eight filename bytes within encrypted BODYPROG,
+        // whose pinned USA load address is 0x80024B60. This reads data only.
+        const OFFSET: usize = 0x8002_b2cc - 0x8002_4b60;
+        let result = (|| {
+            let bytes = h
+                .disc
+                .read_entry_range(3, 0, (OFFSET + 8) as u64)
+                .map_err(|error| error.to_string())?;
+            let mut seed = 0u32;
+            let mut name = [0u8; 8];
+            for (index, word) in bytes.as_chunks::<4>().0.iter().enumerate() {
+                seed = seed.wrapping_add(0x0130_9125).wrapping_mul(0x03a4_52f7);
+                if index * 4 >= OFFSET {
+                    let decoded = (u32::from_le_bytes(*word) ^ seed).to_le_bytes();
+                    name[index * 4 - OFFSET..index * 4 - OFFSET + 4].copy_from_slice(&decoded);
+                }
+            }
+            if name
+                .iter()
+                .take_while(|byte| **byte != 0)
+                .any(|byte| !(0x20..=0x5f).contains(byte))
+            {
+                return Err("invalid pinned water texture name".to_owned());
+            }
+            // SAFETY: C passes its eight-byte filename array.
+            unsafe {
+                destination.copy_from_nonoverlapping(name.as_ptr(), 8);
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(error) => {
+                h.error = Some(error);
+                1
+            }
+        }
     })
 }
 
@@ -522,6 +565,12 @@ extern "C" fn port_present(
 ) -> i32 {
     host(|host| {
         host.frames += 1;
+        // PORT: One virtual NTSC VBlank is exactly 735 hardware mixer samples.
+        // The original libsd sequencer remains a separate, currently guarded seam.
+        if let Err(error) = host.spu.advance_to(host.frames * 735) {
+            host.error = Some(error);
+            return 1;
+        }
         host.state = state;
         host.step = step;
         let display_enabled = w > 0 && h > 0;
@@ -540,8 +589,18 @@ extern "C" fn port_present(
             host.first_logo = Some(host.frames);
             println!("Entered B_KONAMI at frame {}", host.frames);
         }
+        let texture = crate::gpu_wgpu::frame_texture(display_enabled);
+        if let Some(error) = crate::gpu_wgpu::frame_error() {
+            host.error = Some(error);
+            return 1;
+        }
+        if pixels.len() != (w * h) as usize {
+            host.error = Some("invalid GPU frame size".into());
+            return 1;
+        }
         host.last_frame = Some((w, h, pixels.clone()));
         let finished = host.frames >= host.limit || host.cancel.load(Ordering::Relaxed);
+        crate::gpu_wgpu::record_frame(finished);
         if finished {
             if let Some(path) = &host.screenshot
                 && let Err(e) = save_png(path, w, h, &pixels)
@@ -564,6 +623,7 @@ extern "C" fn port_present(
                     w,
                     h,
                     pixels,
+                    texture,
                     finished,
                 })
                 .is_err()
@@ -581,6 +641,7 @@ extern "C" fn port_present(
 }
 
 fn save_png(path: &Path, w: u32, h: u32, pixels: &[u32]) -> Result<(), Box<dyn std::error::Error>> {
+    let (w, h, pixels) = crate::gpu_wgpu::screenshot(w, h, pixels)?;
     let file = std::fs::File::create(path)?;
     let mut encoder = png::Encoder::new(file, w, h);
     encoder.set_color(png::ColorType::Rgb);
@@ -598,12 +659,13 @@ struct Frame {
     w: u32,
     h: u32,
     pixels: Vec<u32>,
+    texture: Option<crate::gpu_wgpu::FrameTexture>,
     finished: bool,
 }
 struct App {
     input: Arc<LiveInput>,
-    window: Option<Rc<Window>>,
-    surface: Option<softbuffer::Surface<Rc<Window>, Rc<Window>>>,
+    window: Option<Arc<Window>>,
+    surface: Option<crate::gpu_wgpu::Presentation>,
     frame: Option<Frame>,
     cancel: Arc<AtomicBool>,
     failure: Option<String>,
@@ -615,12 +677,11 @@ impl ApplicationHandler<Frame> for App {
         match el.create_window(
             Window::default_attributes()
                 .with_title("Silent Hill native C — boot spike")
-                .with_inner_size(PhysicalSize::new(640, 448)),
+                .with_inner_size(crate::gpu_wgpu::window_size()),
         ) {
             Ok(window) => {
-                let window = Rc::new(window);
-                let result = softbuffer::Context::new(window.clone())
-                    .and_then(|context| softbuffer::Surface::new(&context, window.clone()));
+                let window = Arc::new(window);
+                let result = crate::gpu_wgpu::Presentation::new(window.clone());
                 match result {
                     Ok(surface) => {
                         self.window = Some(window);
@@ -669,24 +730,11 @@ impl ApplicationHandler<Frame> for App {
                     return;
                 };
                 let size = window.inner_size();
-                let (Some(w), Some(h)) =
-                    (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
-                else {
+                if size.width == 0 || size.height == 0 {
                     return;
-                };
-                let result = (|| {
-                    surface.resize(w, h)?;
-                    let mut buffer = surface.buffer_mut()?;
-                    for y in 0..size.height {
-                        for x in 0..size.width {
-                            buffer[(y * size.width + x) as usize] =
-                                frame.pixels[((y * frame.h / size.height) * frame.w
-                                    + x * frame.w / size.width)
-                                    as usize];
-                        }
-                    }
-                    buffer.present()
-                })();
+                }
+                let result =
+                    surface.present(frame.w, frame.h, &frame.pixels, frame.texture.as_ref());
                 if let Err(e) = result {
                     self.failure = Some(e.to_string());
                     self.cancel.store(true, Ordering::Relaxed);
@@ -713,6 +761,7 @@ pub struct Backends {
 }
 #[derive(Default)]
 pub struct ReplayCheck {
+    pub world_probe: bool,
     pub min_lit_pixels: usize,
     pub option_entry: Option<i32>,
     pub menu_state: Option<i32>,
@@ -729,13 +778,15 @@ pub fn run_headless(
     replay: ReplayPad,
     check: ReplayCheck,
 ) -> Result<(), String> {
+    let gpu = crate::gpu_wgpu::backend()?;
+    let spu = Box::new(crate::spu_cpal::open_configured()?);
     let saves = SaveStore::app_data()?;
     let now = Instant::now();
     HOST.with(|cell| {
         *cell.borrow_mut() = Some(Host {
             disc,
-            gpu: Box::<Raster>::default(),
-            spu: Box::<SilentSpu>::default(),
+            gpu,
+            spu,
             pad: Box::new(replay),
             assets: AssetStore::default(),
             saves,
@@ -757,11 +808,18 @@ pub fn run_headless(
         })
     });
     // SAFETY: Headless mode is the sole C worker; jumps cross only C stack frames.
-    let code = unsafe { port_run_game() };
+    let code = unsafe {
+        if check.world_probe {
+            port_run_world_probe()
+        } else {
+            port_run_game()
+        }
+    };
     let result = host(|h| {
         if let Some(movie) = h.movie.take() {
             movie.end(h.spu.as_mut(), false);
         }
+        h.spu.finish()?;
         if let (Some(path), Some((w, height, pixels))) = (&h.screenshot, &h.last_frame) {
             save_png(path, *w, *height, pixels).map_err(|e| e.to_string())?;
         }
@@ -789,7 +847,7 @@ pub fn run_headless(
                 h.frames
             ));
         }
-        if h.frames != limit {
+        if !check.world_probe && h.frames != limit {
             return Err(format!("completed {} of {limit} ticks", h.frames));
         }
         if check.state.is_some_and(|state| state != h.state)
@@ -830,8 +888,8 @@ pub fn run(
         screenshot,
         input,
         Backends {
-            gpu: Box::<Raster>::default(),
-            spu: Box::<SilentSpu>::default(),
+            gpu: crate::gpu_wgpu::backend()?,
+            spu: Box::new(crate::spu_cpal::open_configured()?),
             pad,
         },
     )
@@ -883,6 +941,7 @@ pub fn run_with_backends(
             if let Some(movie) = h.movie.take() {
                 movie.end(h.spu.as_mut(), false);
             }
+            h.spu.finish()?;
             if code != 0 {
                 if let (Some(path), Some((w, height, pixels))) = (&h.screenshot, &h.last_frame)
                     && let Err(error) = save_png(path, *w, *height, pixels)
@@ -902,6 +961,7 @@ pub fn run_with_backends(
                     w,
                     h: height,
                     pixels,
+                    texture: crate::gpu_wgpu::frame_texture(true),
                     finished: true,
                 });
             }

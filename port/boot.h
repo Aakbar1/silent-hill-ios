@@ -82,6 +82,8 @@ typedef struct {
     bool enablePlayerMatchAnim;
     s32 loadingScreenIdx;
     q3_12 cameraAngleY;
+    q3_12 cameraAngleZ;
+    q19_12 cameraRadiusXz,cameraY;
     u8 playerStopFlags;
     s8 targetNpcIdx,npcIdxs[CHARA_GROUP_COUNT];
     q19_12 field_275C,field_2760,field_2764;
@@ -156,7 +158,7 @@ extern q19_12 g_DeltaTime, g_DeltaTimeRaw, g_GravitySpeed, g_ScreenFadeTimestep;
 extern GsOT_TAG g_OtTags0[2][16], g_OtTags1[2][ORDERING_TABLE_SIZE];
 extern GsOT g_OrderingTable0[2], g_OrderingTable2[2];
 extern s_FsImageDesc g_MainImg0, g_KonamiLogoImg, g_KcetLogoImg, g_Font16AtlasImg,g_MemCardWarningImg,g_TitleImg,g_ItemInspectionImg;
-extern _Alignas(8) u8 port_fs_buffers[8][1024*1024], port_packets[2][131072];
+extern _Alignas(8) u8 port_fs_buffers[10][1024*1024], port_packets[2][131072];
 extern _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*1024];
 // PORT: Native buffers replace PS1 fixed file/packet addresses.
 #define FS_BUFFER_0 ((void*)port_fs_buffers[0])
@@ -168,6 +170,7 @@ int port_player_map_anim_load(u32 file,s_AnmHeader* destination);
 #define FS_BUFFER_5 ((void*)port_fs_buffers[5])
 #define FS_BUFFER_6 ((void*)port_fs_buffers[6])
 #define FS_BUFFER_7 ((void*)port_fs_buffers[7])
+#define FS_BUFFER_9 ((void*)port_fs_buffers[9])
 #define TEMP_MEMORY_ADDR ((s8*)port_packets[0])
 #define PSX_SCRATCH_ADDR(offset) (port_scratch+(offset))
 
@@ -194,7 +197,7 @@ void* port_gpu_pointer(u32 token);
 void Fs_QueueInitialize(void);
 s32 Fs_QueueGetLength(void);
 void Fs_QueueUpdate(void);
-void Fs_QueueStartRead(s32 file, void* buffer);
+s32 Fs_QueueStartRead(s32 file, void* buffer);
 s32 Fs_QueueStartReadTim(s32 file, void* buffer, s_FsImageDesc* image);
 bool Fs_QueueIsEntryLoaded(s32 index);
 void Fs_QueueWaitForEmpty(void);

@@ -294,6 +294,12 @@ fn finish_device(output: &mut Output, playing: bool) -> Result<(), String> {
 }
 
 impl SpuBackend for SpuCpal {
+    fn advance_to(&mut self, sample: u64) -> Result<(), String> {
+        SpuCpal::advance_to(self, sample)
+    }
+    fn finish(&mut self) -> Result<(), String> {
+        SpuCpal::finish(self)
+    }
     fn reset(&mut self) {
         self.cd_stop();
         self.spu.reset();

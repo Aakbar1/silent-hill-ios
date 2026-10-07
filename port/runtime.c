@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#include "boot.h"
+#include "gameplay.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,7 +7,7 @@
 
 _Alignas(8) u8 port_scratch[1024];
 // PORT: Separate named screen destinations; PS1 overlap lifecycle is unported.
-_Alignas(8) u8 port_fs_buffers[8][1024*1024];
+_Alignas(8) u8 port_fs_buffers[10][1024*1024];
 _Alignas(8) u8 port_packets[2][131072];
 _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*1024];
 PortGameWork g_GameWork;
@@ -133,7 +133,7 @@ s32 Fs_QueueStartReadTim(s32 file,void* buffer,s_FsImageDesc* image) {
     return job_last-1;
 }
 bool Fs_QueueIsEntryLoaded(s32 index) {return index>=0 && index<job_first;}
-void Fs_QueueStartRead(s32 file,void* buffer) { Fs_QueueStartReadTim(file,buffer,NULL); }
+s32 Fs_QueueStartRead(s32 file,void* buffer) { return Fs_QueueStartReadTim(file,buffer,NULL); }
 void Fs_QueueStartSeek(s32 file) { (void)file; } // PORT: Native archive reads have no drive seek delay.
 static u32 word(const u8* p) { u32 result; memcpy(&result,p,4); return result; }
 void Fs_QueueUpdate(void) {
@@ -150,8 +150,10 @@ void Fs_QueueUpdate(void) {
         if(job.has_image || port_player_map_anim_load((u32)job.file,(s_AnmHeader*)FS_BUFFER_0)) longjmp(stop,2);
     } else if (type==FileType_Ipd) {
         if(job.has_image || port_asset_load_ipd((u32)job.file,(s_IpdHeader*)job.destination,g_MapOverlayHdr.mapInfo->plmFileIdx)) longjmp(stop,2);
+        ((s_IpdHeader*)job.destination)->isLoaded=false; // PORT: Decoded graph readiness precedes original material/texture initialization.
     } else if (type==FileType_Anm || type==FileType_Plm || type==FileType_Ilm) {
         if (job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
+        if(type==FileType_Plm && job.destination==GLOBAL_LM_BUFFER)((s_LmHeader*)job.destination)->isLoaded=false;
     } else if(job.file>=FILE_VIN_MAP0_S00_BIN && job.file<=FILE_VIN_MAP7_S03_BIN) {
         // PORT: Native map descriptors contain only compiled GPL C data.
         // Reading an overlay's machine code cannot initialize native objects.
@@ -312,7 +314,7 @@ void Sd_GlobalVolumeSet(s32 maximum,s32 music,s32 effects) {(void)maximum;(void)
 #define STUB_RETURN(name,type,value) type name(void) {static bool seen;if (!seen) {printf("STUB " #name "\n");seen=true;}return value;}
 STUB_RETURN(CdInit,int,1) STUB_RETURN(MainLoop_ShouldWarmReset,s32,0)
 STUB_RETURN(MemCard_ElementsUpdate,bool,true) STUB_RETURN(Sd_AudioStreamingCheck,s32,0)
-void SpuInit(void) { port_spu_reset(); printf("SPU backend reset (silent fallback)\n"); }
+void SpuInit(void) { port_spu_reset(); printf("SPU backend reset\n"); }
 // PORT: libpad reads host PadSource packets. Boot uses held bits only; the full
 // game-owned joy/libkpad mode, pulse and vibration algorithms remain to be linked.
 static u8 pad0[8], pad1[8];
@@ -365,5 +367,11 @@ extern int sh_main(void);
 int port_run_game(void) {
     int result=setjmp(stop);
     if (!result) { printf("ENTER native decomp main\n"); return sh_main(); }
-    return result==1?stop_code:2;
+    fflush(stdout);return result==1?stop_code:2;
+}
+extern void port_world_probe(void);
+int port_run_world_probe(void) {
+    int result=setjmp(stop);
+    if(!result){port_world_probe();fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
 }

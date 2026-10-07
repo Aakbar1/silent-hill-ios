@@ -16,7 +16,7 @@ def no_includes(text):
 
 
 def enumeration(text, name):
-    return re.search(r'typedef enum _' + name + r'\b.*?}\s*e_' + name + r';', text, re.S)[0] + '\n'
+    return re.search(r'typedef enum _' + name + r'\b.*?}\s*[es]_' + name + r';', text, re.S)[0] + '\n'
 
 
 def initializer(text, name):
@@ -44,18 +44,22 @@ def prepare(decomp, output):
     constants += enumeration(read('include/bodyprog/sound/sfx.h'), 'SfxPairIdx')
     constants += enumeration(read('include/maps/characters/harry.h'), 'HarrySwappableMesh')
     constants += enumeration(read('include/maps/characters/harry.h'), 'HarryVariantMesh')
+    constants += enumeration(read('include/maps/characters/harry.h'), 'HarryAnim')
+    constants += enumeration(read('include/maps/characters/harry.h'), 'HarryBone')
     player_header = read('include/bodyprog/player.h')
     for name in ['PlayerState', 'PlayerUpperBodyState', 'PlayerLowerBodyState', 'PlayerStopFlags']:
         constants += enumeration(player_header, name)
     constants += no_includes(read('include/event_flags.h'))
     (output / 'map_constants.h').write_text(NOTICE + constants, encoding='utf-8')
     view = no_includes(read('include/bodyprog/view/enums.h'))
-    view += between(read('include/bodyprog/view/structs.h'), '#define CAMERA_PATH_COLL_COUNT_MAX', '/** @brief Rail camera')
+    view += between(read('include/bodyprog/view/structs.h'), '#define CAMERA_PATH_COLL_COUNT_MAX', '#endif')
     # PORT: Camera fields are native values, not an implementation-dependent
     # mix of enum/int/short bitfield units. The original source initializers and
     # algorithms use named values; serialized PS1 camera bytes are never read.
     view = re.sub(r'(\b\w+)\s*:\s*\d+;', r'\1;', view)
     view = view.replace('STATIC_ASSERT_SIZEOF(VC_ROAD_DATA, 24);', 'STATIC_ASSERT_SIZEOF(VC_ROAD_DATA, 52);')
+    for name, old, new in [('VC_NEAR_ROAD_DATA',36,40),('VC_WORK',744,808),('VbRVIEW',32,40),('VW_VIEW_WORK',132,160)]:
+        view = view.replace(f'STATIC_ASSERT_SIZEOF({name}, {old});', f'// PORT: {name} contains native pointers.\nSTATIC_ASSERT_SIZEOF({name}, {new});')
     trigger = between(read('include/bodyprog/collision/trigger.h'), '/** @brief World-space collision trigger', '/** @brief Collection of nearby')
     trigger = re.sub(r'(\b\w+)\s*:\s*\d+;', r'\1;', trigger)
     trigger = trigger.replace('STATIC_ASSERT_SIZEOF(s_CollisionTrigger, 4);', 'STATIC_ASSERT_SIZEOF(s_CollisionTrigger, 24);')
@@ -116,6 +120,8 @@ def prepare(decomp, output):
     callbacks['Stalker_Update'] = callbacks['Cheryl_Update'] = ('void', 's_SubCharacter*, s_AnmHeader*, GsCOORDINATE2*')
     for name in ['Anim_BlendLinear', 'Anim_PlaybackOnce', 'Anim_PlaybackLoop']:
         callbacks[name] = ('void', 's_Model*, s_AnmHeader*, GsCOORDINATE2*, s_AnimInfo*')
+    for name in ['Anim_BlendLinear','Anim_PlaybackOnce','Anim_PlaybackLoop','GameBoot_LoadScreen_PlayerRun']:
+        del callbacks[name]
     # The original room callback is linked. All remaining unavailable callbacks
     # are guarded in this descriptor slice, and are listed in its inventory.
     callback_code = []
@@ -183,7 +189,7 @@ def prepare(decomp, output):
     comparisons += [f'port_map_zero(&{name},sizeof({name}))' for name in zeros]
     reset = f'void {prefix}reset(void) {{' + ''.join(resets) + '}\n'
     reset += f'int {prefix}reset_probe(void) {{' + ''.join(probes) + f'{prefix}reset();return ' + ' && '.join(comparisons) + ';}\n'
-    source = NOTICE + '#include "map.h"\n#define MAP0_S00\n#define CHUNK_SIZE 40\n#undef g_MapOverlayHdr\n' + namespace + ''.join(callback_code) + 'static u8 Map_RoomIdxGet(q19_12,q19_12);\n' + data + ''.join(initials) + room + reset
+    source = NOTICE + '#include "gameplay.h"\n#define MAP0_S00\n#define CHUNK_SIZE 40\n#undef g_MapOverlayHdr\n' + namespace + ''.join(callback_code) + 'static u8 Map_RoomIdxGet(q19_12,q19_12);\n' + data + ''.join(initials) + room + reset
     # PORT: ISO C empty initializers retain zero values explicitly.
     source = re.sub(r'\{\s*}', '{0}', source)
     # PORT: Animation linkStatus is an unsigned PS1 byte; retain 0xff sentinel.

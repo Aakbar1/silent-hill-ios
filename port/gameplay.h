@@ -4,14 +4,18 @@
 #include "boot.h"
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 enum {BoneHierarchy_End=-2,BoneHierarchy_MultiModel=-3,MaterialFlag_None=0,MaterialFlag_0=1,MaterialFlag_1=2,MaterialFlag_2=4};
-typedef struct {s32 animFileIdx,modelFileIdx,textureFileIdx,materialBlendMode;} PortCharaFileInfo;
+typedef struct {s32 animFileIdx,modelFileIdx,textureFileIdx,materialBlendMode;
+    s32 cameraAnchor; q19_12 cameraOffsetY;} PortCharaFileInfo;
 extern const PortCharaFileInfo CHARA_FILE_INFOS[Chara_Count];
 typedef struct {s32 itemId,queueIdx;char* textureName;s_FsImageDesc imageDesc;s_LmHeader* lmHdr;s_Bone bone;} s_HeldItem;
 // PORT: Bootstrap's native work contains owned model slots and empty map caches.
 // Draw/chunk/trigger consumers remain guarded until their integration is complete.
 typedef struct {s_CharaModel harryModel; s_CharaModel* registeredCharaModels[Chara_Count];
     s_CharaModel charaModels[CHARA_GROUP_COUNT];s_HeldItem heldItem;
-    u8* charaLmBuffer;bool useStoredPoint;s32 objectCount;} s_WorldGfxWork;
+    u8* charaLmBuffer;bool useStoredPoint;s32 objectCount;
+    const s_MapInfo* mapInfo;s_CollisionTrigger* collisionTriggers;
+    VECTOR3 ipdSamplePoint;
+    VC_CAMERA_INTINFO vcCameraInternalInfo;} s_WorldGfxWork;
 #include "native_environment.h"
 extern s_WorldEnvWork g_WorldEnvWork;
 extern s_WorldGfxWork g_WorldGfxWork;
@@ -28,6 +32,12 @@ extern s8 port_bone_mesh_idx;
 void GsInitCoordinate2(GsCOORDINATE2* parent,GsCOORDINATE2* coord);
 void port_lm_native_check(const s_LmHeader* lm);
 void Anim_BoneInit(s_AnmHeader* anm,GsCOORDINATE2* coords);
+void Anim_BoneUpdate(s_AnmHeader* anm,GsCOORDINATE2* coords,s32 frame0,s32 frame1,q19_12 alpha);
+q19_12 Anim_DurationGet(s_Model* model,s_AnimInfo* info);
+void Anim_PlaybackOnce(s_Model* model,s_AnmHeader* anm,GsCOORDINATE2* coords,s_AnimInfo* info);
+void Anim_PlaybackLoop(s_Model* model,s_AnmHeader* anm,GsCOORDINATE2* coords,s_AnimInfo* info);
+void Anim_BlendLinear(s_Model* model,s_AnmHeader* anm,GsCOORDINATE2* coords,s_AnimInfo* info);
+void Anim_BlendEaseOut(s_Model* model,s_AnmHeader* anm,GsCOORDINATE2* coords,s_AnimInfo* info);
 void Chara_FsImageCalc(s_FsImageDesc* image,s32 charaId,s32 modelIdx);
 void WorldGfx_PlayerModelProcessLoad(void);
 void WorldGfx_CharaModelProcessLoad(s_CharaModel* model);
@@ -48,7 +58,7 @@ bool Lm_MaterialFsImageApply(s_LmHeader* lm,char* name,s_FsImageDesc* image,s32 
 void Material_FsImageApply(s_Material* mat,s_FsImageDesc* image,s32 blend);
 void Lm_MaterialFlagsApply(s_LmHeader* lm);
 void Model_MaterialFlagsApply(s_ModelHeader* model,s32 index,const s_Material* mat,s32 flags);
-enum {UnkGfxEnum_0=0,CollisionTriggerFlag_Map=1,HarryBone_Root=0,HarryBone_Torso=1,
+enum {UnkGfxEnum_0=0,CollisionTriggerFlag_Map=1,
     ItemToggleFlag_FlashlightOff=2,InvItemGroup_MeleeWeapons=4,InvItemGroup_GunWeapons=5,
     PlayerCutsceneState_RunForward=0,
     GameDifficulty_Normal=0};
@@ -99,4 +109,9 @@ void func_8008B398(void);
 void port_player_spawn_note(void);
 void Sd_SfxStop(u16 sound);
 void Screen_BackgroundMotionBlur(s32 mode);
+void GameBoot_LoadScreen_PlayerRun(void);
+void AreaLoad_UpdatePlayerPosition(void);
+void Gfx_LoadScreenMapEffectsUpdate(s32,s32);
+void Gfx_EffectsUpdate(void);
+void WorldGfx_CharaDraw(e_CharaId,GsCOORDINATE2*,s32,q3_12,s32);
 #endif

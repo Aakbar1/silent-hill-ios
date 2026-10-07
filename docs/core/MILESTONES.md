@@ -26,3 +26,11 @@ Core4 captures, logs and results.json live under `C:/Claude Projects/Silent Hill
 `new-game-opening-skip.txt` is excluded from passing milestones. Start at 2201 reaches state 10/step 0, then the original loading dispatcher stops at map0_s00/GameBoot_LoadScreen_PlayerRun at 2204 (native code 3, process exit 1). Private evidence: new-game-opening.png/.log and new-game-world-guard.png/.log under private/work/core4. No first_map.txt pass was added. A deliberately wrong opening endpoint exits 1; the full-brief gate still exits 2.
 
 Native saves: `LOCALAPPDATA/SilentHillIOS/saves/slot-NNN.shs`, 330 stable slot identities (two original cards × 15 files × 11 saves). Each file is the exact 636-byte original save payload, preserving unknown bytes and signed bit patterns. Writes sync a new temporary file then atomically replace the slot. Tests exercise actual Windows replacement and malformed-length rejection. C read/write hooks are bounded; SAVELOAD/memory-card UI and settings persistence remain unconnected, so cards still report absent.
+
+# core5 verification
+
+The implemented suite passed twice: 20 runs, 10 matching PNG hashes, audio off. Current evidence: `private/work/core5/milestones/20261007T160524510994Z/results.json`. New runner output defaults to core5; earlier core4 evidence above remains historical.
+
+`--probe-world --audio off` separately passes original chunk/texture scheduling, road surface queries, loading user-camera targets/Q8 view translations and reset. It changes the sampling point, not Harry's gameplay position, and rejects replay/screenshot/milestone flags. This cannot certify walking or automatic camera follow.
+
+The real opening skip still reaches state 10/step 0, VBlank 2204. Its next guard is now `Gfx_LoadScreenMapEffectsUpdate/native environment`, after the original loading-player camera/spotlight setup. The private loading-boundary-release capture is black. No first_map.txt pass or Harry-in-map screenshot is claimed. The full-brief gate still fails for pending work. See [ENGINE.md](ENGINE.md).

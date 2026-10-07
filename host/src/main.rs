@@ -35,6 +35,10 @@ fn options() -> Result<Options, String> {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
             Some("--headless") => result.headless = true,
+            Some("--probe-world") => {
+                result.headless = true;
+                result.check.world_probe = true;
+            }
             Some("--audio") => {
                 result.audio = silent_hill_boot::spu_cpal::AudioMode::parse(
                     args.next()
@@ -146,6 +150,20 @@ fn options() -> Result<Options, String> {
     {
         return Err("--inspect-disc cannot be combined with run arguments".into());
     }
+    if result.check.world_probe
+        && (result.input.is_some()
+            || result.frames.is_some()
+            || result.screenshot.is_some()
+            || result.check.state.is_some()
+            || result.check.step.is_some()
+            || result.check.menu_state.is_some()
+            || result.check.option_entry.is_some()
+            || result.check.min_lit_pixels != 0
+            || result.check.min_movie_frames != 0
+            || result.check.movie_skips.is_some())
+    {
+        return Err("--probe-world is a separate diagnostic; replay, screenshot and milestone flags are not accepted".into());
+    }
     Ok(result)
 }
 
@@ -190,7 +208,7 @@ fn run() -> Result<(), String> {
     }
     if let Some(path) = &options.screenshot {
         let private_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/work/core4")
+            .join("../../../private/work")
             .canonicalize()
             .map_err(|e| format!("private output directory: {e}"))?;
         let parent = path
@@ -200,7 +218,7 @@ fn run() -> Result<(), String> {
             .canonicalize()
             .map_err(|e| format!("screenshot parent: {e}"))?;
         if !parent.starts_with(&private_root) {
-            return Err("screenshots must be inside private/work/core4/".into());
+            return Err("screenshots must be inside private/work/".into());
         }
         if path.exists()
             && !path
@@ -208,7 +226,7 @@ fn run() -> Result<(), String> {
                 .map_err(|e| e.to_string())?
                 .starts_with(&private_root)
         {
-            return Err("resolved screenshot target is outside private/work/core4/".into());
+            return Err("resolved screenshot target is outside private/work/".into());
         }
     }
     let replay = options
@@ -225,7 +243,14 @@ fn run() -> Result<(), String> {
             disc,
             options.frames.unwrap_or(600),
             options.screenshot,
-            replay.ok_or("--headless requires --input")?,
+            replay
+                .or_else(|| {
+                    options.check.world_probe.then(|| {
+                        silent_hill_boot::pad::ReplayPad::parse("0 0000")
+                            .expect("neutral diagnostic pad")
+                    })
+                })
+                .ok_or("--headless requires --input")?,
             options.check,
         )
         .and_then(|()| silent_hill_boot::spu_cpal::require_backend());

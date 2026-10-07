@@ -14,31 +14,15 @@ s32 g_Inventory_EquippedItem,g_Player_CutsceneState,g_Player_LastWeaponSelected;
 s16 D_800C4588;
 q19_12 g_Player_GrabReleaseInputTimer,D_800C45EC;
 bool g_Player_DisableControl;
-static GsCOORDINATE2 view_coord;
-GsCOORDINATE2* vwGetViewCoord(void) {return &view_coord;}
 void SetDrawTPage(DR_TPAGE* packet,int dfe,int dtd,int page) {
     setDrawTPage(packet,dfe,dtd,page);
 }
 s32 Lzc(s32 value) {u32 result;gte_ldlzc(value);gte_stlzc(&result);return (s32)result;}
 static struct {u8 field_0,field_1,field_2,field_3;s16 field_A;} water_work;
 void func_8008D41C(void) {water_work.field_0=0;water_work.field_1=0;water_work.field_2=0;water_work.field_A=0;}
-// PORT: Empty native cache replaces the PS1 packed/relocated IPD allocation.
-// Loading an actual chunk remains guarded, so this never asserts a loaded map.
-static struct {void* storage;s32 budget,active_chunks;bool exterior;s32 queues[4];
-    s_IpdCollisionData collision;s_Texture textures[10];} world_map;
-void WorldMap_Init(s_LmHeader* lm,void* storage,s32 budget) {
-    memset(&world_map,0,sizeof(world_map));world_map.storage=storage;world_map.budget=budget;world_map.exterior=true;
-    *lm=(s_LmHeader){.magic=LM_HEADER_MAGIC,.version=LM_VERSION,.isLoaded=true};
-    for(s32 i=0;i<4;i++) world_map.queues[i]=-1;
-    world_map.collision.subcellSize=512;
-    for(s32 i=0;i<10;i++) {
-        s32 page=i<3?8+i:i<8?18+i:26+(i-8)/2;
-        world_map.textures[i].imageDesc=(s_FsImageDesc){{0,(u8)page},(u8)(i>=8?(i&1)*32:0),0,(s16)(i*16),0};
-    }
-}
 // PORT: The boot slice consumes Harry only. Other identities remain unlinked.
 const PortCharaFileInfo CHARA_FILE_INFOS[Chara_Count] = {
-    [Chara_Harry]={FILE_ANIM_HB_BASE_ANM,FILE_CHARA_HERO_ILM,FILE_CHARA_HERO_TIM,1}
+    [Chara_Harry]={FILE_ANIM_HB_BASE_ANM,FILE_CHARA_HERO_ILM,FILE_CHARA_HERO_TIM,1,0,Q8(-0.7f)}
 };
 void GsInitCoordinate2(GsCOORDINATE2* parent,GsCOORDINATE2* coord) {
     memset(coord,0,sizeof(*coord));coord->super=parent;
@@ -100,3 +84,19 @@ void func_8008B398(void) {
 // requests separate from SD_Call play commands until SFX voice linkage exists.
 void Sd_SfxStop(u16 sound) { printf("SFX_STOP %u (native SFX voice linkage pending)\n",sound); }
 void Screen_BackgroundMotionBlur(s32 mode) {(void)mode;port_unimplemented("Screen_BackgroundMotionBlur/native world renderer");}
+void AreaLoad_UpdatePlayerPosition(void) {port_unimplemented("AreaLoad_UpdatePlayerPosition");}
+void Gfx_LoadScreenMapEffectsUpdate(s32 first,s32 second) {
+    (void)first;(void)second;port_unimplemented("Gfx_LoadScreenMapEffectsUpdate/native environment");
+}
+void Gfx_EffectsUpdate(void) {port_unimplemented("Gfx_EffectsUpdate/native environment");}
+void WorldGfx_CharaDraw(e_CharaId id,GsCOORDINATE2* coords,s32 shift,q3_12 timer,s32 palette) {
+    (void)id;(void)coords;(void)shift;(void)timer;(void)palette;port_unimplemented("WorldGfx_CharaDraw/native renderer");
+}
+int port_animation_sample(s_AnmHeader* anm,s32 first,s32 second,q19_12 alpha,s32 bone,s32* out) {
+    GsCOORDINATE2 coords[32]={0};
+    if(!anm || bone<=0 || bone>=anm->boneCount || anm->boneCount>32)return 0;
+    Anim_BoneInit(anm,coords);Anim_BoneUpdate(anm,coords,first,second,alpha);
+    for(s32 i=0;i<3;i++)out[i]=coords[bone].coord.t[i];
+    for(s32 i=0;i<9;i++)out[i+3]=coords[bone].coord.m[i/3][i%3];
+    return 1;
+}
