@@ -46,7 +46,7 @@ s32 Math_MulFixed(s32 a,s32 b,s32 shift) { return (s32)(((s64)a*b)>>shift); }
 static jmp_buf stop;
 static int stop_code;
 static s32 vblanks, active;
-static long hblanks;
+static s32 hblanks;
 static bool display_enabled;
 static s16 buffer_x[2], buffer_y[2];
 static void (*vsync_callback)(void);
@@ -201,7 +201,7 @@ void GsSortClear(u8 r,u8 g,u8 b,GsOT* ot) {
 int GsGetActiveBuff(void) { return active; }
 // PORT: Native VBlank ticks supply deterministic NTSC HBlank counts (263 per tick).
 void GsInitVcount(void) { hblanks=0; }
-long GsGetVcount(void) { return hblanks; }
+s32 GsGetVcount(void) { return hblanks; }
 void GsClearVcount(void) { hblanks=0; }
 void GsInitGraph2(u_short x,u_short y,u_short mode,u_short dith,u_short vram) {
     (void)mode; (void)dith; (void)vram;

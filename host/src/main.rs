@@ -6,6 +6,7 @@ use std::process::ExitCode;
 struct Options {
     disc: PathBuf,
     inspect: bool,
+    inspect_assets: bool,
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
     input: Option<PathBuf>,
@@ -16,6 +17,7 @@ fn options() -> Result<Options, String> {
         disc: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../private/disc/Silent Hill (USA).bin"),
         inspect: false,
+        inspect_assets: false,
         frames: None,
         screenshot: None,
         input: None,
@@ -24,6 +26,10 @@ fn options() -> Result<Options, String> {
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
+            Some("--inspect-assets") => {
+                result.inspect = true;
+                result.inspect_assets = true;
+            }
             Some("--disc") => result.disc = args.next().ok_or("--disc needs a path")?.into(),
             Some("--input") => {
                 result.input = Some(args.next().ok_or("--input needs a path")?.into())
@@ -78,6 +84,9 @@ fn run() -> Result<(), String> {
         started.elapsed().as_secs_f64() * 1000.0
     );
     if options.inspect {
+        if options.inspect_assets {
+            silent_hill_boot::assets::inspect_disc(&mut disc)?;
+        }
         return Ok(());
     }
     if let Some(path) = &options.screenshot {

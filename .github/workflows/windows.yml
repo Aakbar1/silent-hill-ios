@@ -31,3 +31,15 @@ jobs:
         run: ./tools/dev-cargo.cmd test --workspace --locked
       - name: Build native workspace
         run: ./tools/dev-cargo.cmd build --workspace --locked
+      - name: Check disk32 layouts on 32-bit and 64-bit C
+        run: ./tools/check-layouts.cmd
+
+  ios-layouts:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Type-check disk32 and native pointer layouts for iOS arm64
+        run: python3 tools/check-ios-layouts.py --compiler "$(xcrun --find clang)"

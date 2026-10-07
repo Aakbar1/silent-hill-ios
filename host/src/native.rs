@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::{
+    asset_store::{AssetInfo, AssetKind, AssetStore, NativeSpan},
     backend::{GpuBackend, SilentSpu, SpuBackend},
     disc::{DiscImage, GameDisc},
     pad::{KeyboardController, LiveInput, PadSource, ReplayPad},
@@ -35,6 +36,7 @@ struct Host {
     gpu: Box<dyn GpuBackend>,
     spu: Box<dyn SpuBackend>,
     pad: Box<dyn PadSource>,
+    assets: AssetStore,
     proxy: EventLoopProxy<Frame>,
     frames: u64,
     limit: u64,
@@ -59,17 +61,105 @@ fn host<R>(f: impl FnOnce(&mut Host) -> R) -> R {
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn port_read_file(id: u32, bytes: u32, destination: *mut u8) -> i32 {
-    host(|h| match h.disc.read_entry_range(id, 0, u64::from(bytes)) {
-        Ok(data) => {
-            // SAFETY: The C job validates its destination capacity before calling this function.
+    host(|h| {
+        // PORT: Refuse raw pointer-bearing images at the legacy byte-copy API.
+        // Native consumers must use AssetStore rather than widening disk slots.
+        if h.disc
+            .entry(id)
+            .is_ok_and(|entry| AssetKind::try_from(entry.file_type).is_ok())
+        {
+            h.error = Some(format!(
+                "asset {id} requires port_asset_open/native views; raw relocation is forbidden"
+            ));
+            return 1;
+        }
+        match h.disc.read_entry_range(id, 0, u64::from(bytes)) {
+            Ok(data) => {
+                // SAFETY: The C job validates its destination capacity before calling this function.
+                unsafe {
+                    std::ptr::copy_nonoverlapping(data.as_ptr(), destination, data.len());
+                }
+                0
+            }
+            Err(e) => {
+                h.error = Some(format!("disc read file {id}: {e}"));
+                1
+            }
+        }
+    })
+}
+#[unsafe(no_mangle)]
+extern "C" fn port_asset_open(id: u32) -> u32 {
+    host(|h| match h.assets.open(&mut h.disc, id) {
+        Ok(handle) => handle,
+        Err(error) => {
+            h.error = Some(error);
+            0
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_asset_info(handle: u32, output: *mut AssetInfo) -> i32 {
+    if output.is_null() {
+        return 1;
+    }
+    host(|h| match h.assets.info(handle) {
+        Ok(info) => {
+            // SAFETY: C caller supplies one aligned writable native info record.
             unsafe {
-                std::ptr::copy_nonoverlapping(data.as_ptr(), destination, data.len());
+                output.write(info);
             }
             0
         }
-        Err(e) => {
-            h.error = Some(format!("disc read file {id}: {e}"));
+        Err(error) => {
+            h.error = Some(error);
             1
+        }
+    })
+}
+#[unsafe(no_mangle)]
+extern "C" fn port_asset_close(handle: u32) -> i32 {
+    host(|h| match h.assets.close(handle) {
+        Ok(()) => 0,
+        Err(error) => {
+            h.error = Some(error);
+            1
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_asset_span(
+    handle: u32,
+    section: u32,
+    model: u32,
+    mesh: u32,
+    output: *mut NativeSpan,
+) -> i32 {
+    if output.is_null() {
+        return 1;
+    }
+    host(|h| {
+        match h
+            .assets
+            .span(handle, section, model as usize, mesh as usize)
+        {
+            Ok((bytes, stride)) => {
+                let span = NativeSpan {
+                    data: bytes.as_ptr(),
+                    count: bytes.len() / stride,
+                    stride,
+                };
+                // SAFETY: C supplies writable native span storage; the backing file
+                // stays owned by AssetStore until port_asset_close. No wire writes.
+                unsafe {
+                    output.write(span);
+                }
+                0
+            }
+            Err(error) => {
+                h.error = Some(error);
+                1
+            }
         }
     })
 }
@@ -417,6 +507,7 @@ pub fn run_with_backends(
                 gpu: backends.gpu,
                 spu: backends.spu,
                 pad: backends.pad,
+                assets: AssetStore::default(),
                 proxy,
                 frames: 0,
                 limit,

@@ -20,7 +20,8 @@ typedef u8 q0_8;
 typedef unsigned char u_char;
 typedef unsigned short u_short;
 typedef unsigned int u_int;
-typedef unsigned long u_long;
+// PORT: PsyQ long words are 32 bits even on LP64 iOS. Native sizes use size_t.
+typedef uint32_t u_long;
 #define _UCHAR_T
 #define _USHORT_T
 #define _UINT_T

@@ -17,7 +17,7 @@ void GsDrawOt(GsOT* ot);
 void GsSortClear(u8 r,u8 g,u8 b,GsOT* ot);
 int GsGetActiveBuff(void);
 void GsInitVcount(void);
-long GsGetVcount(void);
+s32 GsGetVcount(void);
 void GsClearVcount(void);
 void GsInitGraph2(u_short x,u_short y,u_short mode,u_short dtd,u_short vram);
 void GsDefDispBuff2(u_short x0,u_short y0,u_short x1,u_short y1);

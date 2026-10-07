@@ -8,6 +8,23 @@ fn between<'a>(text: &'a str, start: &str, end: &str) -> &'a str {
     &text[first..last]
 }
 
+// PORT: SDK long means a PS1 word. Preserve the reference notices and every size
+// assertion while replacing this scalar in generated SDK declarations for LP64.
+fn fixed_long(text: &str) -> String {
+    text.split_inclusive(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .map(|token| {
+            let end = token
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(token.len());
+            if &token[..end] == "long" {
+                format!("int32_t{}", &token[end..])
+            } else {
+                token.to_owned()
+            }
+        })
+        .collect()
+}
+
 fn main() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let decomp = std::env::var_os("SH_DECOMP_DIR")
@@ -42,6 +59,14 @@ fn main() {
     let generated =
         PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("native-source");
     fs::create_dir_all(&generated).expect("generated-source directory");
+    fs::create_dir_all(generated.join("psyq")).expect("generated SDK directory");
+    for header in ["libgte.h", "libgpu.h"] {
+        let source = decomp.join("include/psyq").join(header);
+        println!("cargo:rerun-if-changed={}", source.display());
+        let text = fs::read_to_string(source).expect("SDK header");
+        fs::write(generated.join("psyq").join(header), fixed_long(&text))
+            .expect("fixed-width SDK header");
+    }
     let mut build = cc::Build::new();
     build
         .include(repo.join("port"))
@@ -49,9 +74,12 @@ fn main() {
         .include(&generated)
         .include(decomp.join("include"))
         .include(decomp.join("src/main"))
-        .flag("/std:c11")
-        .flag("/W4")
         .warnings_into_errors(true);
+    if build.get_compiler().is_like_msvc() {
+        build.flag("/std:c11").flag("/W4");
+    } else {
+        build.flag("-std=c11").flag("-Wall").flag("-Wextra");
+    }
     let inputs = [
         ("main", "src/main/main.c"),
         ("game_main", "src/bodyprog/sys/game_main.c"),
@@ -170,10 +198,14 @@ fn main() {
         "port/include/common.h",
         "port/include/types.h",
         "port/runtime.c",
+        "port/disk32.h",
+        "port/layout_check.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
     build
         .file(repo.join("port/runtime.c"))
+        .file(repo.join("port/layout_check.c"))
+        .define("SH_CHECK_BOOT_LAYOUT", None)
         .compile("sh_native_boot");
 }

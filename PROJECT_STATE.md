@@ -1,25 +1,18 @@
 ﻿# Core lane checkpoint
 
 ## Goal and constraints
-Progress from the merged Konami boot toward the first controllable map, in the brief's order. Own branch: `lane/core`. Reference GPL-3.0 C only; game data and capture evidence stay under `../../private/work/core/`. GPU/SPU crates belong to parallel lanes.
+Progress from merged Konami boot toward the first controllable map, in brief order. Branch lane/core. Game bytes/captures remain under ../../private/work/core/. No system installations, pushes, merges or GPU/SPU lane edits.
 
-## Completed: build hygiene
-- `game/decomp` is a Git submodule pinned to `d9e28f8315c7938117224f21516786d9d149a145`; `SH_DECOMP_DIR` overrides it, with revision validation in the host build.
-- Root workspace includes host, compiler probe, shared crates and iOS shell. Only required workspace/profile manifest removals were made outside core ownership, as explicitly requested by goal 1.
-- Windows workflow checks/builds/tests the root workspace without requiring game data; generated reference C uses Cargo OUT_DIR. Baseline full-header probe remains opt-in and intentionally fails on unmigrated ABI assertions.
-- Local checks: fmt check, clippy workspace/all-targets with warnings denied, workspace build, 225 unit/integration tests plus 3 doctests passed. Three owned-disc checks also ran against local private data.
+## Completed checkpoints
+1. Pinned game/decomp submodule d9e28f8315c7938117224f21516786d9d149a145, SH_DECOMP_DIR override, root workspace and data-free Windows CI. Minimal standalone manifest/profile removals were explicitly required by goal 1. See docs/core/BUILD.md.
+2. psxdisc archive reads by original file ID; GPU/SPU/pad traits, software raster default, VRAM transfers, keyboard/XInput and deterministic replay. Full game-owned joy/libkpad and audible audio are unlinked. See docs/core/SEAMS.md.
+3. Explicit model/map/collision/DMS disk32 decode and save roundtrip; native asset store/checked C leaf views; fixed-width SDK declarations and C layout gates. Full gameplay consumer adapters remain necessary when linking those units. See docs/core/ABI.md.
 
-## Current runtime boundary
-Unchanged from Phase 1: Konami succeeds; KCET is an explicit guard at 731 ticks. This checkpoint does not claim title/gameplay or ABI migration.
+## Verified state
+- fmt, workspace/all-targets clippy with warnings denied, workspace build, 233 unit/integration + 3 doctests pass. Native C builds /W4 /WX.
+- MSVC x86/x64 wire assertions pass. Installed LLVM frontend checks actual iOS arm64/LP64 SDK/wire/native layouts and rejects a negative control. Remote CI is configured, not run.
+- Disc audit: 622 assets decode, one TEST2.DMS rejects unsupported runtime layout; complete audit exits nonzero. No bounds gate weakened.
+- Neutral replay: 600 ticks succeeds with Konami; 800 requested stops at KCET guard after 731, code 3. Actual frame saved/presented. Private step2/step3 logs and PNGs. Screenshot reviewed; no screenshot/data in Git.
 
-## Next
-Implement shared-disc/pad/backend seams, then explicit disk32 decoders and C layout checks; verify/commit each step before overlay work. References: `docs/survey/SURVEY.md`, `docs/boot/READINESS.md`, `docs/boot/PORT_FIXES.md`.
-
-
-## Completed: shared services (step 2)
-- Removed host disc implementation; psxdisc GameDisc verifies US 1.1 and serves bounded archive reads by original file ID.
-- Swappable GPU/SPU/pad traits, software raster default, VRAM transfer shims, keyboard/XInput and tick-based replay. Full gameplay joy/libkpad and audible audio remain pending.
-- Workspace fmt/clippy/tests passed; affected host retest passes 6 tests after final transfer/input edits. MSVC /W4 /WX is active.
-- Replay at 600 succeeds: state 1/step 3, 3,413 primitives, Konami capture. At 800 requested stops at KCET after 731, C code 3; actual last frame saved/presented. Evidence: ../../private/work/core/step2-*.png/log. See docs/core/SEAMS.md.
-
-Next: disk32/native views and 32/64-bit C layout checks before overlay integration.
+## Next and open limits
+Integrate native overlays with namespaces and initial-data reset. All 43 maps/five screens are not yet linked. Rendering/GTE, real joy/libkpad, audio sequencer and memory cards remain beyond the logo subset. Title/New Game/controllable map is not proven. Keep original ABI assertions active while porting the full C consumers; do not recover truncated pointers or cast disk headers to native records.
