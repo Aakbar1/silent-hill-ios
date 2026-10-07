@@ -1,0 +1,4194 @@
+{
+  "revision": "d9e28f8315c7938117224f21516786d9d149a145",
+  "sources": [
+    {
+      "source": "include/maps/shared/Event_CutsceneTimerAdvance.h",
+      "functions": [
+        "Event_CutsceneTimerAdvance"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/MapEvent_DoorJammed.h",
+      "functions": [
+        "MapEvent_DoorJammed"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/MapEvent_DoorLocked.h",
+      "functions": [
+        "MapEvent_DoorLocked"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/MapEvent_DoorUnlocked.h",
+      "functions": [
+        "MapEvent_DoorUnlocked"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_0_s02_CondFalse.h",
+      "functions": [
+        "Map_RoomBgmInit_CondFalse"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_0_s02_CondTrue.h",
+      "functions": [
+        "Map_RoomBgmInit_CondTrue"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_1_s02.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_2_s00.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_2_s02.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_3_s00_CondFalse.h",
+      "functions": [
+        "Map_RoomBgmInit_CondFalse"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_3_s00_CondTrue.h",
+      "functions": [
+        "Map_RoomBgmInit_CondTrue"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_3_s02_CondFalse.h",
+      "functions": [
+        "Map_RoomBgmInit_CondFalse"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_3_s02_CondTrue.h",
+      "functions": [
+        "Map_RoomBgmInit_CondTrue"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_4_s02.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_6_s00.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_6_s04.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_6_s04_CondFalse.h",
+      "functions": [
+        "Map_RoomBgmInit_CondFalse"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_6_s04_CondTrue.h",
+      "functions": [
+        "Map_RoomBgmInit_CondTrue"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/Map_RoomBgmInit_CheckCond.h",
+      "functions": [
+        "Map_RoomBgmInit"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/map_msg_common.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/sharedFunc_800CDAA8_0_s02.h",
+      "functions": [
+        "sharedFunc_800CDAA8_0_s02_Switch",
+        "sharedFunc_800CDAA8_0_s02_Switch_Unk85",
+        "sharedFunc_800CDAA8_0_s02"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/sharedFunc_800D0110_7_s00.h",
+      "functions": [
+        "sharedFunc_800D0110_7_s00"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/sharedFunc_800D15F0_3_s01.h",
+      "functions": [
+        "sharedFunc_800D15F0_3_s01"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "include/maps/shared/sharedFunc_800DB60C_7_s01.h",
+      "functions": [
+        "sharedFunc_800DB60C_7_s01"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/bodyprog_80089090.c",
+      "functions": [
+        "func_80089090",
+        "func_800890B8",
+        "func_80089128",
+        "func_800892A4",
+        "func_800892DC",
+        "func_80089314",
+        "func_800893D0",
+        "func_8008944C",
+        "func_80089470",
+        "func_80089494",
+        "func_800894B8",
+        "func_800894DC",
+        "func_80089500",
+        "func_80089524",
+        "func_800895E4",
+        "func_80089644",
+        "func_8008973C",
+        "func_80089840",
+        "func_8008989C",
+        "func_8008992C",
+        "func_800899BC",
+        "func_80089A30",
+        "func_80089BB8",
+        "func_80089D0C",
+        "func_80089DF0"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/bodyprog_combat_8008A058.c",
+      "functions": [
+        "func_8008A058",
+        "func_8008A0CC",
+        "func_8008A0D4",
+        "func_8008A0E4",
+        "func_8008A270",
+        "func_8008A2E0",
+        "func_8008A35C",
+        "Chara_Flag8Clear",
+        "Chara_Flag8Set",
+        "func_8008A3AC",
+        "func_8008A3E0",
+        "func_8008B15C",
+        "func_8008B1DC",
+        "func_8008B398",
+        "func_8008B3E4",
+        "func_8008B40C",
+        "func_8008B438",
+        "func_8008B474",
+        "func_8008B664",
+        "func_8008B714",
+        "func_8008BF84"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "func_8008A058",
+        "func_8008A0CC",
+        "func_8008A0D4",
+        "func_8008A0E4",
+        "func_8008A270",
+        "func_8008A2E0",
+        "func_8008A35C",
+        "Chara_Flag8Clear",
+        "Chara_Flag8Set",
+        "func_8008A3AC",
+        "func_8008A3E0",
+        "func_8008B15C",
+        "func_8008B1DC",
+        "func_8008B398",
+        "func_8008B3E4",
+        "func_8008B40C",
+        "func_8008B438",
+        "func_8008B474",
+        "func_8008B664",
+        "func_8008B714",
+        "func_8008BF84"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/bodyprog_data_80028B94.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/bodyprog_math_8005BF38.c",
+      "functions": [
+        "Math_AngleNormalizeSigned",
+        "func_8005BF58",
+        "func_8005C1CC",
+        "func_8005C478",
+        "func_8005C7B0"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/bodyprog_npc_8005BF38.c",
+      "functions": [
+        "Chara_NpcIdxGet",
+        "Chara_CollisionShapeOffsetsUpdate",
+        "Chara_MovementUpdate0",
+        "Chara_MovementUpdate1",
+        "func_8005CD38",
+        "func_8005D50C"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/collision/chara.c",
+      "functions": [
+        "func_80070320",
+        "func_80070360",
+        "Collision_CharaCollisionSet",
+        "Chara_ModelBoneScaleSet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Collision_CharaCollisionSet",
+        "Chara_ModelBoneScaleSet"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/collision/collision.c",
+      "functions": [
+        "Collision_Init",
+        "Collision_FlagsGet",
+        "Collision_FlagsSet",
+        "Collision_FlagBitsSet",
+        "Collision_FlagBitsClear",
+        "Collision_NearbyTriggersGet",
+        "Collision_ChunkHeaderPtrsInit",
+        "Collision_SubcellChecksReset",
+        "Collision_SubcellChecksCountUpdate",
+        "Collision_SurfaceGet",
+        "Collision_WallDetect",
+        "Collision_WallResponse",
+        "Collision_WallPush",
+        "Collision_CharaCollisionSetup",
+        "Collision_DefaultResultSet",
+        "Collision_OffsetCheck",
+        "func_8006A42C",
+        "func_8006A4A8",
+        "Collision_MoveOffsetDampen",
+        "Collision_CollStateInit",
+        "Collision_MoveDirectionCalc",
+        "Collision_CharaCollisionHandle",
+        "Collision_SubcellInit",
+        "Collision_SubcellIdxGet",
+        "func_8006B1C8",
+        "func_8006B318",
+        "func_8006B6E8",
+        "func_8006B7E0",
+        "func_8006B8F8",
+        "func_8006B9C8",
+        "func_8006BB50",
+        "func_8006BCC4",
+        "func_8006BDDC",
+        "func_8006BE40",
+        "func_8006BF88",
+        "func_8006C0C8",
+        "func_8006C1B8",
+        "func_8006C248",
+        "func_8006C3D4",
+        "func_8006C45C",
+        "func_8006C794",
+        "func_8006C838",
+        "func_8006CA18",
+        "Collision_OffsetAlphaGet",
+        "func_8006CC9C",
+        "func_8006CF18",
+        "func_8006D01C",
+        "func_8006D2B4",
+        "func_8006D600",
+        "func_8006D774",
+        "func_8006D7EC"
+      ],
+      "core_linked_functions": [
+        "Collision_Init",
+        "Collision_FlagsSet"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/collision/los.c",
+      "functions": [
+        "func_8006F99C",
+        "Los_CharaHeadingAngleGet",
+        "func_8006FD90",
+        "Los_CharaToTargetHitCheck",
+        "Los_CharaToCharaTargetCheck",
+        "Los_NpcToPlayerHitCheck",
+        "Los_CharaToCharaDistCheck",
+        "Los_CharaToCharaFrontHitCheck",
+        "Los_CharaHitCheck"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/collision/ray.c",
+      "functions": [
+        "Ray_TraceQuery",
+        "Ray_CharaTraceQuery",
+        "Ray_MissSet",
+        "Ray_LosHitCheck",
+        "func_8006DC18",
+        "Ray_TraceSetup",
+        "Ray_TraceRun",
+        "func_8006E0AC",
+        "func_8006E150",
+        "func_8006E490",
+        "func_8006E53C",
+        "func_8006E78C",
+        "func_8006EB8C",
+        "func_8006EE0C",
+        "func_8006EEB8"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/events/bodyprog_data_800A99B4.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/events/chara_spawn.c",
+      "functions": [
+        "Chara_Load",
+        "Chara_ProcessLoads",
+        "Chara_BonesInit",
+        "Chara_Spawn",
+        "Chara_ModelCharaIdClear",
+        "Chara_SpawnFlagsSet",
+        "Chara_SpawnPositionSet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/events/npc_main.c",
+      "functions": [
+        "Savegame_EnemyStateUpdate",
+        "Chara_DamagedFlagUpdate",
+        "func_80037E78",
+        "Game_NpcRoomInitSpawn",
+        "Game_NpcUpdate",
+        "Math_Distance2dCheck",
+        "Camera_Distance2dGet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Savegame_EnemyStateUpdate",
+        "Chara_DamagedFlagUpdate",
+        "func_80037E78"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/events/player_pos_update.c",
+      "functions": [
+        "Chara_PositionSet",
+        "Game_PlayerHeightUpdate"
+      ],
+      "core_linked_functions": [
+        "Chara_PositionSet"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/events/radio.c",
+      "functions": [
+        "Game_RadioNoiseReset",
+        "Game_RadioSoundStop"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/game_boot/fs_chara_anim.c",
+      "functions": [
+        "Fs_CharaAnimDataOverlapCheck",
+        "Fs_CharaAnimDataIdxGet",
+        "Fs_CharaAnimDataAlloc",
+        "Fs_CharaAnimDataUpdate",
+        "Fs_CharaAnimBoneInfoSet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/game_boot/game_boot.c",
+      "functions": [
+        "GameState_LoadScreen_Update",
+        "GameBoot_InGameStartup",
+        "GameBoot_LoadingScreen",
+        "GameBoot_NpcClear",
+        "GameBoot_NpcInit",
+        "GameBoot_InGameInit",
+        "GameBoot_SavegameInitialize",
+        "GameBoot_WorldInit",
+        "GameBoot_MapLoad"
+      ],
+      "core_linked_functions": [
+        "GameBoot_WorldInit",
+        "GameBoot_MapLoad",
+        "GameState_LoadScreen_Update",
+        "GameBoot_LoadingScreen",
+        "GameBoot_SavegameInitialize"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/gfx/bodyprog_effects_8005E0DC.c",
+      "functions": [
+        "Map_EffectTexturesLoad",
+        "func_8005E414",
+        "func_8005E650",
+        "func_8005E70C",
+        "func_8005E7E0",
+        "func_8005E89C",
+        "func_8005F55C",
+        "func_8005F680",
+        "func_8005F6B0",
+        "func_80060044",
+        "func_800611C0",
+        "func_800622B8",
+        "func_800625F4",
+        "func_80062708",
+        "func_8006342C",
+        "func_80063A50",
+        "func_80064334",
+        "func_80064F04",
+        "func_80064FC0"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/gfx/materials.c",
+      "functions": [
+        "Lm_TransparentPrimSet",
+        "Lm_MaterialCountGet",
+        "func_800563E8",
+        "Lm_MaterialFileIdxApply",
+        "Lm_MaterialFsImageApply1",
+        "Lm_MaterialFsImageApply",
+        "Material_FsImageApply",
+        "Lm_MaterialBlendModeSet",
+        "Lm_MaterialsLoadWithFilter",
+        "Lm_IsTextureLoaded",
+        "Lm_MaterialFlagsApply",
+        "Model_MaterialFlagsApply",
+        "Lm_MaterialRefCountDec",
+        "LmHeader_ModelCountGet",
+        "Bone_ModelAssign",
+        "Lm_ModelFind",
+        "StringCopy"
+      ],
+      "core_linked_functions": [
+        "Lm_MaterialFileIdxApply",
+        "Lm_MaterialFsImageApply",
+        "Material_FsImageApply",
+        "Lm_MaterialFlagsApply",
+        "Model_MaterialFlagsApply",
+        "LmHeader_ModelCountGet",
+        "Bone_ModelAssign"
+      ],
+      "migrated": [
+        "Bone_ModelAssign"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/items/item_screens_2.c",
+      "functions": [
+        "GameState_ItemScreens_Update",
+        "Gfx_Results_Save",
+        "Inventory_Logic",
+        "Inventory_ItemUse",
+        "Gfx_Inventory_CmdOptionsDraw",
+        "Gfx_Inventory_ScrollArrowsDraw",
+        "Player_ItemRemove",
+        "func_8004EF48",
+        "func_8004F10C",
+        "func_8004F190",
+        "Gfx_Inventory_UnavailableMapText",
+        "Inventory_DirectionalInputSet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/items/item_screens_3.c",
+      "functions": [
+        "Gfx_ItemScreens_DrawInit",
+        "func_8004FB0C",
+        "Gfx_Inventory_2dBackgroundDraw",
+        "GetUvOrRandom",
+        "Gfx_Inventory_HealthStatusDraw",
+        "Gfx_Inventory_ItemDescriptionDraw",
+        "func_80053898",
+        "func_800539A0",
+        "Gfx_Primitive2dTextureSet",
+        "Gfx_Results_ItemsDisplay",
+        "Gfx_Results_ItemsPosition",
+        "Inventory_PlayerItemScroll",
+        "func_800539A4",
+        "GameFs_UniqueItemModelLoad",
+        "GameFs_Tim00TIMLoad",
+        "GameFs_MapItemsModelLoad",
+        "GameFs_MapItemsTextureLoad",
+        "func_800540A4",
+        "Gfx_Items_Draw",
+        "Gfx_Items_DrawInit",
+        "Inventory_ExitAnimFixes",
+        "Gfx_PlayerHeldItemAttach",
+        "Gfx_Items_Display",
+        "func_8005487C",
+        "func_800548D8",
+        "Gfx_Items_SetAmbientLighting",
+        "func_800549A0",
+        "func_80054A04",
+        "Gfx_PickupItemAnimate",
+        "Inventory_AddSpecialItem",
+        "Items_AmmoReloadCompute"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Items_AmmoReloadCompute"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/items/item_unk_data.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/items/item_utils.c",
+      "functions": [
+        "Inventory_ExitAnimEquippedItemUpdate",
+        "Inventory_GunsAvailableCheck",
+        "Inventory_HyperBlasterUnlockTest",
+        "Inventory_HyperBlasterFunctionalTest",
+        "Game_HyperBlasterBeamColorGet",
+        "func_8004C564",
+        "Game_TimerUpdate"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/player_control.c",
+      "functions": [
+        "Player_VariableAnimDurationGet",
+        "func_80070B84",
+        "func_80070CF0",
+        "func_80070DF0",
+        "Player_CharaTurn_0",
+        "Player_CharaTurn_1",
+        "Player_CharaRotate",
+        "Player_MovementStateReset",
+        "Player_FootstepSfxPlay",
+        "func_80071620",
+        "Player_Update",
+        "func_80071968_Switch0",
+        "func_80071968_Switch1",
+        "Player_AnimUpdate",
+        "Player_LogicUpdate",
+        "Player_UpperBodyStateUpdate",
+        "Player_UpperBodyUpdate",
+        "Player_UpperBodyMainUpdate",
+        "Player_CombatStateUpdate",
+        "Player_StepWallStop_MovementCancel",
+        "Player_LowerBodyUpdate",
+        "func_8007B924",
+        "Player_PositionUpdate",
+        "Player_ReceiveDamage",
+        "func_8007D090",
+        "Player_FlexRotationYReset",
+        "Player_LowerBodyMoveStateGet",
+        "Player_CombatUpdate",
+        "Game_SavegameResetPlayer",
+        "Game_PlayerInfoInit",
+        "func_8007E860",
+        "func_8007E8C0",
+        "func_8007E9C4",
+        "GameFs_PlayerMapAnimLoad",
+        "GameFs_WeaponInfoUpdate",
+        "func_8007F14C",
+        "Game_PlayerMovementsReset",
+        "Player_DisableDamage",
+        "Player_IsAttacking",
+        "Player_IsBusy",
+        "Player_AnimGetSomething",
+        "Player_Controller",
+        "func_8007F95C",
+        "Math_ShortestAngleGet",
+        "func_8007FB94",
+        "func_8007FC48",
+        "func_8007FD2C",
+        "Game_GasWeaponPowerTimerValue",
+        "func_8007FD4C",
+        "Player_FootstepSfxGet",
+        "Math_DistanceGet",
+        "Math_Distance2dGet",
+        "func_800803FC",
+        "Input_SelectClickSet",
+        "func_80080478",
+        "Rng_RandQ12",
+        "func_80080540",
+        "Math_PreservedSignSubtract",
+        "func_800805BC",
+        "func_800806AC",
+        "func_8008074C",
+        "Collision_Fill",
+        "Collision_GroundHeightGet",
+        "func_800808AC",
+        "Math_MulFixed",
+        "Math_MagnitudeShiftGet"
+      ],
+      "core_linked_functions": [
+        "Game_PlayerInfoInit",
+        "GameFs_PlayerMapAnimLoad",
+        "Game_SavegameResetPlayer",
+        "func_8007E9C4"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/sound/sfx.c",
+      "functions": [
+        "Math_Pow2Neg",
+        "Math_Pow2NegClamped",
+        "Sfx_WithFlagsPlay",
+        "Sfx_WithFlagsAndPitchPlay",
+        "Sfx_WithPitchPlay",
+        "Sfx_WithFalloffAndPitchPlay"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/sys/chara_data_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/sys/npc_anims_clear.c",
+      "functions": [
+        "Anim_CharaTypeAnimInfoClear"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/world/bodyprog_anim_800445A4.c",
+      "functions": [
+        "Anim_TimestepGet",
+        "Anim_BoneInit",
+        "Anim_BoneUpdate",
+        "func_80044950",
+        "Anim_DurationGet",
+        "Anim_PlaybackOnce",
+        "Anim_PlaybackLoop",
+        "Anim_BlendLinear",
+        "Anim_BlendEaseOut"
+      ],
+      "core_linked_functions": [
+        "Anim_BoneInit"
+      ],
+      "migrated": [
+        "Anim_BoneInit"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/world/bodyprog_bone_80044F14.c",
+      "functions": [
+        "func_80044F14",
+        "Bone_ModelIdxGet",
+        "Skeleton_Init",
+        "func_80045014",
+        "func_8004506C",
+        "func_80045108",
+        "Skeleton_BoneModelAssign",
+        "func_80045258",
+        "func_800452EC",
+        "func_80045360",
+        "func_800453E8",
+        "func_80045468",
+        "func_80045534"
+      ],
+      "core_linked_functions": [
+        "Bone_ModelIdxGet",
+        "Skeleton_Init",
+        "func_80045014",
+        "func_8004506C",
+        "func_80045108",
+        "Skeleton_BoneModelAssign",
+        "func_80045258",
+        "func_800452EC",
+        "func_800453E8",
+        "func_80045468"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/world/collision_trigger.c",
+      "functions": [
+        "World_CollisionTriggersSet",
+        "World_NearbyPlayerCollisionTriggersGet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/world/world_draw.c",
+      "functions": [
+        "Map_TypeGet",
+        "Collision_FlagsLocationUpdate",
+        "Collision_FlagsUpdate",
+        "GameFs_BgEtcGfxLoad",
+        "GameFs_BgItemLoad",
+        "GameFs_CommonItemsTextureLoad",
+        "Map_SpeedZoneTypeGet",
+        "World_Init",
+        "WorldGfx_HeldItemModelFree",
+        "WorldGfx_CharaModelsFree",
+        "Chara_ModelFree",
+        "WorldGfx_MapInit",
+        "Map_ActiveChunksClear",
+        "WorldGfx_MapReset",
+        "WorldGfx_IpdSamplePointStore",
+        "WorldGfx_IpdSamplePointReset",
+        "WorldGfx_CloseRangeChunksInit",
+        "WorldGfx_ChunkInitCheck",
+        "WorldGfx_Draw",
+        "WorldObject_ModelNameSet",
+        "WorldObjects_Add",
+        "WorldObjects_Clear",
+        "WorldObjects_DrawAllObjects",
+        "WorldObjects_Draw",
+        "WorldObjects_DrawStep",
+        "WorldGfx_HeldItemIdGet",
+        "WorldGfx_PlayerPrevHeldItem",
+        "WorldGfx_PlayerHeldItemSet",
+        "func_8003D01C",
+        "func_8003D03C",
+        "WorldGfx_HeldItemDraw",
+        "WorldGfx_HarryCharaLoad",
+        "WorldGfx_MapInitCharaLoad",
+        "WorldGfx_CharaLmBufferAdvance",
+        "Chara_FsImageCalc",
+        "WorldGfx_IsCharaModelPresent",
+        "func_8003D460",
+        "WorldGfx_CharaModelTransparentSet",
+        "WorldGfx_CharaModelMaterialSet",
+        "WorldGfx_CharaLmBufferAssign",
+        "WorldGfx_CharaFree",
+        "WorldGfx_CharaLoad",
+        "WorldGfx_CharaModelLoad",
+        "WorldGfx_PlayerModelProcessLoad",
+        "WorldGfx_CharaModelProcessAllLoads",
+        "WorldGfx_CharaModelProcessLoad",
+        "WorldGfx_CharaDraw",
+        "WorldGfx_CharaClutYGet",
+        "WorldGfx_CharaMeshSwap",
+        "WorldGfx_HarryMeshSwap",
+        "WorldGfx_CybilMeshSwap",
+        "WorldGfx_MonsterCybilMeshSwap",
+        "WorldGfx_DahliaMeshSwap",
+        "WorldGfx_KaufmannMeshSwap",
+        "WorldGfx_StalkerMeshSwap",
+        "WorldGfx_SplitHeadMeshSwap",
+        "WorldGfx_PuppetNurseMeshSwap",
+        "WorldGfx_PuppetDoctorMeshSwap"
+      ],
+      "core_linked_functions": [
+        "WorldGfx_HarryCharaLoad",
+        "Chara_FsImageCalc",
+        "WorldGfx_PlayerModelProcessLoad",
+        "WorldGfx_CharaModelProcessLoad",
+        "World_Init",
+        "WorldGfx_HeldItemModelFree",
+        "WorldGfx_CharaModelsFree",
+        "Chara_ModelFree",
+        "WorldObjects_Clear",
+        "WorldGfx_HarryMeshSwap"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/bodyprog/world/world_effects.c",
+      "functions": [
+        "GameFs_FlameGfxLoad",
+        "func_8003E740",
+        "Game_SpotlightLoadScreenAttribsFix",
+        "Game_FlashlightAttributesFix",
+        "WorldEnv_MapPresetSet",
+        "Game_TurnFlashlightOn",
+        "Game_TurnFlashlightOff",
+        "Game_FlashlightToggle",
+        "Game_FlashlightIsOn",
+        "Gfx_MapEnvSet",
+        "func_8003EDA8",
+        "func_8003EDB8",
+        "func_8003EE30",
+        "Gfx_LoadScreenMapEffectsUpdate",
+        "Gfx_MapEnvUpdate",
+        "Gfx_MapEnvStepUpdate",
+        "Gfx_FogParametersSet",
+        "Gfx_EffectsUpdate",
+        "func_8003F4DC",
+        "func_8003F654",
+        "func_8003F6F0",
+        "Math_WeightedAverageGet",
+        "func_8003F838",
+        "func_8003FCB0",
+        "func_8003FD38",
+        "func_8003FE04",
+        "func_8003FEC0",
+        "WorldEnv_FogLightingParamsUpdate"
+      ],
+      "core_linked_functions": [
+        "Game_FlashlightAttributesFix",
+        "Game_TurnFlashlightOn",
+        "Game_TurnFlashlightOff"
+      ],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/chara_util.c",
+      "functions": [
+        "Chara_MovementReset",
+        "Chara_AnimReset",
+        "Chara_AnimStateSet",
+        "Chara_ControlStateReset",
+        "Chara_AnimLock",
+        "Chara_AnimIsLocked",
+        "Chara_AnimUnlock",
+        "Chara_AnimPlaybackStateGet",
+        "Chara_PathWaypointExecute",
+        "Chara_VisibleSet",
+        "Chara_InvisibleSet",
+        "Npc_FootstepSoundPlay",
+        "Npc_SfxPlay",
+        "Chara_AnimStartKeyframeIdxGet",
+        "Chara_CollisionReset"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Chara_MovementReset",
+        "Chara_AnimReset",
+        "Chara_AnimStateSet",
+        "Chara_ControlStateReset",
+        "Chara_AnimLock",
+        "Chara_AnimIsLocked",
+        "Chara_AnimUnlock"
+      ],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/characters/air_screamer.c",
+      "functions": [
+        "AirScreamer_Update",
+        "sharedFunc_800D21E4_0_s01",
+        "sharedFunc_800D2200_0_s01",
+        "sharedFunc_800D2274_0_s01",
+        "sharedFunc_800D2364_0_s01",
+        "BitAssign",
+        "MaskAssign",
+        "sharedFunc_800D2390_0_s01",
+        "AirScreamer_Init",
+        "sharedFunc_800D2B00_0_s01",
+        "sharedFunc_800D2B10_0_s01",
+        "sharedFunc_800D2B28_0_s01",
+        "sharedFunc_800D2B4C_0_s01",
+        "AirScreamer_GroundWarp",
+        "sharedFunc_800D2BE4_0_s01",
+        "sharedFunc_800D2BF4_0_s01",
+        "AirScreamer_DamageTake",
+        "sharedFunc_800D2E04_0_s01",
+        "sharedFunc_800D2FB4_0_s01",
+        "sharedFunc_800D31D0_0_s01",
+        "sharedFunc_800D3430_0_s01",
+        "sharedFunc_800D3508_0_s01",
+        "sharedFunc_800D3630_0_s01",
+        "sharedFunc_800D3758_0_s01",
+        "sharedFunc_800D3814_0_s01",
+        "AirScreamer_ControlUpdate",
+        "func_800D39F4",
+        "func_800D3A3C",
+        "func_800D3AC0",
+        "AirScreamer_Control_0",
+        "AirScreamer_Control_1",
+        "sharedFunc_800D3DFC_0_s01",
+        "AirScreamer_Control_2",
+        "AirScreamer_ControlStandIdle",
+        "AirScreamer_Control_4",
+        "AirScreamer_Control_5",
+        "AirScreamer_Control_6",
+        "AirScreamer_Control_7",
+        "AirScreamer_Control_8",
+        "AirScreamer_Control_9",
+        "AirScreamer_Control_10",
+        "AirScreamer_Control_11",
+        "AirScreamer_Control_12",
+        "AirScreamer_Control_13",
+        "AirScreamer_Control_14",
+        "AirScreamer_Control_15",
+        "AirScreamer_ControlRecoil",
+        "AirScreamer_ControlStun",
+        "AirScreamer_Control_18",
+        "AirScreamer_Control_19",
+        "AirScreamer_Control_20",
+        "AirScreamer_Control_21",
+        "AirScreamer_Control_22",
+        "AirScreamer_Control_23",
+        "AirScreamer_Control_24",
+        "AirScreamer_Control_25",
+        "AirScreamer_Control_26",
+        "AirScreamer_Control_27",
+        "AirScreamer_Control_28",
+        "AirScreamer_Control_29",
+        "AirScreamer_Control_30",
+        "AirScreamer_Control_31",
+        "AirScreamer_Control_32",
+        "AirScreamer_ControlGlide",
+        "AirScreamer_Control_34",
+        "AirScreamer_Control_35",
+        "AirScreamer_Control_36",
+        "AirScreamer_Control_37",
+        "AirScreamer_Control_38",
+        "AirScreamer_Control_39",
+        "AirScreamer_Control_40",
+        "AirScreamer_Control_41",
+        "AirScreamer_Control_42",
+        "AirScreamer_Control_43",
+        "AirScreamer_Control_44",
+        "AirScreamer_Control_45",
+        "AirScreamer_Control_46",
+        "AirScreamer_Control_47",
+        "AirScreamer_Control_48",
+        "AirScreamer_Control_49",
+        "AirScreamer_Control_50",
+        "AirScreamer_Control_51",
+        "sharedFunc_800D4A80_0_s01",
+        "sharedFunc_800DBF88_2_s00",
+        "AirScreamer_IsGroundedCheck",
+        "sharedFunc_800DC0E4_2_s00",
+        "sharedFunc_800DC200_2_s00",
+        "sharedFunc_800DC30C_2_s00",
+        "sharedFunc_800DC3BC_2_s00",
+        "sharedFunc_800DC438_2_s00",
+        "AirScreamer_HasLandedCheck",
+        "sharedFunc_800DC598_2_s00",
+        "sharedFunc_800DC67C_2_s00",
+        "sharedFunc_800DC6E4_2_s00",
+        "sharedFunc_800DC894_2_s00",
+        "sharedFunc_800D4AEC_0_s01",
+        "sharedFunc_800D4E84_0_s01",
+        "sharedFunc_800D5274_0_s01",
+        "sharedFunc_800DD13C_2_s00",
+        "sharedFunc_800DD2C4_2_s00",
+        "sharedFunc_800DD4A4_2_s00",
+        "sharedFunc_800DD4EC_2_s00",
+        "sharedFunc_800DD534_2_s00",
+        "sharedFunc_800DD588_2_s00",
+        "sharedFunc_800DD834_2_s00",
+        "sharedFunc_800DDA80_2_s00",
+        "sharedFunc_800DDE14_2_s00",
+        "sharedFunc_800DDF74_2_s00",
+        "sharedFunc_800DE034_2_s00",
+        "sharedFunc_800DE11C_2_s00",
+        "sharedFunc_800DE1F8_2_s00",
+        "sharedFunc_800DE250_2_s00",
+        "sharedFunc_800DE578_2_s00",
+        "sharedFunc_800D529C_0_s01",
+        "sharedFunc_800DE6A8_2_s00",
+        "sharedFunc_800DE7E0_2_s00",
+        "sharedFunc_800D53AC_0_s01",
+        "sharedFunc_800DEBCC_2_s00",
+        "sharedFunc_800DEC64_2_s00",
+        "sharedFunc_800DEC84_2_s00",
+        "sharedFunc_800DECA4_2_s00",
+        "sharedFunc_800DECC4_2_s00",
+        "sharedFunc_800DEE24_2_s00",
+        "sharedFunc_800DF22C_2_s00",
+        "sharedFunc_800DF24C_2_s00",
+        "sharedFunc_800D5638_0_s01",
+        "sharedFunc_800DF2D0_2_s00",
+        "sharedFunc_800DF358_2_s00",
+        "sharedFunc_800DF448_2_s00",
+        "sharedFunc_800DF60C_2_s00",
+        "sharedFunc_800DF710_2_s00",
+        "sharedFunc_800DF80C_2_s00",
+        "sharedFunc_800DF8A0_2_s00",
+        "sharedFunc_800D569C_0_s01",
+        "sharedFunc_800D57C8_0_s01",
+        "sharedFunc_800D598C_0_s01",
+        "sharedFunc_800D5B10_0_s01",
+        "sharedFunc_800D5C90_0_s01",
+        "sharedFunc_800D5D80_0_s01",
+        "sharedFunc_800D5E14_0_s01",
+        "sharedFunc_800E012C_2_s00",
+        "sharedFunc_800E021C_2_s00",
+        "sharedFunc_800E041C_2_s00",
+        "sharedFunc_800E04B0_2_s00",
+        "sharedFunc_800E0514_2_s00",
+        "sharedFunc_800D5E78_0_s01",
+        "sharedFunc_800D5F00_0_s01",
+        "sharedFunc_800D62D8_0_s01",
+        "sharedFunc_800D633C_0_s01",
+        "sharedFunc_800D63A4_0_s01",
+        "sharedFunc_800D6600_0_s01",
+        "sharedFunc_800D6A60_0_s01",
+        "sharedFunc_800D6C7C_0_s01",
+        "sharedFunc_800D6EC4_0_s01",
+        "sharedFunc_800D7120_0_s01",
+        "sharedFunc_800D71F0_0_s01",
+        "sharedFunc_800D72E8_0_s01",
+        "sharedFunc_800D7440_0_s01",
+        "sharedFunc_800D7560_0_s01",
+        "sharedFunc_800D76A0_0_s01",
+        "sharedFunc_800D7714_0_s01",
+        "sharedFunc_800D77D0_0_s01",
+        "sharedFunc_800D7AB0_0_s01",
+        "sharedFunc_800D7B14_0_s01",
+        "Model_AnimDurationGet",
+        "sharedFunc_800D7EBC_0_s01",
+        "sharedFunc_800D81B0_0_s01",
+        "sharedFunc_800D81D0_0_s01",
+        "sharedFunc_800D8244_0_s01",
+        "sharedFunc_800D82B8_0_s01",
+        "sharedFunc_800D8714_0_s01",
+        "sharedFunc_800D87FC_0_s01",
+        "sharedFunc_800D8804_0_s01"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map0_s01/Chara_AirScreamer.c",
+        "src/maps/map2_s00/Chara_AirScreamer.c",
+        "src/maps/map2_s02/Chara_AirScreamer.c",
+        "src/maps/map4_s02/Chara_AirScreamer.c",
+        "src/maps/map5_s01/Chara_AirScreamer.c",
+        "src/maps/map6_s00/Chara_AirScreamer.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/alessa.c",
+      "functions": [
+        "Alessa_Update",
+        "Alessa_AnimUpdate",
+        "Alessa_MovementUpdate",
+        "Alessa_AnimStateUpdate",
+        "Alessa_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map3_s02/Chara_Alessa.c",
+        "src/maps/map6_s02/Chara_Alessa.c",
+        "src/maps/map6_s04/Chara_AlessaDahlia.c",
+        "src/maps/map7_s01/Chara_GhostChildAlessa.c",
+        "src/maps/map7_s02/Chara_GhostChildAlessa.c",
+        "src/maps/map7_s03/Chara_Alessa.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/bloodsucker.c",
+      "functions": [
+        "Bloodsucker_Update",
+        "Bloodsucker_AnimUpdateFromStep",
+        "Bloodsucker_Init",
+        "Bloodsucker_Control_1",
+        "Bloodsucker_Control_2",
+        "Bloodsucker_Control_3",
+        "Bloodsucker_Control_4",
+        "sharedFunc_800D0F28_3_s03"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map3_s03/map3_s03.c",
+        "src/maps/map7_s02/Chara_Bloodsucker.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/bloody_incubator.c",
+      "functions": [
+        "BloodyIncubator_Update",
+        "BloodyIncubator_AnimUpdate",
+        "func_800D3740",
+        "func_800D38D8",
+        "BloodyIncubator_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s03/Chara_BloodyIncubator.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/bloody_lisa.c",
+      "functions": [
+        "BloodyLisa_Update",
+        "BloodyLisa_AnimUpdate",
+        "BloodyLisa_MovementUpdate",
+        "BloodyLisa_AnimStateUpdate",
+        "BloodyLisa_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s01/Chara_BloodyLisa.c",
+        "src/maps/map7_s02/Chara_BloodyLisa.c",
+        "src/maps/map7_s03/Chara_BloodyLisa.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/cat.c",
+      "functions": [
+        "Cat_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Cat_Update"
+      ],
+      "wrappers": [
+        "src/maps/map1_s01/Chara_Cat.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/cheryl.c",
+      "functions": [
+        "Cheryl_Update",
+        "Cheryl_AnimUpdate",
+        "Cheryl_MovementUpdate",
+        "Cheryl_ControlUpdate",
+        "Cheryl_FootstepSfxPlay",
+        "Cheryl_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map0_s00/Chara_Cheryl.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/creeper.c",
+      "functions": [
+        "Creeper_Update",
+        "Creeper_PropsUpdateFromStep",
+        "Creeper_Init",
+        "sharedFunc_800D7EE8_1_s02",
+        "Creeper_ControlUpdate",
+        "Creeper_ControlIdle",
+        "Creeper_ControlWalkForward",
+        "Creeper_ControlAttack",
+        "Creeper_ControlStun",
+        "Creeper_ControlDamage",
+        "sharedFunc_800D983C_1_s02",
+        "Creeper_AnimUpdate",
+        "Creeper_CollisionUpdate"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map1_s02/Chara_Creeper.c",
+        "src/maps/map1_s03/Chara_Creeper.c",
+        "src/maps/map3_s01/Chara_Creeper.c",
+        "src/maps/map3_s02/Chara_Creeper.c",
+        "src/maps/map3_s05/map3_s05.c",
+        "src/maps/map5_s00/Chara_Creeper.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/cybil.c",
+      "functions": [
+        "Cybil_Update",
+        "Cybil_AnimUpdate",
+        "Cybil_MovementUpdate",
+        "Cybil_AnimStateUpdate",
+        "Cybil_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map0_s01/Chara_Cybil.c",
+        "src/maps/map4_s01/Chara_Cybil.c",
+        "src/maps/map6_s01/Chara_Cybil.c",
+        "src/maps/map6_s04/Chara_MonsterCybil.c",
+        "src/maps/map7_s03/Chara_Cybil.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/dahlia.c",
+      "functions": [
+        "Dahlia_Update",
+        "Dahlia_AnimUpdate",
+        "Dahlia_MovementUpdate",
+        "Dahlia_ControlUpdate",
+        "Dahlia_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map2_s01/Chara_Dahlia.c",
+        "src/maps/map3_s06/Chara_Dahlia.c",
+        "src/maps/map6_s01/Chara_Dahlia.c",
+        "src/maps/map6_s04/Chara_AlessaDahlia.c",
+        "src/maps/map7_s02/Chara_Dahlia.c",
+        "src/maps/map7_s03/Chara_Dahlia.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/flauros.c",
+      "functions": [
+        "Flauros_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Flauros_Update"
+      ],
+      "wrappers": [
+        "src/maps/map6_s04/map6_s04_2.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/floatstinger.c",
+      "functions": [
+        "Floatstinger_Update",
+        "Floatstinger_Init",
+        "func_800D1968",
+        "Floatstinger_ControlUpdate",
+        "func_800D1BF8",
+        "func_800D2B90",
+        "func_800D341C",
+        "func_800D3424",
+        "func_800D3564",
+        "func_800D35F0",
+        "func_800D37E8",
+        "func_800D3AD4",
+        "func_800D3F84",
+        "func_800D41F0",
+        "func_800D4458",
+        "func_800D48A4",
+        "func_800D4A3C"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map4_s05/map4_s05.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/ghost_child_alessa.c",
+      "functions": [
+        "GhostChildAlessa_Update",
+        "GhostChildAlessa_AnimUpdate",
+        "GhostChildAlessa_MovementUpdate",
+        "GhostChildAlessa_AnimStateUpdate",
+        "GhostChildAlessa_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s01/Chara_GhostChildAlessa.c",
+        "src/maps/map7_s02/Chara_GhostChildAlessa.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/ghost_doctor.c",
+      "functions": [
+        "GhostDoctor_Update",
+        "GhostDoctor_AnimUpdate",
+        "GhostDoctor_CoordTransformUpdate",
+        "GhostDoctor_Init",
+        "GhostDoctor_CoordRotationUpdate"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s02/Chara_GhostDoctor.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/groaner.c",
+      "functions": [
+        "Groaner_Update",
+        "Groaner_Init",
+        "sharedFunc_800E33DC_2_s00",
+        "sharedFunc_800E384C_2_s00",
+        "Groaner_ControlWalkForward",
+        "Groaner_ControlRunForward",
+        "Groaner_ControlJumpAttack",
+        "Groaner_Control4",
+        "Groaner_ControlStandRecoil",
+        "Groaner_ControlStun",
+        "Groaner_ControlDeath",
+        "sharedFunc_800E5AA4_2_s00",
+        "Groaner_AnimUpdate",
+        "Groaner_CollisionUpdate",
+        "sharedFunc_800E71E8_2_s00"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map2_s00/Chara_Groaner.c",
+        "src/maps/map2_s02/Chara_Groaner.c",
+        "src/maps/map4_s02/Chara_Groaner.c",
+        "src/maps/map5_s01/Chara_Groaner.c",
+        "src/maps/map6_s00/Chara_Groaner.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/hanged_scratcher.c",
+      "functions": [
+        "HangedScratcher_Update",
+        "HangedScratcher_Init",
+        "sharedFunc_800CFF74_5_s00",
+        "HangedScratcher_ControlUpdate",
+        "HangedScratcher_Control_16",
+        "HangedScratcher_Control_1",
+        "HangedScratcher_ControlRunForward",
+        "HangedScratcher_Control_3",
+        "HangedScratcher_Control_4",
+        "HangedScratcher_Control_5",
+        "HangedScratcher_Control_6",
+        "HangedScratcher_ControlWalkForward",
+        "HangedScratcher_Control_8",
+        "HangedScratcher_Control_9",
+        "HangedScratcher_Control_10",
+        "HangedScratcher_Control_11",
+        "HangedScratcher_Control_12",
+        "HangedScratcher_Control_13",
+        "HangedScratcher_Control_14",
+        "HangedScratcher_Control_15",
+        "sharedFunc_800D26D8_5_s00",
+        "sharedFunc_800D2844_5_s00",
+        "HangedScratcher_CollisionUpdate",
+        "sharedFunc_800D3214_5_s00",
+        "sharedFunc_800D3300_5_s00"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map5_s00/Chara_HangedScratcher.c",
+        "src/maps/map6_s03/Chara_HangedScratcher.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/incubator.c",
+      "functions": [
+        "Incubator_Update",
+        "Incubator_AnimUpdate",
+        "func_800D3C80",
+        "func_800D3E18",
+        "Incubator_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s03/Chara_BloodyIncubator.c",
+        "src/maps/map7_s03/Chara_Incubator.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/incubus.c",
+      "functions": [
+        "func_800DD964",
+        "func_800DD98C",
+        "func_800DD9B0",
+        "func_800DD9D4",
+        "func_800DD9F8",
+        "Incubus_Init",
+        "func_800DDB3C",
+        "func_800DDB68",
+        "func_800DDBA4",
+        "func_800DDBBC",
+        "func_800DDCC4",
+        "func_800DDDB0",
+        "func_800DDDD8",
+        "func_800DDEEC",
+        "func_800DDF14",
+        "func_800DDF3C",
+        "func_800DE2A4",
+        "func_800DE68C",
+        "func_800DEA54",
+        "func_800DEA90",
+        "func_800DEAF4",
+        "func_800DEBA8",
+        "func_800DEC38",
+        "func_800DEC74",
+        "func_800DED68",
+        "func_800DEE44",
+        "func_800DEE90",
+        "func_800DEF50",
+        "func_800DEFE8",
+        "func_800DF044",
+        "func_800DF074",
+        "Incubus_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s03/Chara_Incubus.c",
+        "src/maps/map7_s03/Chara_LittleIncubus.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/kaufmann.c",
+      "functions": [
+        "Kaufmann_Update",
+        "Kaufmann_AnimUpdate",
+        "Kaufmann_MovementUpdate",
+        "Kaufmann_ControlUpdate",
+        "Kaufmann_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map3_s00/Chara_Kaufmann.c",
+        "src/maps/map5_s02/Chara_Kaufmann.c",
+        "src/maps/map5_s03/Chara_Kaufmann.c",
+        "src/maps/map7_s02/Chara_Kaufmann.c",
+        "src/maps/map7_s03/Chara_Kaufmann.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/larval_stalker.c",
+      "functions": [
+        "LarvalStalker_Update",
+        "LarvalStalker_ControlUpdate",
+        "sharedFunc_800D140C_1_s00",
+        "sharedFunc_800D1524_1_s00",
+        "LarvalStalker_Init",
+        "sharedFunc_800D17BC_1_s00",
+        "LarvalStalker_CollisionUpdate"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map1_s00/Chara_LarvalStalker.c",
+        "src/maps/map1_s01/Chara_LarvalStalker.c",
+        "src/maps/map6_s04/Chara_LarvalStalker.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/lisa.c",
+      "functions": [
+        "Lisa_Update",
+        "Lisa_AnimUpdate",
+        "Lisa_MovementUpdate",
+        "Lisa_AnimStateUpdate",
+        "Lisa_Init"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map3_s04/Chara_Lisa.c",
+        "src/maps/map4_s04/Chara_Lisa.c",
+        "src/maps/map7_s00/Chara_Lisa.c",
+        "src/maps/map7_s01/Chara_BloodyLisa.c",
+        "src/maps/map7_s01/Chara_Lisa.c",
+        "src/maps/map7_s02/Chara_BloodyLisa.c",
+        "src/maps/map7_s02/Chara_Lisa.c",
+        "src/maps/map7_s03/Chara_BloodyLisa.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/little_incubus.c",
+      "functions": [
+        "LittleIncubus_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s03/Chara_LittleIncubus.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/locker_dead_body.c",
+      "functions": [
+        "LockerDeadBody_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map1_s03/map1_s03.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/monster_cybil.c",
+      "functions": [
+        "func_800D87B0",
+        "func_800D8848",
+        "func_800D8898",
+        "MonsterCybil_Update",
+        "MonsterCybil_Init",
+        "func_800D8A90",
+        "func_800D8B14",
+        "func_800D8D7C",
+        "func_800D9790",
+        "func_800D99E4",
+        "func_800D9AAC",
+        "func_800D9AB4",
+        "func_800DA9C8",
+        "func_800DB4CC",
+        "func_800DB6FC",
+        "func_800DB748",
+        "func_800DB81C",
+        "func_800DB930",
+        "func_800DBA48",
+        "func_800DBD64",
+        "func_800DBE5C",
+        "func_800DC018"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map6_s04/Chara_MonsterCybil.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/parasite.c",
+      "functions": [
+        "Parasite_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Parasite_Update"
+      ],
+      "wrappers": [
+        "src/maps/map6_s04/map6_s04_2.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/player.c",
+      "functions": [
+        "sharedFunc_800D1C38_0_s00",
+        "Player_CutsceneWeaponUnequip",
+        "Player_MatchArmAnimDisable",
+        "Player_ControlFreeze",
+        "Player_ControlUnfreeze",
+        "Player_PathWaypointExecute",
+        "Player_AnimStateSet",
+        "Player_AnimReset",
+        "Player_AnimLock",
+        "Player_AnimIsLocked",
+        "Player_AnimUnlock",
+        "Player_AnimPlaybackStateGet",
+        "Player_MoveSpeedIsZero",
+        "Player_MoveSpeedClear",
+        "sharedFunc_800D2E6C_0_s00",
+        "Player_FallBackward",
+        "Player_Stub_F8",
+        "Player_DamageFeetFront",
+        "sharedFunc_800D2E8C_0_s00",
+        "sharedFunc_800D2E94_0_s00",
+        "Math_AngleFrontCheck",
+        "sharedFunc_800D2E9C_0_s00",
+        "Player_PropertyField10DGet",
+        "Player_EmptyWeaponHandSet",
+        "Player_WeaponAttackRestore"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map0_s00/player.c",
+        "src/maps/map0_s01/player.c",
+        "src/maps/map0_s02/player.c",
+        "src/maps/map1_s00/player.c",
+        "src/maps/map1_s01/player.c",
+        "src/maps/map1_s02/player.c",
+        "src/maps/map1_s03/player.c",
+        "src/maps/map1_s04/player.c",
+        "src/maps/map1_s05/player.c",
+        "src/maps/map1_s06/player.c",
+        "src/maps/map2_s00/player.c",
+        "src/maps/map2_s01/player.c",
+        "src/maps/map2_s02/player.c",
+        "src/maps/map2_s03/player.c",
+        "src/maps/map2_s04/player.c",
+        "src/maps/map3_s00/player.c",
+        "src/maps/map3_s01/player.c",
+        "src/maps/map3_s02/player.c",
+        "src/maps/map3_s03/player.c",
+        "src/maps/map3_s04/player.c",
+        "src/maps/map3_s05/map3_s05.c",
+        "src/maps/map3_s06/player.c",
+        "src/maps/map4_s00/player.c",
+        "src/maps/map4_s01/player.c",
+        "src/maps/map4_s02/player.c",
+        "src/maps/map4_s03/player.c",
+        "src/maps/map4_s04/player.c",
+        "src/maps/map4_s05/player.c",
+        "src/maps/map4_s06/player.c",
+        "src/maps/map5_s00/player.c",
+        "src/maps/map5_s01/player.c",
+        "src/maps/map5_s02/characters.c",
+        "src/maps/map5_s02/map5_s02_2.c",
+        "src/maps/map5_s03/player.c",
+        "src/maps/map6_s00/player.c",
+        "src/maps/map6_s01/player.c",
+        "src/maps/map6_s02/player.c",
+        "src/maps/map6_s03/player.c",
+        "src/maps/map6_s04/player.c",
+        "src/maps/map6_s05/player.c",
+        "src/maps/map7_s00/player.c",
+        "src/maps/map7_s01/characters.c",
+        "src/maps/map7_s02/player.c",
+        "src/maps/map7_s03/player.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/puppet_nurse.c",
+      "functions": [
+        "PuppetNurse_HurtSfxIdGet",
+        "PuppetNurse_SfxPlay",
+        "PuppetNurse_AnimSfxGet",
+        "sharedFunc_800CDA88_3_s03",
+        "PuppetNurse_UpdateMain",
+        "PuppetNurse_Init",
+        "PuppetNurse_Update",
+        "PuppetDoctor_Update",
+        "PuppetNurse_SomeAngleCheck",
+        "PuppetNurse_DamageHandle",
+        "PuppetNurse_Move",
+        "sharedFunc_800CE398_3_s03",
+        "PuppetNurse_Control1",
+        "PuppetNurse_Control2",
+        "PuppetNurse_Control3_4",
+        "sharedFunc_800CE7C8_3_s03",
+        "PuppetNurse_Control5",
+        "PuppetNurse_Control6_7",
+        "PuppetNurse_Control8",
+        "sharedFunc_800CEEAC_3_s03",
+        "sharedFunc_800CEEE0_3_s03",
+        "sharedFunc_800CF0B4_3_s03",
+        "sharedFunc_800CF294_3_s03",
+        "PuppetNurse_Control9",
+        "sharedFunc_800CF600_3_s03",
+        "sharedFunc_800CF7F4_3_s03",
+        "sharedFunc_800CF90C_3_s03",
+        "PuppetNurse_Control12",
+        "PuppetNurse_Control10",
+        "PuppetNurse_Control11",
+        "PuppetNurse_Control13",
+        "PuppetNurse_Control",
+        "sharedFunc_800D02E4_3_s03",
+        "sharedFunc_800D03E4_3_s03",
+        "PuppetNurse_AnimUpdate",
+        "sharedFunc_800D0828_3_s03",
+        "sharedFunc_800D0968_3_s03"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map3_s03/map3_s03.c",
+        "src/maps/map3_s04/Chara_PuppetNurse.c",
+        "src/maps/map3_s05/map3_s05.c",
+        "src/maps/map7_s01/characters.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/romper.c",
+      "functions": [
+        "Romper_Update",
+        "Romper_Init",
+        "Romper_FootstepSfxPlay",
+        "sharedFunc_800E60FC_2_s02",
+        "sharedFunc_800E6420_2_s02",
+        "Romper_ControlUpdate",
+        "Romper_Control_1",
+        "Romper_ControlWalkForward",
+        "Romper_Control_3",
+        "Romper_Control_4",
+        "Romper_ControlJump",
+        "Romper_Control_6",
+        "Romper_Control_7",
+        "Romper_Control_8",
+        "Romper_Control_9",
+        "Romper_Control_10",
+        "Romper_ControlGrabAttack",
+        "sharedFunc_800E8730_2_s02",
+        "sharedFunc_800E8A40_2_s02",
+        "Romper_CollisionUpdate",
+        "sharedFunc_800E939C_2_s02",
+        "sharedFunc_800E94B4_2_s02",
+        "sharedFunc_800E9714_2_s02"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map2_s02/map2_s02.c",
+        "src/maps/map4_s02/Chara_Romper.c",
+        "src/maps/map5_s01/map5_s01.c",
+        "src/maps/map6_s00/map6_s00.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/split_head.c",
+      "functions": [
+        "SplitHead_Update",
+        "SplitHead_Init",
+        "sharedFunc_800CF990_1_s05",
+        "SplitHead_DamageTake",
+        "SplitHead_ControlUpdate",
+        "SplitHead_Control_1",
+        "SplitHead_Control_2",
+        "SplitHead_Control_3",
+        "SplitHead_Control_4",
+        "SplitHead_Control_5",
+        "SplitHead_Control_6",
+        "SplitHead_Control_7",
+        "SplitHead_Control_8",
+        "SplitHead_MovementUpdate",
+        "SplitHead_AnimUpdate",
+        "sharedFunc_800D2D74_1_s05",
+        "sharedFunc_800D3388_1_s05",
+        "sharedFunc_800D3AFC_1_s05",
+        "sharedFunc_800D3B30_1_s05",
+        "sharedFunc_800D4070_1_s05",
+        "sharedFunc_800D4408_1_s05",
+        "SplitHead_MovementOffsetSet",
+        "sharedFunc_800D4530_1_s05",
+        "sharedFunc_800D4594_1_s05"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map1_s05/map1_s05.c",
+        "src/maps/map1_s06/map1_s06.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/stalker.c",
+      "functions": [
+        "Stalker_Update",
+        "Stalker_Init",
+        "sharedFunc_800D3308_0_s00",
+        "Stalker_ControlUpdate",
+        "Stalker_Control_2",
+        "Stalker_Control_3",
+        "Stalker_Control_4",
+        "Stalker_Control_5",
+        "Stalker_Control_6",
+        "Stalker_Control_7",
+        "Stalker_Control_8",
+        "Stalker_Control_9",
+        "Stalker_Control_10",
+        "Stalker_Control_11",
+        "Stalker_Control_12",
+        "Stalker_Control_13",
+        "sharedFunc_800D67FC_0_s00",
+        "sharedFunc_800D6970_0_s00",
+        "Stalker_CollisionUpdate",
+        "sharedFunc_800D7BE8_0_s00",
+        "sharedFunc_800D7E04_0_s00"
+      ],
+      "core_linked_functions": [],
+      "migrated": [
+        "Stalker_Init",
+        "sharedFunc_800D3308_0_s00",
+        "Stalker_Control_13",
+        "sharedFunc_800D7E04_0_s00"
+      ],
+      "wrappers": [
+        "src/maps/map0_s00/Chara_Stalker.c",
+        "src/maps/map1_s00/Chara_LarvalStalker.c",
+        "src/maps/map1_s00/Chara_Stalker.c",
+        "src/maps/map1_s01/Chara_LarvalStalker.c",
+        "src/maps/map1_s01/Chara_Stalker.c",
+        "src/maps/map1_s02/Chara_Stalker.c",
+        "src/maps/map1_s03/Chara_Stalker.c",
+        "src/maps/map5_s02/characters.c",
+        "src/maps/map6_s03/Chara_Stalker.c",
+        "src/maps/map6_s04/Chara_LarvalStalker.c",
+        "src/maps/map6_s04/Chara_Stalker.c",
+        "src/maps/map7_s02/Chara_Stalker.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/twinfeeler.c",
+      "functions": [
+        "func_800D078C",
+        "func_800D0840",
+        "func_800D0C50",
+        "func_800D0CA0",
+        "func_800D0D6C",
+        "func_800D0DE4",
+        "func_800D0EC0",
+        "func_800D0F40",
+        "func_800D0FD4",
+        "func_800D13B4",
+        "func_800D1478",
+        "func_800D1604",
+        "func_800D17FC",
+        "func_800D185C",
+        "func_800D19AC",
+        "func_800D19CC",
+        "func_800D19F0",
+        "func_800D1AFC",
+        "func_800D1C48",
+        "func_800D1D3C",
+        "func_800D1FF4",
+        "func_800D2120",
+        "func_800D2150",
+        "func_800D21AC",
+        "func_800D2684",
+        "func_800D26FC",
+        "func_800D2790",
+        "func_800D2CC8",
+        "func_800D2CEC",
+        "func_800D2D28",
+        "func_800D2ED0",
+        "Twinfeeler_TextureLoad",
+        "Twinfeeler_Translate",
+        "func_800D3114",
+        "func_800D326C",
+        "func_800D33D0",
+        "func_800D3428",
+        "func_800D3504",
+        "func_800D3528",
+        "func_800D354C",
+        "func_800D35DC",
+        "func_800D3694",
+        "func_800D3AE0",
+        "func_800D3B1C",
+        "func_800D3B44",
+        "func_800D3B68",
+        "func_800D3B74",
+        "Twinfeeler_GroundSet",
+        "Twinfeeler_UndergroundSet",
+        "Twinfeeler_Init",
+        "func_800D3E18",
+        "func_800D3E58",
+        "func_800D3FB0",
+        "func_800D3FD8",
+        "func_800D4000",
+        "Twinfeeler_ControlIdle",
+        "Twinfeeler_Control_12",
+        "Twinfeeler_Control_13",
+        "func_800D43AC",
+        "func_800D4488",
+        "func_800D4558",
+        "Twinfeeler_Control_5",
+        "Twinfeeler_AcidThrow",
+        "Twinfeeler_Control_6",
+        "func_800D48CC",
+        "func_800D4924",
+        "Twinfeeler_Control_10",
+        "Twinfeeler_ControlStand",
+        "Twinfeeler_ControlAttack",
+        "Twinfeeler_Control_4",
+        "func_800D4C0C",
+        "func_800D4C5C",
+        "func_800D4D80",
+        "func_800D4DD8",
+        "func_800D4E00",
+        "func_800D4E78",
+        "Twinfeeler_Control_3",
+        "Twinfeeler_Control_2",
+        "Twinfeeler_Control_9",
+        "Twinfeeler_ControlUpdate",
+        "func_800D54B4",
+        "func_800D55C8",
+        "func_800D5888",
+        "func_800D5904",
+        "func_800D59C0",
+        "func_800D59EC",
+        "func_800D5B6C",
+        "func_800D5BC8",
+        "func_800D5BF8",
+        "func_800D5C3C",
+        "func_800D5DF4",
+        "func_800D5E30",
+        "Twinfeeler_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map4_s03/map4_s03.c"
+      ]
+    },
+    {
+      "source": "src/maps/characters/unknown23.c",
+      "functions": [
+        "func_800DF1D4",
+        "func_800DF288",
+        "func_800DF348",
+        "func_800DF418",
+        "func_800DF458",
+        "func_800DF750",
+        "func_800DF7F8",
+        "func_800DF84C",
+        "func_800DF90C",
+        "func_800DF944",
+        "func_800DFA14",
+        "func_800DFA48",
+        "func_800DFB04",
+        "func_800DFB2C",
+        "func_800DFB50",
+        "func_800DFB74",
+        "Unknown23_Init",
+        "func_800DFCE4",
+        "func_800DFE10",
+        "func_800DFEF0",
+        "func_800DFF28",
+        "func_800DFF44",
+        "func_800DFF60",
+        "func_800E04C4",
+        "func_800E0528",
+        "func_800E05DC",
+        "func_800E0670",
+        "func_800E0728",
+        "func_800E0774",
+        "func_800E07F0",
+        "func_800E0888",
+        "func_800E08E4",
+        "func_800E0914",
+        "Unknown23_Update"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": [
+        "src/maps/map7_s03/Chara_Unknown23.c"
+      ]
+    },
+    {
+      "source": "src/maps/map0_s00/Chara_Cheryl.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s00/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s00/map0_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s00/map0_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/Chara_AirScreamer.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/Chara_Cybil.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/map0_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/map0_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/particle_glass.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s02/map0_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s02/map0_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map0_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/Chara_LarvalStalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/map1_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/map1_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/Chara_Cat.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/Chara_LarvalStalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/map1_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/map1_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/Chara_Creeper.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/map1_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/map1_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/particle_water.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/Chara_Creeper.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/map1_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/map1_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/particle_water.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s04/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s04/map1_s04_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s04/map1_s04_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s04/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s04/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s05/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s05/map1_s05_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s05/map1_s05_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s05/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s05/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s06/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s06/map1_s06_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s06/map1_s06_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s06/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map1_s06/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/Chara_AirScreamer.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/Chara_Groaner.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/map2_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/map2_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s01/Chara_Dahlia.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s01/map2_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s01/map2_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/Chara_AirScreamer.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/Chara_Groaner.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/map2_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/map2_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s03/map2_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s03/map2_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s04/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s04/map2_s04_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s04/map2_s04_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s04/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map2_s04/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s00/Chara_Kaufmann.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s00/map3_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s00/map3_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s01/Chara_Creeper.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s01/map3_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s01/map3_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/Chara_Alessa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/Chara_Creeper.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/map3_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/map3_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s03/map3_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s03/map3_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/Chara_Lisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/Chara_PuppetNurse.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/map3_s04_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/map3_s04_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s04/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s05/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s05/map3_s05_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s05/map3_s05_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s05/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s06/Chara_Dahlia.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s06/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s06/map3_s06_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s06/map3_s06_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s06/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map3_s06/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s00/map4_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s00/map4_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s01/Chara_Cybil.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s01/map4_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s01/map4_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/Chara_AirScreamer.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/Chara_Groaner.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/Chara_Romper.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/map4_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/map4_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s03/map4_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s03/map4_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s03/particle_acid.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s04/Chara_Lisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s04/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s04/map4_s04_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s04/map4_s04_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s04/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s04/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s05/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s05/map4_s05_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s05/map4_s05_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s05/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s05/particle_acid.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s05/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s06/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s06/map4_s06_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s06/map4_s06_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s06/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map4_s06/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/Chara_Creeper.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/Chara_HangedScratcher.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/map5_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/map5_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/Chara_AirScreamer.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/Chara_Groaner.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/map5_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/map5_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s02/Chara_Kaufmann.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s02/map5_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s02/map5_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s03/Chara_Kaufmann.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s03/map5_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s03/map5_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map5_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/Chara_AirScreamer.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/Chara_Groaner.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/map6_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/map6_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/Chara_Cybil.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/Chara_Dahlia.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/map6_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/map6_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s01/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s02/Chara_Alessa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s02/map6_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s02/map6_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/Chara_HangedScratcher.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/map6_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/map6_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/Chara_AlessaDahlia.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/Chara_LarvalStalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/Chara_MonsterCybil.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/map6_s04_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/map6_s04_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s04/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s05/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s05/map6_s05_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s05/map6_s05_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s05/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map6_s05/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s00/Chara_Lisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s00/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s00/map7_s00_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s00/map7_s00_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s00/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s00/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/Chara_BloodyLisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/Chara_GhostChildAlessa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/Chara_Lisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/map7_s01_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/map7_s01_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s01/particle_glass.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_Bloodsucker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_BloodyLisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_Dahlia.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_GhostChildAlessa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_GhostDoctor.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_Kaufmann.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_Lisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/Chara_Stalker.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/map7_s02_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/map7_s02_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s02/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Alessa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_BloodyIncubator.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_BloodyLisa.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Cybil.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Dahlia.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Incubator.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Incubus.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Kaufmann.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_LittleIncubus.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/Chara_Unknown23.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/chara_spawns.h",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/chara_util.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/map7_s03_anim_info.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/map7_s03_header.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/particle.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map7_s03/player.c",
+      "functions": [],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/map_util.c",
+      "functions": [
+        "sharedFunc_800D929C_0_s00",
+        "GetXIdx",
+        "GetXIdx",
+        "GetYIdx",
+        "Map_RoomIdxGet"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/particle.c",
+      "functions": [
+        "Particle_SystemUpdate",
+        "Particle_SystemUpdate",
+        "Particle_CameraMovedCheck",
+        "Particle_SnowInitialize",
+        "func_800CBFB0",
+        "Particle_Update",
+        "func_800CC6E8",
+        "func_800CC8FC",
+        "func_800CD1F4",
+        "func_800CD8E8",
+        "func_800CE02C",
+        "func_800CE544",
+        "Particle_SnowDraw",
+        "Particle_RainDraw",
+        "Particle_SpawnMovementApply",
+        "Particle_MovementUpdate",
+        "sharedFunc_800CFFF8_0_s00",
+        "sharedFunc_800D0690_1_s03",
+        "sharedFunc_800CE954_7_s03",
+        "func_800D012C",
+        "Particle_PositionRandomize",
+        "Particle_Spawn",
+        "func_800D0394",
+        "func_800D0600",
+        "Particle_BoundaryClamp",
+        "Particle_EnvironmentSet",
+        "sharedFunc_800D0A60_0_s00",
+        "sharedFunc_800D0B18_0_s00",
+        "Particle_SoundUpdate",
+        "Particle_SoundStop",
+        "Particle_HyperBlasterBeamDraw",
+        "Particle_BeamDraw"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/particle_acid.c",
+      "functions": [
+        "sharedFunc_800CB0A4_4_s03",
+        "sharedFunc_800CB1B0_4_s03",
+        "sharedFunc_800CBE54_4_s03",
+        "sharedFunc_800CC004_4_s03"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/particle_glass.c",
+      "functions": [
+        "sharedFunc_800CCB8C_0_s01",
+        "sharedFunc_800CD1F8_0_s01"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    },
+    {
+      "source": "src/maps/particle_water.c",
+      "functions": [
+        "sharedFunc_800CBA4C_1_s02",
+        "sharedFunc_800CBC98_1_s02",
+        "sharedFunc_800CBD58_1_s02",
+        "sharedFunc_800CBDA8_1_s02",
+        "sharedFunc_800CCE60_1_s02"
+      ],
+      "core_linked_functions": [],
+      "migrated": [],
+      "wrappers": []
+    }
+  ]
+}
