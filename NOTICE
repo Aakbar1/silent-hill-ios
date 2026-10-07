@@ -1,0 +1,9 @@
+Silent Hill iOS port
+
+This project builds on the Silent Hill decompilation
+(https://github.com/Vatuu/silent-hill-decomp), Copyright (C) 2026 shdecompilations,
+licensed under the GNU General Public License version 3. This project is likewise
+licensed under GPL-3.0 (see LICENSE).
+
+No game data is included. Players must supply their own disc image of
+Silent Hill (USA, v1.1).
