@@ -59,8 +59,14 @@ def main():
         data = screenshot.read_bytes()
         assert data[:8] == b"\x89PNG\r\n\x1a\n"
         width, height = struct.unpack(">II", data[16:24])
-        assert width > height, f"Expected landscape screenshot, got {width}x{height}"
-        print(f"PASS: installed, launched, rendered, landscape screenshot {width}x{height}")
+        # simctl always captures in the device's native portrait orientation, so judge
+        # orientation from the app's own surface size instead of the screenshot.
+        content = log.read_text(errors="replace")[offset:]
+        sizes = re.findall(r"resize (\d+)x(\d+)", content)
+        assert sizes, "App never logged a surface size."
+        surface_w, surface_h = map(int, sizes[-1])
+        assert surface_w > surface_h, f"Expected landscape surface, got {surface_w}x{surface_h}"
+        print(f"PASS: installed, launched, rendered; landscape surface {surface_w}x{surface_h}; screenshot {width}x{height}")
     finally:
         if "log" in locals() and log.exists():
             shutil.copy2(log, out / "shell.log")
