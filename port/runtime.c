@@ -375,3 +375,14 @@ int port_run_world_probe(void) {
     if(!result){port_world_probe();fflush(stdout);return 0;}
     fflush(stdout);return result==1?stop_code:2;
 }
+
+// PORT: Rendering-only milestone at the original player's startup boundary.
+// This runs after the guarded game loop has returned; it never substitutes a
+// successful gameplay update or changes the startup dispatcher.
+extern void port_render_first_map(void);
+int port_capture_render_boundary(void) {
+    if(g_GameWork.gameState!=10 || g_GameWork.gameStateSteps[0]!=5)return 4;
+    int result=setjmp(stop);
+    if(!result){port_render_first_map();fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
+}
