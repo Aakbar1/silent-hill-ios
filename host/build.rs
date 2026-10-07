@@ -235,6 +235,11 @@ fn main() {
         build.flag("/std:c11").flag("/W4");
     } else {
         build.flag("-std=c11").flag("-Wall").flag("-Wextra");
+        // PsyQ's libgte declares integer ccos/csin/csqrt/catan, which clang otherwise
+        // treats as the C99 complex-math builtins and rejects as redeclarations.
+        for name in ["ccos", "csin", "csqrt", "catan"] {
+            build.flag(format!("-fno-builtin-{name}"));
+        }
     }
     let inputs = [
         ("main", "src/main/main.c"),
