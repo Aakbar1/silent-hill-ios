@@ -6,6 +6,14 @@ the host/core adapters, actual UI hit regions and every encounter still need int
 Every row has its own named Rust test replaying `tests/replays/coverage.jsonl` with literal
 expected pad bits/axes/actions. A test enforces an exact row/replay ID match.
 
+Native integration evidence is separate from the standalone rows: touchwire's
+`milestones.json` and `tests/replays/native-*.jsonl` drive the real C game using
+live native context. Intro skip, title, New Game difficulty entry/back, options,
+and a direct brightness-row tap passed twice with identical overlay PNG hashes.
+These replays contain no pad/context injection. Title/difficulty row targeting,
+aiming/ownership/puzzle context, headless backend injection and root milestone
+registration still require core hooks. See README.md and PROJECT_STATE.md.
+
 Source aliases (relative to the reference decomp): PC=`src/bodyprog/player_control.c`;
 EM=`src/bodyprog/events/events_main.c`; EU=`src/bodyprog/events/events_util.c`;
 GS=`src/bodyprog/events/game_sys_states.c`; IS=`src/bodyprog/items/item_screens_2.c`;

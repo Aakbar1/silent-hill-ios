@@ -1,0 +1,11 @@
+{"type":"touch","tick":1400,"id":1,"phase":"down","x":400,"y":200}
+{"type":"touch","tick":1400,"id":1,"phase":"up","x":400,"y":200}
+{"type":"check","tick":1500,"id":"intro_skip_title","state":7,"step":1,"menu":1}
+{"type":"touch","tick":1510,"id":2,"phase":"down","x":108,"y":408}
+{"type":"touch","tick":1510,"id":2,"phase":"up","x":108,"y":408}
+{"type":"touch","tick":1550,"id":3,"phase":"down","x":552,"y":416}
+{"type":"touch","tick":1550,"id":3,"phase":"up","x":552,"y":416}
+{"type":"check","tick":2000,"id":"options","state":18,"step":1,"option_entry":0}
+{"type":"touch","tick":2100,"id":4,"phase":"down","x":250,"y":144}
+{"type":"touch","tick":2100,"id":4,"phase":"up","x":250,"y":144}
+{"type":"check","tick":2380,"id":"direct_brightness","state":18,"step":3,"option_entry":1}

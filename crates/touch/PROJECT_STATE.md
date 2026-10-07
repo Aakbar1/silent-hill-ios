@@ -1,4 +1,44 @@
-# Touch lane checkpoint — 2026-10-07
+# Touchwire checkpoint - 2026-10-07
+
+Goal: real native-game touch input, live read-only context, original overlay and
+touch-only menu replay. Branch lane/touchwire. Owned scope: pad_touch.rs, touch
+crate, existing host dependency and minimal registration. No merge/push/main or
+system installs. Source notices retained; game bytes/captures stay private.
+
+Implemented: Engine-backed PadSource cached on actual Joy reads/VBlank clock;
+queued native contacts and Windows mouse, DPI bounds, focus/scene release, live
+native bindings/run/weapon config. Read-only prefix matches current port/boot.h.
+Boot/title/options/movie/inventory/map/dialogue/exploring are identified; unknown
+ownership/combat/event availability is closed. No guessed aiming or state writes.
+GpuBackend decorator draws original low-opacity chips/rows/stick on display
+copies; VRAM/readbacks unchanged, all overlay hidden during movies.
+
+Real menu path: intro skip -> title -> New Game difficulty selector -> Back ->
+title -> options. Separate replay directly taps brightness through ordinary C
+navigation/feedback/guards. Each passed twice: 4 release runs, 14 exact state
+checks, 2 identical PNG hashes. Overlay captures visually reviewed.
+Evidence: private/work/touchwire/milestones/20261007T130053971314Z/results.json.
+Windows own-process mouse probe passed difficulty/back/options at 1.75 DPI:
+private/work/touchwire/mouse-20261007T1300539178553Z.log/png. First probe failed
+because CursorLeft cancelled captured taps; focus/scene now cancel while mouse
+leave preserves capture/native fingers. Wrong-state negative control exits 1.
+Initial debug menu run passed slowly; use release for windowed replay.
+
+Private selected workspace (host/psxdisc/psxmedia/touch): fmt, all-target clippy
+with warnings denied, 246 tests + 3 doctests pass; linked C /W4 /WX. Root
+fmt/clippy/test stop at nested psxgpu/psxspu workspace declarations. No root
+manifest/gates changed; private validation uses identical owned Rust sources
+and pinned read-only decomp d9e28f8.
+
+Director/core3 requests: root workspace repair; typed native snapshot, live
+title visibility/cursor, difficulty, aiming, owned/allowed chips, puzzle IDs/rows
+and enabled guards/original handlers; headless backend injection and active
+GPU/SPU factory; root touch milestone registration. Title/difficulty currently
+use labelled previous/next/OK/back. No difficulty confirmation/opening world,
+physical touchscreen, iOS ergonomics or whole-game puzzle coverage is claimed.
+See README.md, COVERAGE.md, milestones.json and ignored root REPORT.md.
+
+## Previous standalone evidence (historical touch lane)
 
 Goal: standalone platform-neutral native touch -> PS1 pad + host UI requests;
 Windows harness and deterministic gesture coverage. Owned scope is `crates/touch/`;

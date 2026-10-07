@@ -5,6 +5,7 @@
 #![doc = include_str!("../README.md")]
 
 mod engine;
+pub mod game_replay;
 mod layout;
 mod pad;
 pub mod replay;
