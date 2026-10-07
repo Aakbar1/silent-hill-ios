@@ -1,0 +1,191 @@
+[
+  {
+    "file": "MAP1_S01.BIN",
+    "symbol": "g_PianoKeys",
+    "base": 2148308344,
+    "address": 2148390144,
+    "count": 11,
+    "kind": "i8",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP1_S01.BIN",
+    "symbol": "g_PianoKeySequence",
+    "base": 2148308344,
+    "address": 2148390156,
+    "count": 5,
+    "kind": "i8",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP3_S03.BIN",
+    "symbol": "D_800D6B40",
+    "base": 2148308344,
+    "address": 2148363072,
+    "count": 8,
+    "kind": "u8_xy",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP5_S01.BIN",
+    "symbol": "D_800F0158",
+    "base": 2148308344,
+    "address": 2148467032,
+    "count": 12,
+    "kind": "u8_xy",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP5_S01.BIN",
+    "symbol": "D_800F0170",
+    "base": 2148308344,
+    "address": 2148467056,
+    "count": 4,
+    "kind": "digit_sequence",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP7_S01.BIN",
+    "symbol": "D_800E1510",
+    "base": 2148308344,
+    "address": 2148406544,
+    "count": 26,
+    "kind": "u8_xy",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP7_S01.BIN",
+    "symbol": "D_800E1544",
+    "base": 2148308344,
+    "address": 2148406596,
+    "count": 5,
+    "kind": "letter_sequence",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP7_S02.BIN",
+    "symbol": "D_800E9DE8",
+    "base": 2148308344,
+    "address": 2148441576,
+    "count": 26,
+    "kind": "u8_xy",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP7_S02.BIN",
+    "symbol": "D_800E9E1C",
+    "base": 2148308344,
+    "address": 2148441628,
+    "count": 5,
+    "kind": "letter_sequence",
+    "proof": "source identifier address; live disc shape and bounds checked"
+  },
+  {
+    "file": "MAP7_S01.BIN",
+    "symbol": "sharedData_800E1578_7_s01",
+    "base": 2148308344,
+    "address": 2148406648,
+    "count": 27,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S01.BIN",
+    "symbol": "sharedData_800E1570_7_s01",
+    "base": 2148308344,
+    "address": 2148406640,
+    "count": 1,
+    "kind": "mask27",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S01.BIN",
+    "symbol": "sharedData_800E1574_7_s01",
+    "base": 2148308344,
+    "address": 2148406644,
+    "count": 1,
+    "kind": "mask27",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S02.BIN",
+    "symbol": "sharedData_800E1578_7_s01",
+    "base": 2148308344,
+    "address": 2148441496,
+    "count": 27,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S02.BIN",
+    "symbol": "sharedData_800E1570_7_s01",
+    "base": 2148308344,
+    "address": 2148441488,
+    "count": 1,
+    "kind": "mask27",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S02.BIN",
+    "symbol": "sharedData_800E1574_7_s01",
+    "base": 2148308344,
+    "address": 2148441492,
+    "count": 1,
+    "kind": "mask27",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP3_S01.BIN",
+    "symbol": "sharedData_800D4CD4_3_s01",
+    "base": 2148308344,
+    "address": 2148355284,
+    "count": 7,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP3_S03.BIN",
+    "symbol": "sharedData_800D4CD4_3_s01",
+    "base": 2148308344,
+    "address": 2148363096,
+    "count": 6,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP3_S04.BIN",
+    "symbol": "sharedData_800D4CD4_3_s01",
+    "base": 2148308344,
+    "address": 2148358620,
+    "count": 6,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP3_S05.BIN",
+    "symbol": "sharedData_800D4CD4_3_s01",
+    "base": 2148308344,
+    "address": 2148379768,
+    "count": 6,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S01.BIN",
+    "symbol": "sharedData_800D4CD4_3_s01",
+    "base": 2148308344,
+    "address": 2148406704,
+    "count": 5,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  },
+  {
+    "file": "MAP7_S02.BIN",
+    "symbol": "sharedData_800D4CD4_3_s01",
+    "base": 2148308344,
+    "address": 2148441552,
+    "count": 5,
+    "kind": "u8_xy",
+    "proof": "pinned symbol"
+  }
+]

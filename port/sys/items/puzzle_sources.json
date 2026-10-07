@@ -1,0 +1,188 @@
+{
+  "src/maps/map0_s01/map0_s01_events.c": [
+    "MapEvent_PocketRadioItemTake",
+    "MapEvent_FlashlightItemTake"
+  ],
+  "src/maps/map0_s02/map0_s02_events.c": [
+    "MapEvent_ChannelingStoneItemTake"
+  ],
+  "src/maps/map1_s01/map1_s01.c": [
+    "MapEvent_ChemicalItemTake",
+    "MapEvent_GoldMedallionItemPickup",
+    "MapEvent_PianoPuzzleInteract",
+    "PianoPuzzle_Control",
+    "func_800D857C",
+    "MapEvent_HandStatueInspect",
+    "func_800D7308"
+  ],
+  "src/maps/map1_s02/map1_s02.c": [
+    "MapEvent_LobbyKeyUse",
+    "func_800DB310",
+    "func_800DB33C",
+    "MapEvent_ClassroomKeyItemTake",
+    "func_800DC1E0",
+    "func_800DCF00",
+    "MapEvent_DoorWithHorizontalSlotInteract"
+  ],
+  "src/maps/map1_s03/map1_s03.c": [
+    "MapEvent_LibraryReserveKeyUse",
+    "MapEvent_ClassroomKeyUse",
+    "MapEvent_RoofDrainPuzzleInteract0",
+    "MapEvent_RoofDrainPuzzleInteract1",
+    "MapEvent_LibraryReserveKeyItemTake",
+    "func_800DCDDC"
+  ],
+  "src/maps/map1_s06/map1_s06.c": [
+    "func_800D5B98"
+  ],
+  "src/maps/map2_s00/map2_s00.c": [
+    "func_800E7D54",
+    "MapEvent_CherylsSketchbook",
+    "MapEvent_DoghouseNote",
+    "MapEvent_DoghouseKeyTake",
+    "func_800E9A0C",
+    "func_800E9A74",
+    "func_800E9CB4",
+    "MapEvent_HouseKeyUse",
+    "func_800E9DD8",
+    "MapEvent_KGordonKeyUse"
+  ],
+  "src/maps/map2_s01/map2_s01_2.c": [
+    "func_800CF798",
+    "func_800CF7C4"
+  ],
+  "src/maps/map2_s02/map2_s02.c": [
+    "func_800E9D54"
+  ],
+  "src/maps/map3_s01/map3_s01.c": [
+    "func_800D1524",
+    "MapEvent_UseBottleOnLiquid",
+    "MapEvent_PlasticBottleTake",
+    "func_800D279C",
+    "MapEvent_UnknownLiquidInteract",
+    "MapEvent_Generator0"
+  ],
+  "src/maps/map3_s03/map3_s03.c": [
+    "func_800D1774",
+    "func_800D17A0",
+    "func_800D17CC",
+    "func_800D1A58",
+    "func_800D27F4",
+    "func_800D2C2C",
+    "func_800D2C58",
+    "func_800D2C84",
+    "func_800D2CB0"
+  ],
+  "src/maps/map3_s04/map3_s04_2.c": [
+    "func_800D250C",
+    "func_800D2E58"
+  ],
+  "src/maps/map3_s05/map3_s05.c": [
+    "func_800D59D4",
+    "func_800D5C98",
+    "func_800D6BB4",
+    "func_800D6CF0",
+    "func_800D5FC4",
+    "func_800D64E0",
+    "func_800D72AC"
+  ],
+  "src/maps/map3_s06/map3_s06_2.c": [
+    "func_800D17D8"
+  ],
+  "src/maps/map4_s05/map4_s05.c": [
+    "func_800D6BC0"
+  ],
+  "src/maps/map5_s00/map5_s00.c": [
+    "func_800D69DC",
+    "MapEvent_SewerKeyTake",
+    "func_800D6B00"
+  ],
+  "src/maps/map5_s01/map5_s01.c": [
+    "func_800EBA40",
+    "func_800EC2D8",
+    "func_800EC42C"
+  ],
+  "src/maps/map5_s02/map5_s02_2.c": [
+    "func_800D4DF8",
+    "func_800D54D0",
+    "func_800D4E64",
+    "func_800D519C"
+  ],
+  "src/maps/map5_s03/map5_s03_2.c": [
+    "func_800D1628",
+    "func_800D1ACC",
+    "func_800D1A84"
+  ],
+  "src/maps/map6_s01/map6_s01_2.c": [
+    "func_800D2658"
+  ],
+  "src/maps/map6_s02/map6_s02_2.c": [
+    "func_800CFC34"
+  ],
+  "src/maps/map6_s04/map6_s04_2.c": [
+    "func_800E3EF4"
+  ],
+  "src/maps/map7_s01/map7_s01_2.c": [
+    "MapEvent_KeyOfOphielUse",
+    "MapEvent_KeyOfHagithUse",
+    "MapEvent_KeyOfPhalegUse",
+    "MapEvent_BirdCageKeyUse",
+    "func_800D89D8",
+    "func_800D8DB4",
+    "func_800D93BC",
+    "func_800D9414",
+    "func_800D9440",
+    "func_800D94DC",
+    "func_800D99DC",
+    "func_800D9C9C",
+    "func_800DAB64",
+    "func_800DAD7C",
+    "func_800DADA8",
+    "func_800DB3D0",
+    "func_800DC080",
+    "func_800D8A5C",
+    "func_800D8FF8",
+    "func_800DAE00",
+    "func_800DCE20"
+  ],
+  "src/maps/map7_s02/map7_s02_2.c": [
+    "MapEvent_KeyOfBethorUse",
+    "MapEvent_KeyOfAratronUse",
+    "func_800DB738",
+    "MapEvent_AnkhTake",
+    "func_800DC778",
+    "func_800DCD00",
+    "MapEvent_DiskOfOuroborosTake",
+    "MapEvent_ScrewdriverTake",
+    "MapEvent_AmuletOfSolomonTake",
+    "func_800DFDDC",
+    "MapEvent_CrestOfMercuryTake",
+    "MapEvent_RingOfContractTake",
+    "MapEvent_CameraTake",
+    "func_800E0FF0",
+    "func_800E1398",
+    "func_800E32E0",
+    "func_800DC954",
+    "func_800DD2D4",
+    "func_800DDEC8",
+    "func_800DE1FC",
+    "func_800DF21C",
+    "func_800E0CB4"
+  ],
+  "src/maps/map1_s00/map1_s00.c": [
+    "MapEvent_GoldenSunEmptyReceptableInspect",
+    "MapEvent_GoldenSunFilledReceptacleInspect",
+    "MapEvent_GoldenSunItemUse",
+    "MapEvent_SilverMoonEmptyReceptableInspect",
+    "MapEvent_SilverMoonFilledReceptacleInspect",
+    "MapEvent_SilverMoonItemUse",
+    "MapEvent_ClockTowerInspect",
+    "func_800D8948",
+    "MapEvent_Boiler0",
+    "MapEvent_Boiler1",
+    "MapEvent_Boiler2"
+  ],
+  "src/maps/map7_s03/map7_s03_3.c": [
+    "func_800E9C28"
+  ]
+}

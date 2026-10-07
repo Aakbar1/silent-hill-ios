@@ -1,0 +1,1896 @@
+{
+  "include/psyq/sys/types.h": [
+    [
+      "typedef\tint32_t\ttime_t;",
+      "// PORT: use native CRT time_t."
+    ]
+  ],
+  "include/bodyprog/anim.h": [
+    [
+      "typedef struct _AnimInfo",
+      "struct _Model;\ntypedef struct _AnimInfo"
+    ]
+  ],
+  "include/bodyprog/formats/anm.h": [
+    [
+      "s_AnmBindPose bindPoses[0];",
+      "s_AnmBindPose* bindPoses; const u8* keyframes;"
+    ]
+  ],
+  "include/bodyprog/model.h": [
+    [
+      "model->anim.status = ANIM_STATUS",
+      "model->anim.status = (u8)ANIM_STATUS"
+    ]
+  ],
+  "include/bodyprog/math/math.h": [
+    [
+      "> (range * 2);",
+      "> (u32)(range * 2);"
+    ]
+  ],
+  "include/bodyprog/chara/chara.h": [
+    [
+      "= animStatus;",
+      "= (u8)animStatus;"
+    ],
+    [
+      "= keyframeIdx;",
+      "= (s16)keyframeIdx;"
+    ]
+  ],
+  "include/bodyprog/savegame.h": [
+    [
+      "localIdx = flagIdx / 32;",
+      "localIdx = (s16)(flagIdx / 32);"
+    ],
+    [
+      "1 << ((flagIdx) & 0x1F)",
+      "1u << ((flagIdx) & 0x1F)"
+    ],
+    [
+      "1 << localBit",
+      "1u << localBit"
+    ]
+  ],
+  "include/bodyprog/text/text_draw.h": [
+    [
+      "Gfx_StringDraw(char* str",
+      "Gfx_StringDraw(const char* str"
+    ],
+    [
+      "Gfx_MapMsg_StringDraw(char* mapMsg",
+      "Gfx_MapMsg_StringDraw(const char* mapMsg"
+    ]
+  ],
+  "src/bodyprog/items/item_utils.c": [
+    [
+      "Inventory_ExitAnimEquippedItemUpdate(u8* weaponId)",
+      "Inventory_ExitAnimEquippedItemUpdate(u8* unusedWeaponId)"
+    ],
+    [
+      "    s8       weaponAttack; // Packed weapon attack. See `WEAPON_ATTACK`.",
+      "    s8       weaponAttack; (void)sizeof(weaponAttack); // Packed weapon attack. See `WEAPON_ATTACK`."
+    ],
+    [
+      "                D_800C3961 -= ((g_DeltaTime / 68) == 0) ? 1 : (g_DeltaTime / 68);",
+      "                D_800C3961 = (s8)(D_800C3961 - (((g_DeltaTime / 68) == 0) ? 1 : (g_DeltaTime / 68)));"
+    ],
+    [
+      "                    D_800C3963 = temp_v1;",
+      "                    D_800C3963 = (u8)(temp_v1);"
+    ],
+    [
+      "            g_SavegamePtr->gameplayTimer = TIME_290_HOURS - 1;",
+      "            g_SavegamePtr->gameplayTimer = (q20_12)(TIME_290_HOURS - 1);"
+    ],
+    [
+      "itemIdx == g_SysWork.playerCombat.weaponInventoryIdx",
+      "itemIdx == (u32)g_SysWork.playerCombat.weaponInventoryIdx"
+    ],
+    [
+      "s8       weaponAttack; (void)sizeof(weaponAttack);",
+      "    u8 weaponId; (void)unusedWeaponId;\n    s8       weaponAttack; (void)sizeof(weaponAttack);"
+    ],
+    [
+      "Inventory_GunsAvailableCheck(bool unused) // 0x8004C328\n{",
+      "Inventory_GunsAvailableCheck(bool unused) // 0x8004C328\n{\n    (void)unused;"
+    ],
+    [
+      "D_800C3960",
+      "sh_items_local_D_800C3960"
+    ],
+    [
+      "D_800C3961",
+      "sh_items_local_D_800C3961"
+    ],
+    [
+      "D_800C3962",
+      "sh_items_local_D_800C3962"
+    ],
+    [
+      "D_800C3963",
+      "sh_items_local_D_800C3963"
+    ]
+  ],
+  "include/bodyprog/item_screens.h": [
+    [
+      "Inventory_ExitAnimEquippedItemUpdate(u8* weaponAttack)",
+      "Inventory_ExitAnimEquippedItemUpdate(u8* weaponAttack)"
+    ],
+    [
+      "void Gfx_Results_ItemsPosition();",
+      "void Gfx_Results_ItemsPosition(s32 unused);"
+    ],
+    [
+      "void Gfx_Results_ItemsDisplay();",
+      "void Gfx_Results_ItemsDisplay(s32 unused);"
+    ]
+  ],
+  "src/bodyprog/items/item_screens_2.c": [
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\n#include \"bodyprog/ranking.h\"\n#include \"bodyprog/sound/sound_system.h\""
+    ],
+    [
+      "                D_800AE185 = NO_VALUE;",
+      "                D_800AE185 = (u8)(NO_VALUE);"
+    ],
+    [
+      "                D_800AE186 = NO_VALUE;",
+      "                D_800AE186 = (u8)(NO_VALUE);"
+    ],
+    [
+      "                g_SavegamePtr->invSlotCount = func_8004F190(g_SavegamePtr);",
+      "                g_SavegamePtr->invSlotCount = (u8)(func_8004F190(g_SavegamePtr));"
+    ],
+    [
+      "            rgColor    = Q8_COLOR(0.375f) - (colorVar1 << 6);",
+      "            rgColor = (s8)(Q8_COLOR(0.375f) - (colorVar1 << 6));"
+    ],
+    [
+      "            rgColor   = Q8_COLOR(0.375f) - (colorVar1 << 6);",
+      "            rgColor = (s8)(Q8_COLOR(0.375f) - (colorVar1 << 6));"
+    ],
+    [
+      "                    g_SavegamePtr->items[i].id       = InvItemId_Empty;",
+      "                    g_SavegamePtr->items[i].id = (u8)(InvItemId_Empty);"
+    ],
+    [
+      "                    g_SavegamePtr->invSlotCount = func_8004F190(g_SavegamePtr);",
+      "                    g_SavegamePtr->invSlotCount = (u8)(func_8004F190(g_SavegamePtr));"
+    ],
+    [
+      "    s32 cmd;",
+      "    s32 cmd; (void)sizeof(cmd);"
+    ],
+    [
+      "    s32 weaponsGroup;",
+      "    s32 weaponsGroup; (void)sizeof(weaponsGroup);"
+    ],
+    [
+      "    s32 ammoGroup;",
+      "    s32 ammoGroup; (void)sizeof(ammoGroup);"
+    ],
+    [
+      "    g_SavegamePtr->invSlotCount = func_8004F190(g_SavegamePtr);",
+      "    g_SavegamePtr->invSlotCount = (u8)(func_8004F190(g_SavegamePtr));"
+    ],
+    [
+      "                savePtr->items[i].id    = InvItemId_Empty;",
+      "                savePtr->items[i].id = (u8)(InvItemId_Empty);"
+    ],
+    [
+      "                    savePtr->items[i].id    = id;",
+      "                    savePtr->items[i].id = (u8)(id);"
+    ],
+    [
+      "                g_SysWork.playerCombat.weaponInventoryIdx = i;",
+      "                g_SysWork.playerCombat.weaponInventoryIdx = (s8)(i);"
+    ],
+    [
+      "        g_Inventory_IsUpClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowUp;",
+      "        g_Inventory_IsUpClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowUp);"
+    ],
+    [
+      "        g_Inventory_IsUpPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowUp;",
+      "        g_Inventory_IsUpPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowUp);"
+    ],
+    [
+      "        g_Inventory_IsDownClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowDown;",
+      "        g_Inventory_IsDownClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowDown);"
+    ],
+    [
+      "        g_Inventory_IsDownPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowDown;",
+      "        g_Inventory_IsDownPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowDown);"
+    ],
+    [
+      "        g_Inventory_IsLeftClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowLeft;",
+      "        g_Inventory_IsLeftClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowLeft);"
+    ],
+    [
+      "        g_Inventory_IsLeftHeld    = g_Controller0->buttonFlags.held    & ControllerFlag_LStickLowLeft;",
+      "        g_Inventory_IsLeftHeld = (bool)(g_Controller0->buttonFlags.held    & ControllerFlag_LStickLowLeft);"
+    ],
+    [
+      "        g_Inventory_IsLeftPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowLeft;",
+      "        g_Inventory_IsLeftPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowLeft);"
+    ],
+    [
+      "        g_Inventory_IsRightClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowRight;",
+      "        g_Inventory_IsRightClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickLowRight);"
+    ],
+    [
+      "        g_Inventory_IsRightHeld    = g_Controller0->buttonFlags.held    & ControllerFlag_LStickLowRight;",
+      "        g_Inventory_IsRightHeld = (bool)(g_Controller0->buttonFlags.held    & ControllerFlag_LStickLowRight);"
+    ],
+    [
+      "        g_Inventory_IsRightPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowRight;",
+      "        g_Inventory_IsRightPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickLowRight);"
+    ],
+    [
+      "        g_Inventory_IsUpClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighUp;",
+      "        g_Inventory_IsUpClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighUp);"
+    ],
+    [
+      "        g_Inventory_IsUpPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighUp;",
+      "        g_Inventory_IsUpPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighUp);"
+    ],
+    [
+      "        g_Inventory_IsDownClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighDown;",
+      "        g_Inventory_IsDownClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighDown);"
+    ],
+    [
+      "        g_Inventory_IsDownPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighDown;",
+      "        g_Inventory_IsDownPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighDown);"
+    ],
+    [
+      "        g_Inventory_IsLeftClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighLeft;",
+      "        g_Inventory_IsLeftClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighLeft);"
+    ],
+    [
+      "        g_Inventory_IsLeftHeld    = g_Controller0->buttonFlags.held    & ControllerFlag_LStickHighLeft;",
+      "        g_Inventory_IsLeftHeld = (bool)(g_Controller0->buttonFlags.held    & ControllerFlag_LStickHighLeft);"
+    ],
+    [
+      "        g_Inventory_IsLeftPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighLeft;",
+      "        g_Inventory_IsLeftPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighLeft);"
+    ],
+    [
+      "        g_Inventory_IsRightClicked = g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighRight;",
+      "        g_Inventory_IsRightClicked = (bool)(g_Controller0->buttonFlags.clicked & ControllerFlag_LStickHighRight);"
+    ],
+    [
+      "        g_Inventory_IsRightHeld    = g_Controller0->buttonFlags.held    & ControllerFlag_LStickHighRight;",
+      "        g_Inventory_IsRightHeld = (bool)(g_Controller0->buttonFlags.held    & ControllerFlag_LStickHighRight);"
+    ],
+    [
+      "        g_Inventory_IsRightPulsed  = g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighRight;",
+      "        g_Inventory_IsRightPulsed = (bool)(g_Controller0->buttonFlags.pulsed  & ControllerFlag_LStickHighRight);"
+    ],
+    [
+      "Gfx_Inventory_ScrollArrowsDraw(&g_Inventory_SelectionId)",
+      "Gfx_Inventory_ScrollArrowsDraw((s32*)&g_Inventory_SelectionId)"
+    ],
+    [
+      "GsOUT_PACKET_P = &line[1];",
+      "GsOUT_PACKET_P = (PACKET*)&line[1];"
+    ],
+    [
+      "g_Inventory_IsUpClicked != InvSelectionId_Item",
+      "(s32)g_Inventory_IsUpClicked != InvSelectionId_Item"
+    ],
+    [
+      "do {} while (false);",
+      "; /* PORT: binary-match-only empty statement. */"
+    ],
+    [
+      "count < g_SysWork.invItemSelectedIdx",
+      "(u32)count < g_SysWork.invItemSelectedIdx"
+    ],
+    [
+      "g_SysWork.invItemSelectedIdx == g_Inventory_SelectedItemIdx",
+      "g_SysWork.invItemSelectedIdx == (u32)g_Inventory_SelectedItemIdx"
+    ],
+    [
+      "    const char* SAVE_DIALOG_STRS[] = {\n        \"\\7Is_it_OK_to_save?\",\n        \"\\7Yes_____________No\"\n    };",
+      "    const char* SAVE_DIALOG_STRS[] = {\n        \"\\7Is_it_OK_to_save?\",\n        \"\\7Yes_____________No\"\n    };\n    (void)sizeof(SAVE_DIALOG_STRS);"
+    ],
+    [
+      "reloadCmd      = InvCmdId_Reload;",
+      "reloadCmd      = InvCmdId_Reload; (void)reloadCmd;"
+    ],
+    [
+      "hyperBlaster   = InvItemId_HyperBlaster;",
+      "hyperBlaster   = InvItemId_HyperBlaster; (void)hyperBlaster;"
+    ]
+  ],
+  "src/bodyprog/items/item_screens_3.c": [
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\nvoid Gfx_Inventory_2dBackgroundDraw(void);\n#include \"bodyprog/sound/sound_system.h\""
+    ],
+    [
+      "    15, 6, 6, NO_VALUE",
+      "    15, 6, 6, (u8)NO_VALUE"
+    ],
+    [
+      "            overlayYPos = tempOverlayY;",
+      "            overlayYPos = (s16)(tempOverlayY);"
+    ],
+    [
+      "                            g_Items_Transforms[i].rotate.vy = -(var_s3 << 10) / 3;",
+      "                            g_Items_Transforms[i].rotate.vy = (short)(-(var_s3 << 10) / 3);"
+    ],
+    [
+      "                            g_Items_Transforms[i].rotate.vy = -(((var_s3 << 10) / 3) + ((g_Inventory_ScrollTransitionTimer << 7) / 3));",
+      "                            g_Items_Transforms[i].rotate.vy = (short)(-(((var_s3 << 10) / 3) + ((g_Inventory_ScrollTransitionTimer << 7) / 3)));"
+    ],
+    [
+      "                                g_Items_Transforms[i].rotate.vy = -(var_s3 << 10) / 3;",
+      "                                g_Items_Transforms[i].rotate.vy = (short)(-(var_s3 << 10) / 3);"
+    ],
+    [
+      "                g_SysWork.playerCombat.weaponInventoryIdx = g_SysWork.invItemSelectedIdx;",
+      "                g_SysWork.playerCombat.weaponInventoryIdx = (s8)(g_SysWork.invItemSelectedIdx);"
+    ],
+    [
+      "                g_SysWork.playerCombat.totalWeaponAmmo                                = totalWeaponAmmo;",
+      "                g_SysWork.playerCombat.totalWeaponAmmo = (u8)(totalWeaponAmmo);"
+    ],
+    [
+      "                g_SysWork.playerCombat.currentWeaponAmmo                              = curWeaponAmmo;",
+      "                g_SysWork.playerCombat.currentWeaponAmmo = (u8)(curWeaponAmmo);"
+    ],
+    [
+      "                g_SavegamePtr->items[g_SysWork.playerCombat.weaponInventoryIdx].count = curWeaponAmmo;",
+      "                g_SavegamePtr->items[g_SysWork.playerCombat.weaponInventoryIdx].count = (u8)(curWeaponAmmo);"
+    ],
+    [
+      "                    g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].id = InvItemId_Empty;",
+      "                    g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].id = (u8)((u8)((u8)(InvItemId_Empty)));"
+    ],
+    [
+      "                    g_SavegamePtr->items[g_SysWork.playerCombat.weaponInventoryIdx + 1].id = InvItemId_Empty;",
+      "                    g_SavegamePtr->items[g_SysWork.playerCombat.weaponInventoryIdx + 1].id = (u8)(InvItemId_Empty);"
+    ],
+    [
+      "                                g_SavegamePtr->items[l].count                            += someCount;",
+      "                                g_SavegamePtr->items[l].count = (u8)(g_SavegamePtr->items[l].count + (someCount));"
+    ],
+    [
+      "                                g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].count -= someCount;",
+      "                                g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].count = (u8)(g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].count - (someCount));"
+    ],
+    [
+      "                                g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].count += someCount;",
+      "                                g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].count = (u8)(g_SavegamePtr->items[g_SysWork.invItemSelectedIdx].count + (someCount));"
+    ],
+    [
+      "                                g_SavegamePtr->items[l].count                            -= someCount;",
+      "                                g_SavegamePtr->items[l].count = (u8)(g_SavegamePtr->items[l].count - (someCount));"
+    ],
+    [
+      "                    g_SavegamePtr->items[g_SysWork.invItemSelectedIdx + 1].id = InvItemId_Empty;",
+      "                    g_SavegamePtr->items[g_SysWork.invItemSelectedIdx + 1].id = (u8)(InvItemId_Empty);"
+    ],
+    [
+      "                            g_SavegamePtr->items[D_800C3E18[i]].id = InvItemId_Empty;",
+      "                            g_SavegamePtr->items[D_800C3E18[i]].id = (u8)(InvItemId_Empty);"
+    ],
+    [
+      "                g_SavegamePtr->items[i].id = InvItemId_Empty;",
+      "                g_SavegamePtr->items[i].id = (u8)(InvItemId_Empty);"
+    ],
+    [
+      "            g_SavegamePtr->invSlotCount = func_8004F190(g_SavegamePtr);",
+      "            g_SavegamePtr->invSlotCount = (u8)(func_8004F190(g_SavegamePtr));"
+    ],
+    [
+      "        g_Items_Lights[i][0].r  = NO_VALUE;",
+      "        g_Items_Lights[i][0].r = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "        g_Items_Lights[i][0].g  = NO_VALUE;",
+      "        g_Items_Lights[i][0].g = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "        g_Items_Lights[i][0].b  = NO_VALUE;",
+      "        g_Items_Lights[i][0].b = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "        g_Items_Lights[i][1].r  = NO_VALUE;",
+      "        g_Items_Lights[i][1].r = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "        g_Items_Lights[i][1].g  = NO_VALUE;",
+      "        g_Items_Lights[i][1].g = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "        g_Items_Lights[i][1].b  = NO_VALUE;",
+      "        g_Items_Lights[i][1].b = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Lights[IDX][0].r  = NO_VALUE;",
+      "    g_Items_Lights[IDX][0].r = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Lights[IDX][0].g  = NO_VALUE;",
+      "    g_Items_Lights[IDX][0].g = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Lights[IDX][0].b  = NO_VALUE;",
+      "    g_Items_Lights[IDX][0].b = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Lights[IDX][1].r  = NO_VALUE;",
+      "    g_Items_Lights[IDX][1].r = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Lights[IDX][1].g  = NO_VALUE;",
+      "    g_Items_Lights[IDX][1].g = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Lights[IDX][1].b  = NO_VALUE;",
+      "    g_Items_Lights[IDX][1].b = (unsigned char)(NO_VALUE);"
+    ],
+    [
+      "    g_Items_Transforms[9].rotate.vy += g_DeltaTimeRaw >> 1;",
+      "    g_Items_Transforms[9].rotate.vy = (short)(g_Items_Transforms[9].rotate.vy + (g_DeltaTimeRaw >> 1));"
+    ],
+    [
+      "    g_SavegamePtr->invSlotCount                             = func_8004F190(g_SavegamePtr);",
+      "    g_SavegamePtr->invSlotCount = (u8)(func_8004F190(g_SavegamePtr));"
+    ],
+    [
+      "void Gfx_Inventory_2dBackgroundDraw(void);",
+      "void Gfx_Inventory_2dBackgroundDraw(s32* arg0);"
+    ],
+    [
+      "static u8 g_Items_GunsMaxLoadAmmo",
+      "u8 g_Items_GunsMaxLoadAmmo"
+    ],
+    [
+      "Gfx_Inventory_ItemDescriptionDraw(selectedItemId)",
+      "Gfx_Inventory_ItemDescriptionDraw((s32*)selectedItemId)"
+    ],
+    [
+      "Gfx_Inventory_2dBackgroundDraw(selectedItemId)",
+      "Gfx_Inventory_2dBackgroundDraw((s32*)selectedItemId)"
+    ],
+    [
+      "register s32 v0 asm(\"v0\");",
+      "s32 v0; /* PORT: ordinary native temporary. */"
+    ],
+    [
+      "do {} while (false);",
+      "; /* PORT: binary-match-only empty statement. */"
+    ],
+    [
+      "            if (g_SysWork.invItemSelectedIdx == g_Inventory_SelectedItemIdx)",
+      "            if (g_SysWork.invItemSelectedIdx == (u32)g_Inventory_SelectedItemIdx)"
+    ],
+    [
+      "                            if (ABS(D_800C3E18[i] - g_SysWork.invItemSelectedIdx) >= (g_SavegamePtr->invSlotCount >> 1))",
+      "                            if (ABS((s32)(D_800C3E18[i] - g_SysWork.invItemSelectedIdx)) >= (g_SavegamePtr->invSlotCount >> 1))"
+    ],
+    [
+      "                if ((g_SysWork.invItemSelectedIdx == (g_Inventory_SelectedItemIdx + 1)) ||",
+      "                if ((g_SysWork.invItemSelectedIdx == ((u32)g_Inventory_SelectedItemIdx + 1)) ||"
+    ],
+    [
+      "                    ((g_Inventory_SelectedItemIdx - g_SysWork.invItemSelectedIdx) == (g_SavegamePtr->invSlotCount - 1)))",
+      "                    (((u32)g_Inventory_SelectedItemIdx - g_SysWork.invItemSelectedIdx) == (g_SavegamePtr->invSlotCount - 1)))"
+    ],
+    [
+      "func_8004BBF4(&D_800C3B48, &D_800C3AE8, &D_800C3B38)",
+      "func_8004BBF4(&D_800C3B48, &D_800C3AE8, (SVECTOR*)&D_800C3B38)"
+    ],
+    [
+      "    D_800C3B68[0][0].vx = selectionOutlineInner[*arg0].field_0.vx +\n    FP_FROM((new_var = selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vx - selectionOutlineInner[*arg0].field_0.vx) * temp_t3, Q12_SHIFT);",
+      "    D_800C3B68[0][0].vx = (s16)( selectionOutlineInner[*arg0].field_0.vx +\n    FP_FROM((new_var = selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vx - selectionOutlineInner[*arg0].field_0.vx) * temp_t3, Q12_SHIFT));"
+    ],
+    [
+      "    D_800C3B68[0][0].vy = selectionOutlineInner[*arg0].field_0.vy +\n        FP_FROM((selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vy - selectionOutlineInner[*arg0].field_0.vy) * temp_t3, Q12_SHIFT);",
+      "    D_800C3B68[0][0].vy = (s16)( selectionOutlineInner[*arg0].field_0.vy +\n        FP_FROM((selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vy - selectionOutlineInner[*arg0].field_0.vy) * temp_t3, Q12_SHIFT));"
+    ],
+    [
+      "    D_800C3B68[0][1].vy = selectionOutlineInner[*arg0].field_0.vy + selectionOutlineInner[*arg0].field_4.vy +\n        FP_FROM(((selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vy + selectionOutlineInner[g_Inventory_PrevSelectionId].field_4.vy) -\n        (selectionOutlineInner[*arg0].field_0.vy + selectionOutlineInner[*arg0].field_4.vy)) * temp_t3, Q12_SHIFT);",
+      "    D_800C3B68[0][1].vy = (s16)( selectionOutlineInner[*arg0].field_0.vy + selectionOutlineInner[*arg0].field_4.vy +\n        FP_FROM(((selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vy + selectionOutlineInner[g_Inventory_PrevSelectionId].field_4.vy) -\n        (selectionOutlineInner[*arg0].field_0.vy + selectionOutlineInner[*arg0].field_4.vy)) * temp_t3, Q12_SHIFT));"
+    ],
+    [
+      "    D_800C3B68[0][2].vx = selectionOutlineInner[*arg0].field_0.vx + selectionOutlineInner[*arg0].field_4.vx +\n        FP_FROM(((selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vx + selectionOutlineInner[g_Inventory_PrevSelectionId].field_4.vx) -\n        (selectionOutlineInner[*arg0].field_0.vx + selectionOutlineInner[*arg0].field_4.vx)) * temp_t3, Q12_SHIFT);",
+      "    D_800C3B68[0][2].vx = (s16)( selectionOutlineInner[*arg0].field_0.vx + selectionOutlineInner[*arg0].field_4.vx +\n        FP_FROM(((selectionOutlineInner[g_Inventory_PrevSelectionId].field_0.vx + selectionOutlineInner[g_Inventory_PrevSelectionId].field_4.vx) -\n        (selectionOutlineInner[*arg0].field_0.vx + selectionOutlineInner[*arg0].field_4.vx)) * temp_t3, Q12_SHIFT));"
+    ],
+    [
+      "GsLinkObject4((u32)&models[loadableItemIdx]",
+      "GsLinkObject4(&models[loadableItemIdx]"
+    ],
+    [
+      "((-(D_800C3B68[3][0].vx + 4) + (D_800C3B68[3][3].vx) >> 1)",
+      "(((-(D_800C3B68[3][0].vx + 4) + (D_800C3B68[3][3].vx)) >> 1)"
+    ],
+    [
+      "((-(D_800C3B68[3][1].vx + 4) + (D_800C3B68[3][3].vx) >> 1)",
+      "(((-(D_800C3B68[3][1].vx + 4) + (D_800C3B68[3][3].vx)) >> 1)"
+    ],
+    [
+      "                        if (D_800C3E18[i] == g_SysWork.invItemSelectedIdx)",
+      "                        if ((u32)D_800C3E18[i] == g_SysWork.invItemSelectedIdx)"
+    ],
+    [
+      "                                if (g_SysWork.invItemSelectedIdx < D_800C3E18[i])",
+      "                                if (g_SysWork.invItemSelectedIdx < (u32)D_800C3E18[i])"
+    ],
+    [
+      "                        if (D_800C3E18[j] == g_SysWork.invItemSelectedIdx)",
+      "                        if ((u32)D_800C3E18[j] == g_SysWork.invItemSelectedIdx)"
+    ],
+    [
+      "                        if (D_800C3E18[l] == g_SysWork.invItemSelectedIdx)",
+      "                        if ((u32)D_800C3E18[l] == g_SysWork.invItemSelectedIdx)"
+    ],
+    [
+      "                        if (D_800C3E18[l] == (g_SysWork.invItemSelectedIdx + 1))",
+      "                        if ((u32)D_800C3E18[l] == (g_SysWork.invItemSelectedIdx + 1))"
+    ],
+    [
+      "        if (D_800C3E18[i] == g_SysWork.invItemSelectedIdx)",
+      "        if ((u32)D_800C3E18[i] == g_SysWork.invItemSelectedIdx)"
+    ],
+    [
+      "(u32)g_Inventory_SelectedItemIdx - g_SysWork.invItemSelectedIdx) == (g_SavegamePtr->invSlotCount - 1)",
+      "(u32)g_Inventory_SelectedItemIdx - g_SysWork.invItemSelectedIdx) == (u32)(g_SavegamePtr->invSlotCount - 1)"
+    ],
+    [
+      "func_800540A4(s8 arg0) // 0x800540A4\n{",
+      "func_800540A4(s8 arg0) // 0x800540A4\n{\n    (void)arg0;"
+    ],
+    [
+      "Q12(15.9f) + 1",
+      "(Q12(15.9f) + 1 - 0x10000)"
+    ],
+    [
+      "void Gfx_Results_ItemsPosition()",
+      "void Gfx_Results_ItemsPosition(s32 unused)"
+    ],
+    [
+      "void Gfx_Results_ItemsDisplay()",
+      "void Gfx_Results_ItemsDisplay(s32 unused)"
+    ],
+    [
+      "Gfx_Results_ItemsPosition(s32 unused) // 0x8005227C\n{",
+      "Gfx_Results_ItemsPosition(s32 unused) // 0x8005227C\n{\n    (void)unused;"
+    ],
+    [
+      "Gfx_Results_ItemsDisplay(s32 unused) // 0x800521A8\n{",
+      "Gfx_Results_ItemsDisplay(s32 unused) // 0x800521A8\n{\n    (void)unused;"
+    ],
+    [
+      "var_t3 >= 0 && g_SavegamePtr->items[var_t3].count == 0)",
+      "(var_t3 >= 0 && g_SavegamePtr->items[var_t3].count == 0))"
+    ]
+  ],
+  "src/screens/saveload/saveload.c": [
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\n#include \"bodyprog/sound/sound_system.h\"\n#include \"bodyprog/text/text_debug_draw.h\"\nvoid Gfx_Primitive2dTextureSet(s32 x, s32 y, s32 otIdx, s32 abr);\n#include \"bodyprog/screen/screen_draw.h\""
+    ],
+    [
+      "const pad = 0;",
+      "const s32 pad = 0;"
+    ],
+    [
+      "                g_SaveScreen_IsGameSaving = memCardState;",
+      "                g_SaveScreen_IsGameSaving = (u8)(memCardState);"
+    ],
+    [
+      "                color = (time * 2) + 32;",
+      "                color = (s8)((time * 2) + 32);"
+    ],
+    [
+      "                color = 96 - ((time - 32) * 2);",
+      "                color = (s8)(96 - ((time - 32) * 2));"
+    ],
+    [
+      "        color = ~FP_FROM(sinFlashTimer * 255, Q12_SHIFT);",
+      "        color = (s8)(~FP_FROM(sinFlashTimer * 255, Q12_SHIFT));"
+    ],
+    [
+      "    colorTimer = temp;",
+      "    colorTimer = (s16)(temp);"
+    ],
+    [
+      "            color = (colorTimer * 2) + 32;",
+      "            color = (s8)((colorTimer * 2) + 32);"
+    ],
+    [
+      "            color = Q8_COLOR(0.375f) - ((colorTimer - 32) * 2);",
+      "            color = (s8)(Q8_COLOR(0.375f) - ((colorTimer - 32) * 2));"
+    ],
+    [
+      "            highlightColor = (selectedSaveHighlightTimer * 2) + 0x20;",
+      "            highlightColor = (u8)((selectedSaveHighlightTimer * 2) + 0x20);"
+    ],
+    [
+      "            highlightColor = 0x60 - ((selectedSaveHighlightTimer - 0x20) * 2);",
+      "            highlightColor = (u8)(0x60 - ((selectedSaveHighlightTimer - 0x20) * 2));"
+    ],
+    [
+      "            tileOffsetX0 = (slotIdx * SLOT_COLUMN_OFFSET) - 131;",
+      "            tileOffsetX0 = (s16)((slotIdx * SLOT_COLUMN_OFFSET) - 131);"
+    ],
+    [
+      "            tileOffsetX1 = (slotIdx * SLOT_COLUMN_OFFSET) - 131;",
+      "            tileOffsetX1 = (s16)((slotIdx * SLOT_COLUMN_OFFSET) - 131);"
+    ],
+    [
+      "        D_801E756C[slotIdx] = fileColorIdx;",
+      "        D_801E756C[slotIdx] = (s16)(fileColorIdx);"
+    ],
+    [
+      "s32 unused) // 0x801E2F90\n{",
+      "s32 unused) // 0x801E2F90\n{\n    (void)unused;"
+    ],
+    [
+      "Gfx_StringColorSet(colorId)",
+      "Gfx_StringColorSet((s16)colorId)"
+    ],
+    [
+      "SaveScreen_SlotStatusMsgStepDraw(s_LineBorder* borderLines, s_QuadBorder* borderGlowQuads, s_ColoredLine2d* coloredLine",
+      "SaveScreen_SlotStatusMsgStepDraw(const s_LineBorder* borderLines, const s_QuadBorder* borderGlowQuads, const s_ColoredLine2d* coloredLine"
+    ],
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\nvoid Screen_BackgroundImgDraw(s_FsImageDesc* image);"
+    ],
+    [
+      "    char* labelStrs[] = {\n        \"Data\",\n        \"Save\",\n        \"Time\",\n        \"hyper blaster\",\n        \"power up\",\n        \"You_need_1_free_block\\n__to_create_a_new_file.\"\n    };",
+      "    char* labelStrs[] = {\n        \"Data\",\n        \"Save\",\n        \"Time\",\n        \"hyper blaster\",\n        \"power up\",\n        \"You_need_1_free_block\\n__to_create_a_new_file.\"\n    };\n    (void)sizeof(labelStrs);"
+    ],
+    [
+      "void SaveScreen_MemCardStateDraw(s32 g_SaveScreen_SaveScreenState, s32 memCardState) // 0x801E3910\n{\n    s32        strIdx;\n    static s32 D_801E7554;\n\n    const char* DIALOG_STRS[] = {\n        \" \",\n        \"\\7You_\\x01\\x01removed_\\x01\\x01the_\\x01\\x01MEMORY_\\x01\\x01\"\"CARD!\",\n        \"\\7Now_formatting...\",\n        \"\\7Now_saving...\",\n        \"\\7Unable_to_create_a_new_file.\",\n        \"\\7\"\"Finished_saving.\",\n        \"\\7\"\"Failed_to_save!\",\n        \"\\7The_data_is_not_found!\",\n        \"\\7The_data_is_damaged!\",\n        \"\\7\"\"Failed_to_load!\",\n        \"\\7\"\"Finished_loading.\",\n        \"\\7Now_loading...\"\n    };\n\n    const s16 X_OFFSETS[] = {\n        0,   268,\n        141, 107,\n        223, 136,\n        119, 182,\n        170, 117,\n        143, 114\n    };\n\n    switch (g_SaveScreen_SaveScreenState)\n    {\n        case SaveScreenState_Format:\n            strIdx = (memCardState == g_SaveScreen_SaveScreenState) ? 1 : 2;\n            break;\n\n        case SaveScreenState_Save:\n            switch (memCardState)\n            {\n                case MemCardWorkResult_NotConnected:\n                    strIdx = 1;\n                    break;\n\n                case MemCardWorkResult_Success:\n                    strIdx = 3;\n                    break;\n\n                case MemCardWorkResult_FileCreateError:\n                    strIdx = 4;\n                    break;\n\n                case MemCardWorkResult_FileIoComplete:\n                    strIdx = 5;\n                    break;\n\n                case MemCardWorkResult_FileIoError:\n                    strIdx = 6;\n                    break;\n\n                default:\n                    strIdx = 0;\n                    break;\n            }\n            break;\n\n        case SaveScreenState_Load:\n            switch (memCardState)\n            {\n                // Now loading.\n                case MemCardWorkResult_Success:\n                    strIdx = 11;\n                    break;\n\n                case MemCardWorkResult_DamagedData:\n                    strIdx = 8;\n                    break;\n\n                case MemCardWorkResult_FileIoError:\n                    strIdx = 9;\n                    break;\n\n                case MemCardWorkResult_FileIoComplete:\n                    strIdx = 10;\n                    break;\n\n                case MemCardWorkResult_NotConnected:\n                    strIdx = 1;\n                    break;\n\n                case MemCardWorkResult_Full:\n                    strIdx = 1;\n                    break;\n\n                default:\n                    strIdx = 0;\n                    break;\n            }\n            break;\n\n        default:\n            strIdx = 0;\n            break;\n    }\n\n    switch (g_SaveScreen_MemCardStateDisplay)\n    {\n        case 0:\n            g_SaveScreen_OverwriteActive = 0;\n            D_801E7554 = 0;\n\n            if (strIdx == 1)\n            {\n                Game_StateStepSet(2, 0);\n                g_SaveScreen_HiddenSaves[g_SelectedSaveSlotIdx]      = NO_VALUE;\n                g_SaveScreen_VisualElementIdx[g_SelectedSaveSlotIdx] = NO_VALUE;\n            }\n\n            D_801E7554 = strIdx;\n            g_SaveScreen_MemCardStateDisplay++;\n\n        case 1:\n            if (g_SaveScreen_SaveScreenState == SaveScreenState_Save && memCardState == MemCardWorkResult_Success)\n            {\n                g_SaveScreen_IsGameSaving = (u8)(memCardState);\n            }\n\n            // Finished saving and `D_801E7554` isn't required string.\n            if (strIdx == 5 && D_801E7554 != strIdx)\n            {\n                g_SaveScreen_LastSaveIdx[g_SelectedSaveSlotIdx]     = g_SlotElementSelectedIdx[g_SelectedSaveSlotIdx];\n                g_SaveScreen_LastSaveIdx[1 - g_SelectedSaveSlotIdx] = NO_VALUE;\n                g_SaveScreen_SaveFlashTimer                         = 0;\n            }\n\n            D_801E7554 = strIdx;\n            Gfx_StringPositionSet(160 - (X_OFFSETS[strIdx] >> 1), 186);\n            Gfx_StringDraw(DIALOG_STRS[strIdx], DEFAULT_MAP_MESSAGE_LENGTH);\n\n            // Finished saving.\n            if (strIdx == 5)\n            {\n                g_SaveScreen_IsGameSaving = 0;\n            }\n            break;\n    }\n}\n",
+      "void SaveScreen_MemCardStateDraw(s32 saveScreenStateArg, s32 memCardState) // 0x801E3910\n{\n    s32        strIdx;\n    static s32 D_801E7554;\n\n    const char* DIALOG_STRS[] = {\n        \" \",\n        \"\\7You_\\x01\\x01removed_\\x01\\x01the_\\x01\\x01MEMORY_\\x01\\x01\"\"CARD!\",\n        \"\\7Now_formatting...\",\n        \"\\7Now_saving...\",\n        \"\\7Unable_to_create_a_new_file.\",\n        \"\\7\"\"Finished_saving.\",\n        \"\\7\"\"Failed_to_save!\",\n        \"\\7The_data_is_not_found!\",\n        \"\\7The_data_is_damaged!\",\n        \"\\7\"\"Failed_to_load!\",\n        \"\\7\"\"Finished_loading.\",\n        \"\\7Now_loading...\"\n    };\n\n    const s16 X_OFFSETS[] = {\n        0,   268,\n        141, 107,\n        223, 136,\n        119, 182,\n        170, 117,\n        143, 114\n    };\n\n    switch (saveScreenStateArg)\n    {\n        case SaveScreenState_Format:\n            strIdx = (memCardState == saveScreenStateArg) ? 1 : 2;\n            break;\n\n        case SaveScreenState_Save:\n            switch (memCardState)\n            {\n                case MemCardWorkResult_NotConnected:\n                    strIdx = 1;\n                    break;\n\n                case MemCardWorkResult_Success:\n                    strIdx = 3;\n                    break;\n\n                case MemCardWorkResult_FileCreateError:\n                    strIdx = 4;\n                    break;\n\n                case MemCardWorkResult_FileIoComplete:\n                    strIdx = 5;\n                    break;\n\n                case MemCardWorkResult_FileIoError:\n                    strIdx = 6;\n                    break;\n\n                default:\n                    strIdx = 0;\n                    break;\n            }\n            break;\n\n        case SaveScreenState_Load:\n            switch (memCardState)\n            {\n                // Now loading.\n                case MemCardWorkResult_Success:\n                    strIdx = 11;\n                    break;\n\n                case MemCardWorkResult_DamagedData:\n                    strIdx = 8;\n                    break;\n\n                case MemCardWorkResult_FileIoError:\n                    strIdx = 9;\n                    break;\n\n                case MemCardWorkResult_FileIoComplete:\n                    strIdx = 10;\n                    break;\n\n                case MemCardWorkResult_NotConnected:\n                    strIdx = 1;\n                    break;\n\n                case MemCardWorkResult_Full:\n                    strIdx = 1;\n                    break;\n\n                default:\n                    strIdx = 0;\n                    break;\n            }\n            break;\n\n        default:\n            strIdx = 0;\n            break;\n    }\n\n    switch (g_SaveScreen_MemCardStateDisplay)\n    {\n        case 0:\n            g_SaveScreen_OverwriteActive = 0;\n            D_801E7554 = 0;\n\n            if (strIdx == 1)\n            {\n                Game_StateStepSet(2, 0);\n                g_SaveScreen_HiddenSaves[g_SelectedSaveSlotIdx]      = NO_VALUE;\n                g_SaveScreen_VisualElementIdx[g_SelectedSaveSlotIdx] = NO_VALUE;\n            }\n\n            D_801E7554 = strIdx;\n            g_SaveScreen_MemCardStateDisplay++;\n\n        case 1:\n            if (saveScreenStateArg == SaveScreenState_Save && memCardState == MemCardWorkResult_Success)\n            {\n                g_SaveScreen_IsGameSaving = (u8)(memCardState);\n            }\n\n            // Finished saving and `D_801E7554` isn't required string.\n            if (strIdx == 5 && D_801E7554 != strIdx)\n            {\n                g_SaveScreen_LastSaveIdx[g_SelectedSaveSlotIdx]     = g_SlotElementSelectedIdx[g_SelectedSaveSlotIdx];\n                g_SaveScreen_LastSaveIdx[1 - g_SelectedSaveSlotIdx] = NO_VALUE;\n                g_SaveScreen_SaveFlashTimer                         = 0;\n            }\n\n            D_801E7554 = strIdx;\n            Gfx_StringPositionSet(160 - (X_OFFSETS[strIdx] >> 1), 186);\n            Gfx_StringDraw(DIALOG_STRS[strIdx], DEFAULT_MAP_MESSAGE_LENGTH);\n\n            // Finished saving.\n            if (strIdx == 5)\n            {\n                g_SaveScreen_IsGameSaving = 0;\n            }\n            break;\n    }\n}\n"
+    ]
+  ],
+  "include/bodyprog/sound/sound_system.h": [
+    [
+      "u8  field_4_24  : 8;",
+      "u32 field_4_24  : 8;"
+    ],
+    [
+      "u8  field_8_24  : 8;",
+      "u32 field_8_24  : 8;"
+    ]
+  ],
+  "src/bodyprog/bodyprog_mapscreen_80066D90.c": [
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\n#include \"psyq/libetc.h\""
+    ],
+    [
+      "                scrollX    = FP_FROM(scrollPosX, Q12_SHIFT);",
+      "                scrollX = (u16)(FP_FROM(scrollPosX, Q12_SHIFT));"
+    ],
+    [
+      "                scrollY    = FP_FROM(scrollPosY, Q12_SHIFT);",
+      "                scrollY = (u16)(FP_FROM(scrollPosY, Q12_SHIFT));"
+    ],
+    [
+      "            scrollX = FP_FROM(temp3, Q12_SHIFT);",
+      "            scrollX = (u16)(FP_FROM(temp3, Q12_SHIFT));"
+    ],
+    [
+      "            scrollY = FP_FROM(temp4, Q12_SHIFT);",
+      "            scrollY = (u16)(FP_FROM(temp4, Q12_SHIFT));"
+    ],
+    [
+      "    u32           temp_a0;",
+      "    u32           temp_a0; (void)sizeof(temp_a0);"
+    ],
+    [
+      "                        mapCoordIdxX = MapCoordIdxGet( playerChara.position.vx, Q12(2.0f) - 1, 13, 19);",
+      "                        mapCoordIdxX = (s16)(MapCoordIdxGet( playerChara.position.vx, Q12(2.0f) - 1, 13, 19));"
+    ],
+    [
+      "                        mapCoordIdxZ = MapCoordIdxGet(-playerChara.position.vz, Q12(2.0f) - 1, 13, 1);",
+      "                        mapCoordIdxZ = (s16)(MapCoordIdxGet(-playerChara.position.vz, Q12(2.0f) - 1, 13, 1));"
+    ],
+    [
+      "                mapCoordIdxX = D_800AE774[2][2][0] + (((playerChara.position.vx - (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(-0.2f));",
+      "                mapCoordIdxX = (s16)(D_800AE774[2][2][0] + (((playerChara.position.vx - (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(-0.2f)));"
+    ],
+    [
+      "                mapCoordIdxZ = D_800AE774[2][2][1] + (((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(0.2f));",
+      "                mapCoordIdxZ = (s16)(D_800AE774[2][2][1] + (((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(0.2f)));"
+    ],
+    [
+      "                mapCoordIdxX = D_800AE774[cellX + 4][cellZ + 2][0] + (((playerChara.position.vx - (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(0.2f));",
+      "                mapCoordIdxX = (s16)(D_800AE774[cellX + 4][cellZ + 2][0] + (((playerChara.position.vx - (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(0.2f)));"
+    ],
+    [
+      "                mapCoordIdxZ = D_800AE774[cellX + 4][cellZ + 2][1] + (((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(-0.2f));",
+      "                mapCoordIdxZ = (s16)(D_800AE774[cellX + 4][cellZ + 2][1] + (((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / Q12(-0.2f)));"
+    ],
+    [
+      "            mapCoordIdxX = D_800AE7E4[cellX + 1][cellZ + 2][0] + (((playerChara.position.vx - (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / 0x222); // TODO: Demagic into clean float.",
+      "            mapCoordIdxX = (s16)(D_800AE7E4[cellX + 1][cellZ + 2][0] + (((playerChara.position.vx - (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / 0x222)); // TODO: Demagic into clean float."
+    ],
+    [
+      "            mapCoordIdxZ = D_800AE7E4[cellX + 1][cellZ + 2][1] + ((((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) * 6) / Q12(-0.8f));",
+      "            mapCoordIdxZ = (s16)(D_800AE7E4[cellX + 1][cellZ + 2][1] + ((((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) * 6) / Q12(-0.8f)));"
+    ],
+    [
+      "            mapCoordIdxX = D_800AE820[cellX + 4][cellZ + 4][0] + (((playerChara.position.vx -  (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / 0x222);",
+      "            mapCoordIdxX = (s16)(D_800AE820[cellX + 4][cellZ + 4][0] + (((playerChara.position.vx -  (cellX * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) / 0x222));"
+    ],
+    [
+      "            mapCoordIdxZ = D_800AE820[cellX + 4][cellZ + 4][1] + ((((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) * 6) / Q12(-0.8f));",
+      "            mapCoordIdxZ = (s16)(D_800AE820[cellX + 4][cellZ + 4][1] + ((((playerChara.position.vz - (cellZ * Q12(CHUNK_SIZE))) - (Q12(CHUNK_SIZE) / 2)) * 6) / Q12(-0.8f)));"
+    ],
+    [
+      "                    mapCoordIdxX = MapCoordIdxGet( playerChara.position.vx, Q12(2.0f) - 1, 13,  60);",
+      "                    mapCoordIdxX = (s16)(MapCoordIdxGet( playerChara.position.vx, Q12(2.0f) - 1, 13,  60));"
+    ],
+    [
+      "                    mapCoordIdxZ = MapCoordIdxGet(-playerChara.position.vz, Q12(2.0f) - 1, 13, -85);",
+      "                    mapCoordIdxZ = (s16)(MapCoordIdxGet(-playerChara.position.vz, Q12(2.0f) - 1, 13, -85));"
+    ],
+    [
+      "                    mapCoordIdxX = MapCoordIdxGet( playerChara.position.vx, Q12(2.0f) - 1, 13, 0);",
+      "                    mapCoordIdxX = (s16)(MapCoordIdxGet( playerChara.position.vx, Q12(2.0f) - 1, 13, 0));"
+    ],
+    [
+      "                    mapCoordIdxZ = MapCoordIdxGet(-playerChara.position.vz, Q12(2.0f) - 1, 13, 55);",
+      "                    mapCoordIdxZ = (s16)(MapCoordIdxGet(-playerChara.position.vz, Q12(2.0f) - 1, 13, 55));"
+    ],
+    [
+      "                            mapCoordIdxX = MapCoordIdxGet(playerChara.position.vx, Q12(1.0f) - 1, 12, 80);",
+      "                            mapCoordIdxX = (s16)(MapCoordIdxGet(playerChara.position.vx, Q12(1.0f) - 1, 12, 80));"
+    ],
+    [
+      "                            mapCoordIdxZ = MapCoordIdxGet(Q12(280.0f) - playerChara.position.vz, Q12(1.0f) - 1, 12, 0);",
+      "                            mapCoordIdxZ = (s16)(MapCoordIdxGet(Q12(280.0f) - playerChara.position.vz, Q12(1.0f) - 1, 12, 0));"
+    ],
+    [
+      "                            mapCoordIdxX = MapCoordIdxGet( playerChara.position.vx, Q12(1.0f) - 1, 12, 80);",
+      "                            mapCoordIdxX = (s16)(MapCoordIdxGet( playerChara.position.vx, Q12(1.0f) - 1, 12, 80));"
+    ],
+    [
+      "                            mapCoordIdxZ = MapCoordIdxGet(-playerChara.position.vz, Q12(1.0f) - 1, 12, 0);",
+      "                            mapCoordIdxZ = (s16)(MapCoordIdxGet(-playerChara.position.vz, Q12(1.0f) - 1, 12, 0));"
+    ],
+    [
+      "            mapCoordIdxX = MapCoordIdxGet(-playerChara.position.vz, Q12(0.5f) - 1, 11, 0);",
+      "            mapCoordIdxX = (s16)(MapCoordIdxGet(-playerChara.position.vz, Q12(0.5f) - 1, 11, 0));"
+    ],
+    [
+      "            mapCoordIdxZ = MapCoordIdxGet(-playerChara.position.vx, Q12(0.5f) - 1, 11, 40);",
+      "            mapCoordIdxZ = (s16)(MapCoordIdxGet(-playerChara.position.vx, Q12(0.5f) - 1, 11, 40));"
+    ],
+    [
+      "            mapCoordIdxX = MapCoordIdxGet(-playerChara.position.vz, Q12(0.5f) - 1, 11, -80);",
+      "            mapCoordIdxX = (s16)(MapCoordIdxGet(-playerChara.position.vz, Q12(0.5f) - 1, 11, -80));"
+    ],
+    [
+      "            mapCoordIdxZ = MapCoordIdxGet(-playerChara.position.vx, Q12(0.5f) - 1, 11, -140);",
+      "            mapCoordIdxZ = (s16)(MapCoordIdxGet(-playerChara.position.vx, Q12(0.5f) - 1, 11, -140));"
+    ],
+    [
+      "            mapCoordIdxX = MapCoordIdxGet(-playerChara.position.vx, Q12(0.5f) - 1, 11, 55);",
+      "            mapCoordIdxX = (s16)(MapCoordIdxGet(-playerChara.position.vx, Q12(0.5f) - 1, 11, 55));"
+    ],
+    [
+      "            mapCoordIdxZ = MapCoordIdxGet( playerChara.position.vz, Q12(0.5f) - 1, 11, -80);",
+      "            mapCoordIdxZ = (s16)(MapCoordIdxGet( playerChara.position.vz, Q12(0.5f) - 1, 11, -80));"
+    ],
+    [
+      "    temp_s2 = (temp3 / temp) - (SCREEN_WIDTH / 2);",
+      "    temp_s2 = (s16)((temp3 / temp) - (SCREEN_WIDTH / 2));"
+    ],
+    [
+      "    temp_s1 = (temp4 / temp2) - (SCREEN_HEIGHT / 2);",
+      "    temp_s1 = (s16)((temp4 / temp2) - (SCREEN_HEIGHT / 2));"
+    ],
+    [
+      "            y0    = (temp4 / scale) - SCREEN_HEIGHT;",
+      "            y0 = (s16)((temp4 / scale) - SCREEN_HEIGHT);"
+    ],
+    [
+      "            *((s16*)&ptr->field_0->u2) = ptr->field_4.field_0 + sp0;",
+      "            *((s16*)&ptr->field_0->u2) = (s16)(ptr->field_4.field_0 + sp0);"
+    ],
+    [
+      "            clampedLeft = CLAMP_LOW(scrollX, tileX * 128);",
+      "            clampedLeft = (s16)(CLAMP_LOW(scrollX, tileX * 128));"
+    ],
+    [
+      "            clampedWidth = MIN_EXTENT_OFFSET((tileX + 1) * 128, rightEdge, clampedLeft);",
+      "            clampedWidth = (s16)(MIN_EXTENT_OFFSET((tileX + 1) * 128, rightEdge, clampedLeft));"
+    ],
+    [
+      "            clampedTop = CLAMP_LOW(scrollY + (g_PaperMapImg.v / 2), tileY * 128);",
+      "            clampedTop = (s16)(CLAMP_LOW(scrollY + (g_PaperMapImg.v / 2), tileY * 128));"
+    ],
+    [
+      "            clampedHeight = MIN_EXTENT_OFFSET((tileY + 1) * 128, bottomEdge + (g_PaperMapImg.v / 2), clampedTop);",
+      "            clampedHeight = (s16)(MIN_EXTENT_OFFSET((tileY + 1) * 128, bottomEdge + (g_PaperMapImg.v / 2), clampedTop));"
+    ],
+    [
+      "            tileU1      =  clampedLeft - (tileX * 128);",
+      "            tileU1 = (s16)(clampedLeft - (tileX * 128));"
+    ],
+    [
+      "            tileVBottom = ((clampedTop - (tileY * 128)) << 1) - 1;",
+      "            tileVBottom = (s16)(((clampedTop - (tileY * 128)) << 1) - 1);"
+    ],
+    [
+      "scrollY, scale)",
+      "scrollY, (q4_12)scale)"
+    ],
+    [
+      "poly = GsOUT_PACKET_P;",
+      "poly = (void*)GsOUT_PACKET_P;"
+    ],
+    [
+      "GsOUT_PACKET_P = ++poly;",
+      "GsOUT_PACKET_P = (PACKET*)++poly;"
+    ],
+    [
+      "GsOUT_PACKET_P            = poly;",
+      "GsOUT_PACKET_P            = (PACKET*)poly;"
+    ],
+    [
+      "#include <psyq/libapi.h>",
+      "/* PORT: no kernel API reader here; native CRT handles memory. */"
+    ],
+    [
+      "    s16       hackVar;",
+      "    s16       hackVar = 0; // PORT: matching-only register padding is zero."
+    ],
+    [
+      "    s16       hackVar2;",
+      "    s16       hackVar2 = 0; // PORT: matching-only register padding is zero."
+    ],
+    [
+      "    s16       hackVar3;",
+      "    s16       hackVar3 = 0; // PORT: matching-only register padding is zero."
+    ],
+    [
+      "    s16       hackVar4;",
+      "    s16       hackVar4 = 0; // PORT: matching-only register padding is zero."
+    ]
+  ],
+  "src/bodyprog/items/item_screens_cam.c": [
+    [
+      "            viewMat.m[i][j] = Q12(viewMat.m[i][j]) / g_Items_Transforms[displayItemIdx].scale.vx;",
+      "            viewMat.m[i][j] = (short)(Q12(viewMat.m[i][j]) / g_Items_Transforms[displayItemIdx].scale.vx);"
+    ],
+    [
+      "                viewMat.m[i][j] -= Q12_MULT(viewMat.m[i][j], Math_Sin((g_Items_Coords[displayItemIdx].coord.t[2] + 0x400) >> 2));",
+      "                viewMat.m[i][j] = (short)(viewMat.m[i][j] - (Q12_MULT(viewMat.m[i][j], Math_Sin((g_Items_Coords[displayItemIdx].coord.t[2] + 0x400) >> 2))));"
+    ],
+    [
+      "s32 arg3) // 0x8004BB4C\n{",
+      "s32 arg3) // 0x8004BB4C\n{\n    (void)arg3;"
+    ],
+    [
+      "GsMapModelingData((uint32_t*)&buf[1]);",
+      "sh_items_tmd_prepared((s_TmdFile*)buf); // PORT: use the predecoded native graph."
+    ]
+  ],
+  "src/bodyprog/items/item_unk_data.c": [
+    [
+      "    15, 6, 6, NO_VALUE",
+      "    15, 6, 6, (u8)NO_VALUE"
+    ],
+    [
+      "Q12(15.9f) + 1",
+      "(Q12(15.9f) + 1 - 0x10000)"
+    ]
+  ],
+  "src/screens/credits/credits.c": [
+    [
+      "    D_801E5E7C = var1 - 264;",
+      "    D_801E5E7C = (s32)(var1 - 264);"
+    ],
+    [
+      "    s32    skipToInt;",
+      "    s32    skipToInt; (void)sizeof(skipToInt);"
+    ],
+    [
+      "        D_801E5FD0[i] = var_v1;",
+      "        D_801E5FD0[i] = (u8)(var_v1);"
+    ],
+    [
+      "            temp_a0 = var_a2;",
+      "            temp_a0 = (u8)(var_a2);"
+    ],
+    [
+      "            *var_t0 = var_a1;",
+      "            *var_t0 = (u8)(var_a1);"
+    ],
+    [
+      "                    x1 = var_s4 + 0x220;",
+      "                    x1 = (u16)(var_s4 + 0x220);"
+    ],
+    [
+      "                    x2 = var_s4 + 0x210;",
+      "                    x2 = (u16)(var_s4 + 0x210);"
+    ],
+    [
+      "                    x3 = var_s4 + 0x230;",
+      "                    x3 = (u16)(var_s4 + 0x230);"
+    ],
+    [
+      "            x1 = x0 + 32;",
+      "            x1 = (u16)(x0 + 32);"
+    ],
+    [
+      "            x2 = x0 + 16;",
+      "            x2 = (u16)(x0 + 16);"
+    ],
+    [
+      "            x3 = x0 + 48;",
+      "            x3 = (u16)(x0 + 48);"
+    ],
+    [
+      "    g_CreditTextState.textX = x;",
+      "    g_CreditTextState.textX = (s16)(x);"
+    ],
+    [
+      "    g_CreditTextState.textY = y;",
+      "    g_CreditTextState.textY = (s16)(y);"
+    ],
+    [
+      "    g_CreditTextState.leftMargin = x;",
+      "    g_CreditTextState.leftMargin = (s16)(x);"
+    ],
+    [
+      "        g_CreditTextState.tpage = shiftedArg1;",
+      "        g_CreditTextState.tpage = (u16)(shiftedArg1);"
+    ],
+    [
+      "                (&widthTable[charCode])[16] = widthSum / 2;",
+      "                (&widthTable[charCode])[16] = (s16)(widthSum / 2);"
+    ],
+    [
+      "                (&widthTable[charCode])[24] = widthSum;",
+      "                (&widthTable[charCode])[24] = (s16)(widthSum);"
+    ],
+    [
+      "    g_CreditTextState.textX = textX;",
+      "    g_CreditTextState.textX = (s16)(textX);"
+    ],
+    [
+      "    g_CreditTextState.textY = textY;",
+      "    g_CreditTextState.textY = (s16)(textY);"
+    ],
+    [
+      "        g_CreditText3dState.sub_0.textX  = arg0;",
+      "        g_CreditText3dState.sub_0.textX = (s16)(arg0);"
+    ],
+    [
+      "        g_CreditText3dState.sub_0.textY  = arg1;",
+      "        g_CreditText3dState.sub_0.textY = (s16)(arg1);"
+    ],
+    [
+      "        g_CreditText3dState.sub_0.leftMargin  = arg0;",
+      "        g_CreditText3dState.sub_0.leftMargin = (s16)(arg0);"
+    ],
+    [
+      "        g_CreditText3dState.sub_0.textX   = arg0;",
+      "        g_CreditText3dState.sub_0.textX = (s16)(arg0);"
+    ],
+    [
+      "        g_CreditText3dState.sub_0.tpage = shiftedArg1;",
+      "        g_CreditText3dState.sub_0.tpage = (u16)(shiftedArg1);"
+    ],
+    [
+      "            (&widthTable[charCode])[16] = widthSum / 2;",
+      "            (&widthTable[charCode])[16] = (s16)(widthSum / 2);"
+    ],
+    [
+      "            (&widthTable[charCode])[24] = widthSum;",
+      "            (&widthTable[charCode])[24] = (s16)(widthSum);"
+    ],
+    [
+      "    g_CreditText3dState.sub_0.textX = textX;",
+      "    g_CreditText3dState.sub_0.textX = (s16)(textX);"
+    ],
+    [
+      "    g_CreditText3dState.sub_0.textY = textY;",
+      "    g_CreditText3dState.sub_0.textY = (s16)(textY);"
+    ],
+    [
+      "s32* var_s2;",
+      "char** var_s2;"
+    ],
+    [
+      "s8*  temp_s0;",
+      "char* temp_s0;"
+    ],
+    [
+      "Credits_Text3dDraw(lineStrPtr)",
+      "Credits_Text3dDraw((u8*)lineStrPtr)"
+    ],
+    [
+      "Credits_Text3dDraw(D_801E5BD0)",
+      "Credits_Text3dDraw((u8*)D_801E5BD0)"
+    ],
+    [
+      "temp_t2 = &g_OtTags0",
+      "temp_t2 = (s32*)&g_OtTags0"
+    ],
+    [
+      "((u32)poly & sp1C)",
+      "(port_gpu_token(poly) & sp1C)"
+    ],
+    [
+      "strPtr     = str;",
+      "strPtr     = (u8*)str;"
+    ],
+    [
+      "ot         = &g_OtTags0",
+      "ot         = (GsOT*)&g_OtTags0"
+    ],
+    [
+      "ot     = &g_OtTags0",
+      "ot     = (GsOT*)&g_OtTags0"
+    ],
+    [
+      "(nextChar - 240) >= var",
+      "(u32)(nextChar - 240) >= var"
+    ],
+    [
+      "(charCode - 160) < 0x10u | ((charCode - 184) < 7u) << 1",
+      "((charCode - 160) < 0x10u) | (((charCode - 184) < 7u) << 1)"
+    ],
+    [
+      "(u32)(nextChar - 240) >= var",
+      "(u32)(nextChar - 240) >= (u32)var"
+    ]
+  ],
+  "src/bodyprog/events/radio.c": [
+    [
+      "Sd_SfxStop(Sfx_RadioInterferenceLoop + i)",
+      "Sd_SfxStop((u16)(Sfx_RadioInterferenceLoop + i))"
+    ]
+  ],
+  "include/screens/saveload.h": [
+    [
+      "SaveScreen_SlotStatusMsgStepDraw(s_LineBorder* borderLines, s_QuadBorder* borderGlowQuads, s_ColoredLine2d* coloredLine",
+      "SaveScreen_SlotStatusMsgStepDraw(const s_LineBorder* borderLines, const s_QuadBorder* borderGlowQuads, const s_ColoredLine2d* coloredLine"
+    ]
+  ],
+  "include/gpu.h": [
+    [
+      "void GsTMDfast",
+      "PACKET* GsTMDfast"
+    ],
+    [
+      "(((x) & 0xFFFF) + ((y) << 16))",
+      "((u32)(u16)(x) | ((u32)(u16)(y) << 16))"
+    ]
+  ],
+  "include/psyq/libgs.h": [
+    [
+      "GsLinkObject4(uint32_t tmd_base",
+      "GsLinkObject4(const void* tmd_base"
+    ]
+  ],
+  "include/psyq/libapi.h": [
+    [
+      "extern int32_t LoadTest(char *, struct EXEC *);",
+      "struct EXEC;\nextern int32_t LoadTest(char *, struct EXEC *);"
+    ]
+  ],
+  "src/bodyprog/ranking.c": [
+    [
+      "    g_Ranking_GameDifficulty             = g_SavegamePtr->gameDifficulty;",
+      "    g_Ranking_GameDifficulty = (s8)(g_SavegamePtr->gameDifficulty);"
+    ],
+    [
+      "    g_Ranking_GameplayHours              = g_SavegamePtr->add290Hours * 24 + FP_FROM(g_SavegamePtr->gameplayTimer, Q12_SHIFT) / 3600;",
+      "    g_Ranking_GameplayHours = (u16)(g_SavegamePtr->add290Hours * 24 + FP_FROM(g_SavegamePtr->gameplayTimer, Q12_SHIFT) / 3600);"
+    ],
+    [
+      "    g_Ranking_WalkDistanceKm             = FP_FROM(g_SavegamePtr->walkDistance, Q12_SHIFT) / 1000;",
+      "    g_Ranking_WalkDistanceKm = (u16)(FP_FROM(g_SavegamePtr->walkDistance, Q12_SHIFT) / 1000);"
+    ],
+    [
+      "    g_Ranking_WalkDistanceM              = FP_FROM(g_SavegamePtr->walkDistance, Q12_SHIFT) - (FP_FROM(g_SavegamePtr->walkDistance, Q12_SHIFT) / 1000) * 1000;",
+      "    g_Ranking_WalkDistanceM = (u16)(FP_FROM(g_SavegamePtr->walkDistance, Q12_SHIFT) - (FP_FROM(g_SavegamePtr->walkDistance, Q12_SHIFT) / 1000) * 1000);"
+    ],
+    [
+      "    g_Ranking_RunDistanceKm              = FP_FROM(g_SavegamePtr->runDistance, Q12_SHIFT) / 1000;",
+      "    g_Ranking_RunDistanceKm = (u16)(FP_FROM(g_SavegamePtr->runDistance, Q12_SHIFT) / 1000);"
+    ],
+    [
+      "    g_Ranking_RunDistanceM               = FP_FROM(g_SavegamePtr->runDistance, Q12_SHIFT) - (FP_FROM(g_SavegamePtr->runDistance, Q12_SHIFT) / 1000) * 1000;",
+      "    g_Ranking_RunDistanceM = (u16)(FP_FROM(g_SavegamePtr->runDistance, Q12_SHIFT) - (FP_FROM(g_SavegamePtr->runDistance, Q12_SHIFT) / 1000) * 1000);"
+    ],
+    [
+      "    g_Ranking_GameplaySeconds            = FP_FROM(g_SavegamePtr->gameplayTimer, Q12_SHIFT) - (FP_FROM(g_SavegamePtr->gameplayTimer, Q12_SHIFT) / 60) * 60;",
+      "    g_Ranking_GameplaySeconds = (u8)(FP_FROM(g_SavegamePtr->gameplayTimer, Q12_SHIFT) - (FP_FROM(g_SavegamePtr->gameplayTimer, Q12_SHIFT) / 60) * 60);"
+    ],
+    [
+      "    g_Ranking_EnemyKillsShooting         = func_8009146C(1);",
+      "    g_Ranking_EnemyKillsShooting = (u16)(func_8009146C(1));"
+    ],
+    [
+      "    g_Ranking_EnemyKillsMelee            = func_8009146C(0);",
+      "    g_Ranking_EnemyKillsMelee = (u16)(func_8009146C(0));"
+    ],
+    [
+      "        g_Credits_Digits.f0[2] = (((g_Ranking_CloseRangeShotPercent) / 10) - (((g_Ranking_CloseRangeShotPercent) / 100) * 10)) + '0';",
+      "        g_Credits_Digits.f0[2] = (char)((((g_Ranking_CloseRangeShotPercent) / 10) - (((g_Ranking_CloseRangeShotPercent) / 100) * 10)) + '0');"
+    ],
+    [
+      "        g_Credits_Digits.f1[2] = (((g_Ranking_MidRangeShotPercent) / 10) - (((g_Ranking_MidRangeShotPercent) / 100) * 10)) + '0';",
+      "        g_Credits_Digits.f1[2] = (char)((((g_Ranking_MidRangeShotPercent) / 10) - (((g_Ranking_MidRangeShotPercent) / 100) * 10)) + '0');"
+    ],
+    [
+      "        g_Credits_Digits.f2[2] = (((g_Ranking_LongRangeShotPercent) / 10) - (((g_Ranking_LongRangeShotPercent) / 100) * 10)) + '0';",
+      "        g_Credits_Digits.f2[2] = (char)((((g_Ranking_LongRangeShotPercent) / 10) - (((g_Ranking_LongRangeShotPercent) / 100) * 10)) + '0');"
+    ],
+    [
+      "        g_Credits_Digits.f3[2] = (((g_Ranking_NoAimingShotPercent) / 10) - (((g_Ranking_NoAimingShotPercent) / 100) * 10)) + '0';",
+      "        g_Credits_Digits.f3[2] = (char)((((g_Ranking_NoAimingShotPercent) / 10) - (((g_Ranking_NoAimingShotPercent) / 100) * 10)) + '0');"
+    ],
+    [
+      "        g_Ranking_Score += g_Ranking_PickedUpItemCount / 15;",
+      "        g_Ranking_Score = (s8)(g_Ranking_Score + (g_Ranking_PickedUpItemCount / 15));"
+    ],
+    [
+      "        g_Ranking_Score += shootingScore;",
+      "        g_Ranking_Score = (s8)(g_Ranking_Score + (shootingScore));"
+    ],
+    [
+      "    g_Ranking_Score += var_v1;",
+      "    g_Ranking_Score = (s8)(g_Ranking_Score + (var_v1));"
+    ],
+    [
+      "    s32 var_v0;",
+      "    s32 var_v0; (void)sizeof(var_v0);"
+    ],
+    [
+      "        g_SavegamePtr->meleeKillCount  = val;",
+      "        g_SavegamePtr->meleeKillCount = (u8)(val);"
+    ],
+    [
+      "        g_SavegamePtr->rangedKillCount = val;",
+      "        g_SavegamePtr->rangedKillCount = (u8)(val);"
+    ],
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\n#include \"bodyprog/text/text_debug_draw.h\""
+    ],
+    [
+      "void Ranking_DisplayInfo(u32* arg0) // 0x80090664\n{",
+      "void Ranking_DisplayInfo(u32* arg0) // 0x80090664\n{\n    (void)arg0;"
+    ]
+  ],
+  "src/bodyprog/sys/memcard_2.c": [
+    [
+      "        g_MemCard_ActiveMemCardSlotSaves->deviceId         = i;",
+      "        g_MemCard_ActiveMemCardSlotSaves->deviceId = (s8)(i);"
+    ],
+    [
+      "                    g_MemCard_ActiveMemCardSlotSaves->deviceId           = i;",
+      "                    g_MemCard_ActiveMemCardSlotSaves->deviceId = (s8)(i);"
+    ],
+    [
+      "                    g_MemCard_ActiveMemCardSlotSaves->fileIdx            = j;",
+      "                    g_MemCard_ActiveMemCardSlotSaves->fileIdx = (s8)(j);"
+    ],
+    [
+      "                        g_MemCard_ActiveMemCardSlotSaves->totalSavegameCount = saveMetadata->totalSavegameCount;",
+      "                        g_MemCard_ActiveMemCardSlotSaves->totalSavegameCount = (s16)(saveMetadata->totalSavegameCount);"
+    ],
+    [
+      "                        g_MemCard_ActiveMemCardSlotSaves->deviceId           = i;",
+      "                        g_MemCard_ActiveMemCardSlotSaves->deviceId = (s8)(i);"
+    ],
+    [
+      "                        g_MemCard_ActiveMemCardSlotSaves->fileIdx            = j;",
+      "                        g_MemCard_ActiveMemCardSlotSaves->fileIdx = (s8)(j);"
+    ],
+    [
+      "                        g_MemCard_ActiveMemCardSlotSaves->elementIdx         = k;",
+      "                        g_MemCard_ActiveMemCardSlotSaves->elementIdx = (s8)(k);"
+    ],
+    [
+      "                g_MemCard_ActiveMemCardSlotSaves->deviceId   = i;",
+      "                g_MemCard_ActiveMemCardSlotSaves->deviceId = (s8)(i);"
+    ],
+    [
+      "                g_MemCard_ActiveMemCardSlotSaves->fileIdx    = j;",
+      "                g_MemCard_ActiveMemCardSlotSaves->fileIdx = (s8)(j);"
+    ],
+    [
+      "                g_SlotElementSelectedIdx[j] = totalElementCountInSlot[j];",
+      "                g_SlotElementSelectedIdx[j] = (u8)(totalElementCountInSlot[j]);"
+    ]
+  ],
+  "include/bodyprog/player.h": [
+    [
+      "#define _BODYPROG_PLAYER_H",
+      "#define _BODYPROG_PLAYER_H\nvoid Player_ControlFreeze(void);\nvoid Player_ControlUnfreeze(bool arg);\nvoid Game_FlashlightAttributesFix(void);"
+    ]
+  ],
+  "slice/src/maps/map1_s01/map1_s01.c": [
+    [
+      "            g_WorldObject_SilverH.rotation.vx += Q12_MULT_PRECISE(g_DeltaTime, Q12(0.0555f));",
+      "            g_WorldObject_SilverH.rotation.vx = (s16)(g_WorldObject_SilverH.rotation.vx + (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.0555f))));"
+    ],
+    [
+      "            g_WorldObject_SilverH.rotation.vx += Q12_MULT_PRECISE(g_DeltaTime, Q12(0.75f));",
+      "            g_WorldObject_SilverH.rotation.vx = (s16)(g_WorldObject_SilverH.rotation.vx + (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.75f))));"
+    ],
+    [
+      "    cursorX = FP_FROM(g_PianoCursorX, Q12_SHIFT) + 8;",
+      "    cursorX = (s16)(FP_FROM(g_PianoCursorX, Q12_SHIFT) + 8);"
+    ],
+    [
+      "    cursorY = FP_FROM(g_PianoCursorY, Q12_SHIFT) + 8;",
+      "    cursorY = (s16)(FP_FROM(g_PianoCursorY, Q12_SHIFT) + 8);"
+    ]
+  ],
+  "slice/src/maps/map1_s03/map1_s03.c": [
+    [
+      "        D_800E2018 -= Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f));",
+      "        D_800E2018 = (s16)(D_800E2018 - (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f))));"
+    ],
+    [
+      "        D_800E2018 += Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f));",
+      "        D_800E2018 = (s16)(D_800E2018 + (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f))));"
+    ]
+  ],
+  "slice/src/maps/map2_s00/map2_s00.c": [
+    [
+      "    s32  tmp0;",
+      "    s_FsImageDesc*    tmp0;"
+    ],
+    [
+      "&g_Cutscene_MapMsgAudioCmds",
+      "g_Cutscene_MapMsgAudioCmds"
+    ],
+    [
+      "            progressAlpha = -Q12_DIV(D_800F229C, D_800F229C + Q12(1.0f));",
+      "            progressAlpha = (q3_12)(-Q12_DIV(D_800F229C, D_800F229C + Q12(1.0f)));"
+    ],
+    [
+      "    s32  tim2;",
+      "    s32  tim2; (void)sizeof(tim2);"
+    ],
+    [
+      "    s32  idx;",
+      "    s32  idx; (void)sizeof(idx);"
+    ],
+    [
+      "    s32  tim;",
+      "    s32  tim; (void)sizeof(tim);"
+    ],
+    [
+      "    s16* timPtr;",
+      "    s16* timPtr; (void)sizeof(timPtr);"
+    ]
+  ],
+  "shared/map3_s01_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "shared/map3_s02_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "slice/src/maps/map3_s03/map3_s03.c": [
+    [
+      "                        D_800D8140[i] = j;",
+      "                        D_800D8140[i] = (u8)(j);"
+    ],
+    [
+      "                    D_800D8144 = g_MapEventLastUsedItem - InvItemId_PlateOfTurtle;",
+      "                    D_800D8144 = (u8)(g_MapEventLastUsedItem - InvItemId_PlateOfTurtle);"
+    ],
+    [
+      "                    D_800D8144 = i;",
+      "                    D_800D8144 = (u8)(i);"
+    ],
+    [
+      "                        D_800D8144 = i;",
+      "                        D_800D8144 = (u8)(i);"
+    ],
+    [
+      "(void*)0x801D2600",
+      "sh_items_address(0x801D2600u)"
+    ]
+  ],
+  "slice/src/maps/map4_s05/map4_s05.c": [
+    [
+      "        D_800D7D70 -= Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f));",
+      "        D_800D7D70 = (s16)(D_800D7D70 - (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f))));"
+    ],
+    [
+      "        D_800D7D70 += Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f));",
+      "        D_800D7D70 = (s16)(D_800D7D70 + (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f))));"
+    ]
+  ],
+  "slice/src/maps/map5_s00/map5_s00.c": [
+    [
+      "                D_800DAB7C[i] = Chara_Spawn(Chara_HangedScratcher, i, Q12(-93.3f), Q12(7.1f), Q12_ANGLE(180.0f), 18 + i);",
+      "                D_800DAB7C[i] = (u8)(Chara_Spawn(Chara_HangedScratcher, i, Q12(-93.3f), Q12(7.1f), Q12_ANGLE(180.0f), 18 + i));"
+    ]
+  ],
+  "slice/src/maps/map5_s01/map5_s01.c": [
+    [
+      "                        D_800F0350[3] = i;",
+      "                        D_800F0350[3] = (u8)(i);"
+    ],
+    [
+      "        D_800F035E -= Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f));",
+      "        D_800F035E = (q3_12)(D_800F035E - (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f))));"
+    ],
+    [
+      "        D_800F035E += Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f));",
+      "        D_800F035E = (q3_12)(D_800F035E + (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f))));"
+    ],
+    [
+      "block_18:",
+      "/* PORT: unreferenced binary-match label. */"
+    ]
+  ],
+  "slice/src/maps/map6_s01/map6_s01_2.c": [
+    [
+      "        D_800D41B0 -= Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.5f);",
+      "        D_800D41B0 = (q3_12)(D_800D41B0 - (Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.5f)));"
+    ],
+    [
+      "        D_800D41B0 += Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f);",
+      "        D_800D41B0 = (q3_12)(D_800D41B0 + (Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f)));"
+    ]
+  ],
+  "slice/src/maps/map6_s02/map6_s02_2.c": [
+    [
+      "        D_800D3C94 -= Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.5f);",
+      "        D_800D3C94 = (s16)(D_800D3C94 - (Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.5f)));"
+    ],
+    [
+      "        D_800D3C94 += Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f);",
+      "        D_800D3C94 = (s16)(D_800D3C94 + (Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f)));"
+    ]
+  ],
+  "shared/map7_s00_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "slice/src/maps/map7_s01/map7_s01_2.c": [
+    [
+      "                    D_800E1688[4] = i;",
+      "                    D_800E1688[4] = (u8)(i);"
+    ],
+    [
+      "                            D_800E156E = j + (i * 3) + 1;",
+      "                            D_800E156E = (u8)(j + (i * 3) + 1);"
+    ],
+    [
+      "                    D_800E168E += g_GravitySpeed >> 1;",
+      "                    D_800E168E = (q4_12)(D_800E168E + (g_GravitySpeed >> 1));"
+    ],
+    [
+      "                    g_WorldObject_Stone0.rotation.vz += Q12_MULT_PRECISE(g_DeltaTime, Q12_ANGLE(-25.0f));",
+      "                    g_WorldObject_Stone0.rotation.vz = (s16)(g_WorldObject_Stone0.rotation.vz + (Q12_MULT_PRECISE(g_DeltaTime, Q12_ANGLE(-25.0f))));"
+    ],
+    [
+      "                    D_800E168E                          += g_GravitySpeed;",
+      "                    D_800E168E = (q4_12)(D_800E168E + (g_GravitySpeed));"
+    ],
+    [
+      "                    g_WorldObject_Stone0.rotation.vz += Q12_MULT_PRECISE(g_DeltaTime, Q12_ANGLE(-120.0f));",
+      "                    g_WorldObject_Stone0.rotation.vz = (s16)(g_WorldObject_Stone0.rotation.vz + (Q12_MULT_PRECISE(g_DeltaTime, Q12_ANGLE(-120.0f))));"
+    ],
+    [
+      "const static VECTOR3 sfxPos",
+      "static VECTOR3 sfxPos"
+    ],
+    [
+      "                    D_800E1678[i] -= g_DeltaTime;",
+      "                    D_800E1678[i] = (s16)(D_800E1678[i] - (g_DeltaTime));"
+    ],
+    [
+      "                *var_s0 -= g_DeltaTime;",
+      "                *var_s0 = (s16)((s16)(*var_s0 - (g_DeltaTime)));"
+    ],
+    [
+      "            D_800E16A8[0] = MIN(D_800E16A8[0] + Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f)), Q12(0.1f));",
+      "            D_800E16A8[0] = (s16)((s16)(MIN(D_800E16A8[0] + Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f)), Q12(0.1f))));"
+    ],
+    [
+      "            D_800E16A8[1] = MIN(D_800E16A8[1] + Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f)), Q12(0.1f));",
+      "            D_800E16A8[1] = (s16)(MIN(D_800E16A8[1] + Q12_MULT_PRECISE(g_DeltaTime, Q12(0.25f)), Q12(0.1f)));"
+    ],
+    [
+      "&D_800CC594, &D_800CC5A0,",
+      "&(VECTOR){D_800CC594.vx,D_800CC594.vy,D_800CC594.vz,0}, &(VECTOR){D_800CC5A0.vx,D_800CC5A0.vy,D_800CC5A0.vz,0},"
+    ]
+  ],
+  "shared/map7_s01_sharedFunc_800DB60C_7_s01_items": [
+    [
+      "            cursorX = FP_FROM(sharedData_800E2CA8_7_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800E2CA8_7_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "sharedData_800E1694_7_s01 == sharedData_800E1574_7_s01",
+      "(u32)sharedData_800E1694_7_s01 == (u32)sharedData_800E1574_7_s01"
+    ],
+    [
+      "sharedData_800E1694_7_s01 == sharedData_800E1570_7_s01",
+      "(u32)sharedData_800E1694_7_s01 == (u32)sharedData_800E1570_7_s01"
+    ]
+  ],
+  "slice/src/maps/map7_s02/map7_s02_2.c": [
+    [
+      "                            D_800E9D8E = j + (i * 3) + 1;",
+      "                            D_800E9D8E = (u8)(j + (i * 3) + 1);"
+    ],
+    [
+      "                    D_800EA492 += g_GravitySpeed >> 1;",
+      "                    D_800EA492 = (u16)(D_800EA492 + (g_GravitySpeed >> 1));"
+    ],
+    [
+      "                    D_800EBB64.rotation.vz += Q12_MULT_PRECISE(g_DeltaTime, Q12(-0.0694f));",
+      "                    D_800EBB64.rotation.vz = (s16)(D_800EBB64.rotation.vz + (Q12_MULT_PRECISE(g_DeltaTime, Q12(-0.0694f))));"
+    ],
+    [
+      "                    D_800EA492                += g_GravitySpeed;",
+      "                    D_800EA492 = (u16)(D_800EA492 + (g_GravitySpeed));"
+    ],
+    [
+      "                    D_800EBB64.rotation.vz += Q12_MULT_PRECISE(g_DeltaTime, Q12(-0.3333f));",
+      "                    D_800EBB64.rotation.vz = (s16)(D_800EBB64.rotation.vz + (Q12_MULT_PRECISE(g_DeltaTime, Q12(-0.3333f))));"
+    ],
+    [
+      "                    D_800EBB94 -= g_DeltaTime;",
+      "                    D_800EBB94 = (q3_12)(D_800EBB94 - (g_DeltaTime));"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800E2CA8_7_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800E2CA8_7_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                    D_800EA4AC[4] = i;",
+      "                    D_800EA4AC[4] = (u8)(i);"
+    ],
+    [
+      "            D_800E9ED6 = MAX(0, D_800E9ED6 - g_DeltaTime);",
+      "            D_800E9ED6 = (s16)(MAX(0, D_800E9ED6 - g_DeltaTime));"
+    ],
+    [
+      "                scratch->sprt_0->v0 = vOffset;",
+      "                scratch->sprt_0->v0 = (u_char)(vOffset);"
+    ],
+    [
+      "            D_800E9EDC -= Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f));",
+      "            D_800E9EDC = (s16)(D_800E9EDC - (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.5f))));"
+    ],
+    [
+      "        g_SysWork.lightRotation.vy = ratan2(sp18.vx - g_SysWork.lightPosition.vx, sp18.vz - g_SysWork.lightPosition.vz);",
+      "        g_SysWork.lightRotation.vy = (short)(ratan2(sp18.vx - g_SysWork.lightPosition.vx, sp18.vz - g_SysWork.lightPosition.vz));"
+    ],
+    [
+      "            g_SysWork.npcs[1].timer_C6 += Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f);",
+      "            g_SysWork.npcs[1].timer_C6 = (q3_12)(g_SysWork.npcs[1].timer_C6 + (Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f)));"
+    ],
+    [
+      "            g_SysWork.npcs[0].timer_C6 += Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f);",
+      "            g_SysWork.npcs[0].timer_C6 = (q3_12)(g_SysWork.npcs[0].timer_C6 + (Q12_MULT_FLOAT_PRECISE(g_DeltaTime, 0.25f)));"
+    ],
+    [
+      "        g_SysWork.lightRotation.vx = -ratan2(lightIntPos.vy - g_SysWork.lightPosition.vy, Math_Vector2MagCalcSafeQ6(lightIntPos.vx - g_SysWork.lightPosition.vx, lightIntPos.vz - g_SysWork.lightPosition.vz));",
+      "        g_SysWork.lightRotation.vx = (short)(-ratan2(lightIntPos.vy - g_SysWork.lightPosition.vy, Math_Vector2MagCalcSafeQ6(lightIntPos.vx - g_SysWork.lightPosition.vx, lightIntPos.vz - g_SysWork.lightPosition.vz)));"
+    ],
+    [
+      "        g_SysWork.lightRotation.vy = ratan2(lightIntPos.vx - g_SysWork.lightPosition.vx, lightIntPos.vz - g_SysWork.lightPosition.vz);",
+      "        g_SysWork.lightRotation.vy = (short)(ratan2(lightIntPos.vx - g_SysWork.lightPosition.vx, lightIntPos.vz - g_SysWork.lightPosition.vz));"
+    ],
+    [
+      "                *var_s0 -= g_DeltaTime;",
+      "                *var_s0 = (s16)((s16)(*var_s0 - (g_DeltaTime)));"
+    ],
+    [
+      "g_SysWork.lightRotation.vx = -ratan2(",
+      "g_SysWork.lightRotation.vx = (s16)-ratan2("
+    ],
+    [
+      "scratch->drawOffset_C = scratch->drawArea_8;",
+      "scratch->drawOffset_C = (DR_OFFSET*)scratch->drawArea_8;"
+    ],
+    [
+      "scratch->stp_10 = scratch->drawOffset_C;",
+      "scratch->stp_10 = (DR_STP*)scratch->drawOffset_C;"
+    ],
+    [
+      "scratch->sprt_0 = scratch->stp_10;",
+      "scratch->sprt_0 = (SPRT*)scratch->stp_10;"
+    ],
+    [
+      "GsOUT_PACKET_P = scratch->stp_10;",
+      "GsOUT_PACKET_P = (PACKET*)scratch->stp_10;"
+    ],
+    [
+      "scratch->sprt_0 = GsOUT_PACKET_P;",
+      "scratch->sprt_0 = (SPRT*)GsOUT_PACKET_P;"
+    ],
+    [
+      "scratch->sprt_0 = scratch->tpage_4;",
+      "scratch->sprt_0 = (SPRT*)scratch->tpage_4;"
+    ]
+  ],
+  "shared/map7_s02_sharedFunc_800DB60C_7_s01_items": [
+    [
+      "            cursorX = FP_FROM(sharedData_800E2CA8_7_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800E2CA8_7_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "sharedData_800E1694_7_s01 == sharedData_800E1574_7_s01",
+      "(u32)sharedData_800E1694_7_s01 == (u32)sharedData_800E1574_7_s01"
+    ],
+    [
+      "sharedData_800E1694_7_s01 == sharedData_800E1570_7_s01",
+      "(u32)sharedData_800E1694_7_s01 == (u32)sharedData_800E1570_7_s01"
+    ]
+  ],
+  "slice/src/maps/map3_s05/map3_s05.c": [
+    [
+      "0xFFFEC000",
+      "(s32)0xFFFEC000"
+    ],
+    [
+      "                    D_800DACE8 -= g_DeltaTime;",
+      "                    D_800DACE8 = (s16)(D_800DACE8 - (g_DeltaTime));"
+    ],
+    [
+      "                    D_800DACE8 += g_DeltaTime;",
+      "                    D_800DACE8 = (s16)(D_800DACE8 + (g_DeltaTime));"
+    ]
+  ],
+  "slice/src/maps/map6_s04/map6_s04_2.c": [
+    [
+      "&D_800CC4C4",
+      "(const char*)&D_800CC4C4"
+    ],
+    [
+      "&D_800CC4CC",
+      "(const char*)&D_800CC4CC"
+    ],
+    [
+      "&D_800CC4D4",
+      "(const char*)&D_800CC4D4"
+    ],
+    [
+      "g_SysWork.lightRotation.vx = -ratan2(",
+      "g_SysWork.lightRotation.vx = (s16)-ratan2("
+    ],
+    [
+      "g_SysWork.lightRotation.vy =  ratan2(",
+      "g_SysWork.lightRotation.vy = (s16)ratan2("
+    ]
+  ],
+  "include/maps/map6/map6_s04.h": [
+    [
+      "#define _MAPS_MAP6_S04_H",
+      "#define _MAPS_MAP6_S04_H\nstruct s_func_800E030C; struct s_800ED848;"
+    ],
+    [
+      "s32     field_34;",
+      "s32     field_34;"
+    ]
+  ],
+  "shared/map3_s03_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "shared/map3_s04_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "shared/map3_s05_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "shared/map7_s01_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "shared/map7_s02_sharedFunc_800D15F0_3_s01_items": [
+    [
+      "                    sharedData_800D4D18_3_s01 = i;",
+      "                    sharedData_800D4D18_3_s01 = (s8)(i);"
+    ],
+    [
+      "            cursorX = FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8;",
+      "            cursorX = (s16)(FP_FROM(sharedData_800D4D10_3_s01, Q12_SHIFT) + 8);"
+    ],
+    [
+      "                            sharedData_800D4D18_3_s01 = ABS((sharedData_800D4D18_3_s01 + temp2) - i);",
+      "                            sharedData_800D4D18_3_s01 = (s8)(ABS((sharedData_800D4D18_3_s01 + temp2) - i));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vx = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vx = (short)((short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vx, Q12(0.35f))));"
+    ],
+    [
+      "            sharedData_800D4D0C_3_s01.vy = MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f));",
+      "            sharedData_800D4D0C_3_s01.vy = (short)(MIN(Q12_MULT_PRECISE(g_DeltaTime, Q12(0.8f)) + sharedData_800D4D0C_3_s01.vy, Q12(0.35f)));"
+    ]
+  ],
+  "include/bodyprog/collision/trigger.h": [
+    [
+      "u8  isEndOfArray : 1;",
+      "u32 isEndOfArray : 1;"
+    ]
+  ],
+  "include/bodyprog/map/map.h": [
+    [
+      "s32    gameDifficultyMin : 4;",
+      "s8     gameDifficultyMin : 4;"
+    ]
+  ],
+  "include/bodyprog/view/structs.h": [
+    [
+      "VC_ROAD_FLAGS     flags          : 8;",
+      "u8                flags          : 8;"
+    ],
+    [
+      "VC_AREA_SIZE_TYPE area_size_type : 2;",
+      "u8                area_size_type : 2;"
+    ],
+    [
+      "VC_ROAD_TYPE      rd_type        : 3;",
+      "u8                rd_type        : 3;"
+    ],
+    [
+      "u32               mv_y_type      : 3;",
+      "u8                mv_y_type      : 3;"
+    ],
+    [
+      "q27_4             lim_rd_max_hy  : 8;",
+      "s8                lim_rd_max_hy  : 8;"
+    ],
+    [
+      "q27_4             lim_rd_min_hy  : 8;",
+      "s8                lim_rd_min_hy  : 8;"
+    ],
+    [
+      "q27_4             ofs_watch_hy   : 8;",
+      "s8                ofs_watch_hy   : 8;"
+    ],
+    [
+      "u32               lens_flare     : 4;",
+      "u8                lens_flare     : 4;"
+    ],
+    [
+      "s16               cam_mv_type    : 4;",
+      "s8                cam_mv_type    : 4;"
+    ]
+  ],
+  "slice/src/maps/map1_s02/map1_s02.c": [
+    [
+      "                D_800E1FE0 += Q12_MULT_PRECISE(g_DeltaTime, Q12(0.1666f));",
+      "                D_800E1FE0 = (q3_12)(D_800E1FE0 + (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.1666f))));"
+    ],
+    [
+      "                D_800E1FE0 -= Q12_MULT_PRECISE(g_DeltaTime, Q12(0.1666f));",
+      "                D_800E1FE0 = (q3_12)(D_800E1FE0 - (Q12_MULT_PRECISE(g_DeltaTime, Q12(0.1666f))));"
+    ],
+    [
+      "                        D_800E1FDC.vx -= rotY0;",
+      "                        D_800E1FDC.vx = (short)(D_800E1FDC.vx - (rotY0));"
+    ],
+    [
+      "                        D_800E1FDC.vy -= rotY1;",
+      "                        D_800E1FDC.vy = (short)(D_800E1FDC.vy - (rotY1));"
+    ],
+    [
+      "                        D_800E1FDC.vx -= rotY1;",
+      "                        D_800E1FDC.vx = (short)(D_800E1FDC.vx - (rotY1));"
+    ],
+    [
+      "                        D_800E1FDC.vy -= rotY0;",
+      "                        D_800E1FDC.vy = (short)(D_800E1FDC.vy - (rotY0));"
+    ],
+    [
+      "                    D_800E1FDC.vx += rotY0;",
+      "                    D_800E1FDC.vx = (short)(D_800E1FDC.vx + (rotY0));"
+    ],
+    [
+      "                    D_800E1FDC.vy += rotY1;",
+      "                    D_800E1FDC.vy = (short)(D_800E1FDC.vy + (rotY1));"
+    ],
+    [
+      "                    D_800E1FDC.vx += rotY1;",
+      "                    D_800E1FDC.vx = (short)(D_800E1FDC.vx + (rotY1));"
+    ],
+    [
+      "                    D_800E1FDC.vy += rotY0;",
+      "                    D_800E1FDC.vy = (short)(D_800E1FDC.vy + (rotY0));"
+    ],
+    [
+      "            g_WorldObject_Door2Hi.rotation.vy += rotY0;",
+      "            g_WorldObject_Door2Hi.rotation.vy = (s16)(g_WorldObject_Door2Hi.rotation.vy + (rotY0));"
+    ],
+    [
+      "            g_WorldObject_Door1Hi.rotation.vy += rotY1;",
+      "            g_WorldObject_Door1Hi.rotation.vy = (s16)(g_WorldObject_Door1Hi.rotation.vy + (rotY1));"
+    ],
+    [
+      "        D_800E1FE4 = var_t0;",
+      "        D_800E1FE4 = (q3_12)(var_t0);"
+    ]
+  ],
+  "src/bodyprog/text/map_msg_display.c": [
+    [
+      "                        g_MapMsg_Select.maxIdx           = curMenuSelection;",
+      "                        g_MapMsg_Select.maxIdx = (s8)(curMenuSelection);"
+    ],
+    [
+      "                        g_MapMsg_Select.maxIdx = curMenuSelection;",
+      "                        g_MapMsg_Select.maxIdx = (s8)(curMenuSelection);"
+    ],
+    [
+      "    g_MapMsg_SelectFlashTimer += g_DeltaTimeRaw;",
+      "    g_MapMsg_SelectFlashTimer = (q3_12)(g_MapMsg_SelectFlashTimer + (g_DeltaTimeRaw));"
+    ],
+    [
+      "#include \"game.h\"",
+      "#include \"game.h\"\nvoid Game_TimerUpdate(void);"
+    ],
+    [
+      "Gfx_MapMsg_SelectionUpdate(g_MapMsg_CurrentIdx",
+      "Gfx_MapMsg_SelectionUpdate((u8)g_MapMsg_CurrentIdx"
+    ],
+    [
+      "unkJapVal = Gfx_MapMsg_WidthsCompute(g_MapMsg_CurrentIdx);",
+      "unkJapVal = Gfx_MapMsg_WidthsCompute(g_MapMsg_CurrentIdx); (void)unkJapVal;"
+    ]
+  ],
+  "include/bodyprog/sound/sfx.h": [
+    [
+      "Sfx_WithFalloffAndPitchPlay(e_SfxId sfxId, VECTOR3* pos",
+      "Sfx_WithFalloffAndPitchPlay(e_SfxId sfxId, const VECTOR3* pos"
+    ]
+  ],
+  "include/maps/map7/map7_s03.h": [
+    [
+      "#define _MAPS_MAP7_S03_H",
+      "#define _MAPS_MAP7_S03_H\nstruct s_800F3D48; struct s_800F3D48_0;"
+    ]
+  ]
+}
