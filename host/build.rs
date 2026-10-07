@@ -59,6 +59,7 @@ fn main() {
             ),
         )
         .expect("iOS worker extension");
+        audio_ios_worker(&out);
         println!("cargo:rerun-if-env-changed=SH_IOS_RUST_CHECK_ONLY");
         if std::env::var("SH_IOS_RUST_CHECK_ONLY").as_deref() == Ok("1") {
             assert_ne!(std::env::consts::OS, "macos", "CI must compile native C");
@@ -270,7 +271,50 @@ fn main() {
             .expect("fixed-width SDK header");
     }
     let mut build = cc::Build::new();
+    build.define("SH_NATIVE_AUDIO", None);
+    // PORT: Audio owns only these generated adaptations. Preserve move-owned
+    // sources while replacing their obsolete sound definitions with libsd.
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_audio.py").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("crates/psxspu/port/prepare_libsd.py").display()
+    );
+    let audio = std::process::Command::new(python)
+        .arg(repo.join("tools/prepare_audio.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate original native audio driver");
+    assert!(audio.success(), "audio preparation failed");
+    for path in [
+        "port/audio_services.c",
+        "port/audio_services.h",
+        "port/audio_session.c",
+    ] {
+        println!("cargo:rerun-if-changed={}", repo.join(path).display());
+    }
+    for path in [
+        "src/bodyprog/libsd",
+        "src/bodyprog/sound",
+        "src/bodyprog/events/bgm_update.c",
+        "src/main/fileinfo.c",
+    ] {
+        println!("cargo:rerun-if-changed={}", decomp.join(path).display());
+    }
+    let mut build = AudioBuild {
+        inner: build,
+        generated: generated.clone(),
+    };
     build
+        // PORT: Self-contained audio units and caller-definition adapters.
+        .file(generated.join("audio_driver.c"))
+        .file(repo.join("port/audio_services.c"))
+        .file(repo.join("port/audio_session.c"))
         .include(repo.join("port"))
         .include(repo.join("port/include"))
         .include(&generated)
@@ -751,4 +795,65 @@ fn main() {
         .file(generated.join("option.c"))
         .define("SH_CHECK_BOOT_LAYOUT", None)
         .compile("sh_native_boot");
+}
+
+// PORT: Route obsolete sound-definition owners to generated copies while
+// preserving the shared build's source registration and all warning gates.
+struct AudioBuild {
+    inner: cc::Build,
+    generated: PathBuf,
+}
+impl std::ops::Deref for AudioBuild {
+    type Target = cc::Build;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+impl std::ops::DerefMut for AudioBuild {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+impl AudioBuild {
+    fn file(&mut self, path: impl AsRef<Path>) -> &mut Self {
+        let path = path.as_ref();
+        let name = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
+        if path.parent().is_some_and(|p| p.ends_with("port"))
+            && [
+                "runtime.c",
+                "title_services.c",
+                "npc_startup.c",
+                "gameplay.c",
+            ]
+            .contains(&name)
+        {
+            self.inner
+                .file(self.generated.join(format!("audio_caller_{name}")));
+        } else {
+            self.inner.file(path);
+        }
+        self
+    }
+}
+
+fn audio_ios_worker(out: &Path) {
+    // PORT: UIKit retains its injected GPU/pad. Open audio on the sole worker,
+    // replacing the old silent injection without editing the iOS lane's files.
+    let path = out.join("native_ios.rs");
+    let mut text = fs::read_to_string(&path).expect("iOS worker source");
+    let first = text
+        .find("pub(crate) fn run_ios_worker(")
+        .expect("iOS audio factory seam");
+    let offset = first
+        + text[first..]
+            .find("    let now = Instant::now();")
+            .expect("iOS worker start");
+    text.insert_str(offset,"    let backends = Backends { spu: Box::new(crate::spu_cpal::open_configured()?), ..backends };\n");
+    let first = text.find("pub(crate) fn run_ios_worker(").unwrap();
+    let offset = first
+        + text[first..]
+            .find("        h.error.take().map_or_else(")
+            .expect("iOS audio finish seam");
+    text.insert_str(offset, "        h.spu.finish()?;\n");
+    fs::write(path, text).expect("iOS audio worker adaptation");
 }
