@@ -1,0 +1,19 @@
+[package]
+name = "sh-touch"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+description = "Platform-neutral touch to Silent Hill US PS1 input, with a Windows harness"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+winit = "0.30.13"
+softbuffer = "0.4.8"
+font8x8 = "0.3.1"
+
+[[example]]
+name = "harness"
+path = "examples/harness.rs"
