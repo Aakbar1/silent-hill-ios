@@ -15,7 +15,7 @@ fn main() {
         let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let decomp = std::env::var_os("SH_DECOMP_DIR")
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| repo.join("../../reference/silent-hill-decomp"));
+            .unwrap_or_else(|| repo.join("game/decomp"));
         println!("cargo:rerun-if-env-changed=SH_DECOMP_DIR");
         let prelude = repo.join("port/msvc_prelude.h");
         println!("cargo:rerun-if-changed={}", prelude.display());

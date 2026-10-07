@@ -1,0 +1,3 @@
+[submodule "game/decomp"]
+	path = game/decomp
+	url = https://github.com/Vatuu/silent-hill-decomp.git

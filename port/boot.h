@@ -2,6 +2,7 @@
 #ifndef SH_BOOT_H
 #define SH_BOOT_H
 #include "common.h"
+#include "overlay.h"
 #include <psyq/libgte.h>
 #include <psyq/libgpu.h>
 // PORT: MSVC allocates mixed-type PsyQ GsOT_TAG bitfields as 8 bytes. Keep the wire tag 4 bytes.
@@ -17,7 +18,7 @@ void GsDrawOt(GsOT* ot);
 void GsSortClear(u8 r,u8 g,u8 b,GsOT* ot);
 int GsGetActiveBuff(void);
 void GsInitVcount(void);
-long GsGetVcount(void);
+s32 GsGetVcount(void);
 void GsClearVcount(void);
 void GsInitGraph2(u_short x,u_short y,u_short mode,u_short dtd,u_short vram);
 void GsDefDispBuff2(u_short x0,u_short y0,u_short x1,u_short y1);
@@ -38,6 +39,11 @@ enum { PRIM_RECT=0x60, RECT_TEXTURE=4, RECT_BLEND=2 };
 
 // PORT: Boot runtime records are native objects, never views of game-file bytes.
 // Full gameplay records must be migrated separately; upstream assertions stay intact in the baseline gate.
+typedef struct { u16 enter,cancel,skip,action,aim,light,run,view,stepLeft,stepRight,pause,item,map,option; } s_ControllerConfig;
+STATIC_ASSERT_SIZEOF(s_ControllerConfig,28);
+typedef struct { s_ControllerConfig controllerConfig;
+    s32 screenPositionX,screenPositionY,soundType,volumeBgm,volumeSe,
+        extraWeaponCtrl,brightness,vibrationEnabled,extraBloodColor,autoLoad; } PortOptions;
 typedef struct { u8 tPage[2], u, v; s16 clutX, clutY; } s_FsImageDesc;
 STATIC_ASSERT_SIZEOF(s_FsImageDesc, 8);
 STATIC_ASSERT_SIZEOF(SPRT, 20);
@@ -47,12 +53,14 @@ typedef struct {
     s32 gameState, gameStatePrev, gameStateSteps[3];
     struct { u8 r, g, b; } background2dColor;
     s32 gsScreenWidth, gsScreenHeight;
+    PortOptions config;
 } PortGameWork;
 typedef struct {
     s32 gameStateCounter, gameStateStepCounter, sysStateCounter, sysState;
     s32 sysFlags, bgmStatusFlags;
 } PortSysWork;
-typedef struct { struct { s32 screenPositionX, screenPositionY; } config; } PortGameWorkConst;
+typedef PortGameWork PortGameWorkConst;
+#define g_GameWorkPtr (&g_GameWork)
 typedef struct { struct { u32 held; } buttonFlags; } PortController;
 extern PortGameWork g_GameWork;
 extern PortSysWork g_SysWork;
@@ -60,9 +68,36 @@ extern PortGameWorkConst* g_GameWorkConst;
 extern PortController* g_Controller0;
 
 enum { GameState_Init=0, GameState_KonamiLogo=1, GameState_KcetLogo=2,
+ GameState_MovieIntroFadeIn=3, GameState_AutoLoadSavegame=4, GameState_MovieIntroAlternate=5, GameState_MovieIntro=6,
  GameState_MainLoadScreen=10, GameState_InGame=11, GameState_InventoryScreen=14,
  SysState_Gameplay=0, SysFlag_DemoActive=2, BgmStatusFlag_None=0, BgmStatusFlag_Pause=1,
  AudioStreamingState_None=0, SyncMode_Wait=0, SyncMode_Count=-1 };
+enum {ControllerFlag_None=0,ControllerFlag_Select=1,ControllerFlag_Start=8,
+    ControllerFlag_L2=256,ControllerFlag_R2=512,ControllerFlag_L1=1024,ControllerFlag_R1=2048,
+    ControllerFlag_Triangle=4096,ControllerFlag_Circle=8192,ControllerFlag_Cross=16384,ControllerFlag_Square=32768};
+enum {SavegameEntryType_NoMemCard=0,SavegameEntryType_OutOfBlocks=4,SavegameEntryType_Save=8,
+    MemCardGameProcessId_Load_Game=2,MemCardWorkResult_Success=1,AudioMode_Mono=1,AudioMode_Stereo=2};
+#define INPUT_ACTION_COUNT 14
+#define OPT_SOUND_VOLUME_MAX 128
+#define OPT_VIBRATION_ENABLED 128
+typedef struct {s32 type,deviceId,fileIdx,elementIdx;} PortMemCardEntry;
+extern PortMemCardEntry* g_MemCard_ActiveMemCardSlotSaves;
+extern s32 g_SelectedSaveSlotIdx,g_SlotElementSelectedIdx[2],g_SelectedDeviceId,g_SelectedFileIdx,g_Savegame_SelectedElementIdx;
+PortMemCardEntry* MemCard_ActiveMemCardSlotGet(s32 slot);
+void MemCard_ProcessSet(s32 process,s32 device,s32 file,s32 element);
+s32 MemCard_LastMemCardResultGet(void);
+void Settings_RestoreDefaults(void);
+void Settings_RestoreControlDefaults(s32 index);
+void Settings_ScreenAndVolUpdate(void);
+void Sd_GlobalVolumeSet(s32 maximum,s32 music,s32 effects);
+void GameFs_BgEtcGfxLoad(void);
+void GameFs_StreamBinLoad(void);
+void GameFs_TitleGfxSeek(void);
+void GameFs_TitleGfxLoad(void);
+void Fs_QueueStartSeek(s32 file);
+void Demo_SequenceAdvance(s32 value);
+void Demo_DemoDataRead(void);
+s32 Game_StateStepSet(s32 index,s32 value);
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 #define FRAMEBUFFER_HEIGHT_PROGRESSIVE 224
@@ -76,12 +111,16 @@ extern s32 g_VBlanks, g_UncappedVBlanks, g_IntervalVBlanks, g_Demo_VideoPresentI
 extern q19_12 g_DeltaTime, g_DeltaTimeRaw, g_GravitySpeed, g_ScreenFadeTimestep;
 extern GsOT_TAG g_OtTags0[2][16], g_OtTags1[2][ORDERING_TABLE_SIZE];
 extern GsOT g_OrderingTable0[2], g_OrderingTable2[2];
-extern s_FsImageDesc g_MainImg0, g_KonamiLogoImg, g_KcetLogoImg, g_Font16AtlasImg;
-extern _Alignas(8) u8 port_fs_buffers[2][1024*1024], port_packets[2][131072];
+extern s_FsImageDesc g_MainImg0, g_KonamiLogoImg, g_KcetLogoImg, g_Font16AtlasImg,g_MemCardWarningImg,g_TitleImg,g_ItemInspectionImg;
+extern _Alignas(8) u8 port_fs_buffers[8][1024*1024], port_packets[2][131072];
 extern _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*1024];
 // PORT: Native buffers replace PS1 fixed file/packet addresses.
 #define FS_BUFFER_0 ((void*)port_fs_buffers[0])
 #define FS_BUFFER_1 ((void*)port_fs_buffers[1])
+#define FS_BUFFER_3 ((void*)port_fs_buffers[3])
+#define FS_BUFFER_5 ((void*)port_fs_buffers[5])
+#define FS_BUFFER_6 ((void*)port_fs_buffers[6])
+#define FS_BUFFER_7 ((void*)port_fs_buffers[7])
 #define TEMP_MEMORY_ADDR ((s8*)port_packets[0])
 
 // PORT: OT links remain 24-bit tokens, resolved through a native pointer registry.
@@ -118,7 +157,7 @@ void port_game_state_next(s32 next);
 void MainLoop(void);
 void GameState_Init_Update(void);
 #define PORT_OTHER_STATES(X) \
- X(GameState_KcetLogo_Update) X(GameState_MovieIntroFadeIn_Update) \
+ X(GameState_MovieIntroFadeIn_Update) \
  X(GameState_AutoLoadSavegame_Update) X(GameState_MovieIntroAlternate_Update) \
  X(GameState_MovieIntro_Update) X(GameState_MainMenu_Update) \
  X(GameState_LoadSavegameScreen_Update) X(GameState_MovieOpening_Update) \
@@ -165,7 +204,16 @@ void GameFs_BgItemLoad(void);
 void Map_EffectTexturesLoad(s32 map);
 void nullsub_800334C8(void);
 // Rust-owned disc/rasterizer callbacks. No borrowed pointers survive these synchronous calls.
-int port_read_disc(u32 lba, u32 bytes, u8* destination);
+int port_read_file(u32 id, u32 bytes, u8* destination);
+void port_pad_read(u8* destination);
+void port_begin_ot(void);
+void port_end_ot(void);
+int port_store_vram(s32 x, s32 y, s32 w, s32 h, u16* destination);
+int port_move_vram(s32 x, s32 y, s32 w, s32 h, s32 dx, s32 dy);
+void port_spu_reset(void);
+int port_spu_write(u16 offset, u16 value);
+u16 port_spu_read(u16 offset);
+int port_spu_transfer(u32 address, const u8* data, u32 count);
 void port_load_vram(s32 x, s32 y, s32 w, s32 h, const u16* data);
 void port_clear_vram(s32 x, s32 y, s32 w, s32 h, u8 r, u8 g, u8 b);
 void port_draw_packet(const u32* words, u32 count);

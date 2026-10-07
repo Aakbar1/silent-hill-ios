@@ -8,11 +8,28 @@ fn between<'a>(text: &'a str, start: &str, end: &str) -> &'a str {
     &text[first..last]
 }
 
+// PORT: SDK long means a PS1 word. Preserve the reference notices and every size
+// assertion while replacing this scalar in generated SDK declarations for LP64.
+fn fixed_long(text: &str) -> String {
+    text.split_inclusive(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .map(|token| {
+            let end = token
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(token.len());
+            if &token[..end] == "long" {
+                format!("int32_t{}", &token[end..])
+            } else {
+                token.to_owned()
+            }
+        })
+        .collect()
+}
+
 fn main() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let decomp = std::env::var_os("SH_DECOMP_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| repo.join("../../reference/silent-hill-decomp"));
+        .unwrap_or_else(|| repo.join("game/decomp"));
     println!("cargo:rerun-if-env-changed=SH_DECOMP_DIR");
     let head = std::process::Command::new("git")
         .arg("-C")
@@ -29,10 +46,7 @@ fn main() {
         "d9e28f8315c7938117224f21516786d9d149a145",
         "unexpected decomp revision: review the boot transforms before updating the pin"
     );
-    println!(
-        "cargo:rerun-if-changed={}",
-        decomp.join(".git/HEAD").display()
-    );
+    println!("cargo:rerun-if-changed={}", decomp.join(".git").display());
     println!(
         "cargo:rerun-if-changed={}",
         decomp.join("include").display()
@@ -41,8 +55,18 @@ fn main() {
         "cargo:rerun-if-changed={}",
         decomp.join("src/main/filetable.c.USA.inc").display()
     );
-    let generated = repo.join("../../private/work/boot/native-source");
-    fs::create_dir_all(&generated).expect("private generated-source directory");
+    // PORT: Generated reference C contains no game bytes; OUT_DIR permits data-free CI builds.
+    let generated =
+        PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("native-source");
+    fs::create_dir_all(&generated).expect("generated-source directory");
+    fs::create_dir_all(generated.join("psyq")).expect("generated SDK directory");
+    for header in ["libgte.h", "libgpu.h"] {
+        let source = decomp.join("include/psyq").join(header);
+        println!("cargo:rerun-if-changed={}", source.display());
+        let text = fs::read_to_string(source).expect("SDK header");
+        fs::write(generated.join("psyq").join(header), fixed_long(&text))
+            .expect("fixed-width SDK header");
+    }
     let mut build = cc::Build::new();
     build
         .include(repo.join("port"))
@@ -50,8 +74,12 @@ fn main() {
         .include(&generated)
         .include(decomp.join("include"))
         .include(decomp.join("src/main"))
-        .flag("/std:c11")
         .warnings_into_errors(true);
+    if build.get_compiler().is_like_msvc() {
+        build.flag("/std:c11").flag("/W4");
+    } else {
+        build.flag("-std=c11").flag("-Wall").flag("-Wextra");
+    }
     let inputs = [
         ("main", "src/main/main.c"),
         ("game_main", "src/bodyprog/sys/game_main.c"),
@@ -60,6 +88,9 @@ fn main() {
         ("screen", "src/bodyprog/screen/screen_draw.c"),
         ("vsync", "src/bodyprog/sys/vsync.c"),
         ("background", "src/bodyprog/screen/background_draw.c"),
+        ("settings", "src/bodyprog/sys/settings_reset.c"),
+        ("fs_screens", "src/bodyprog/sys/fs_screens.c"),
+        ("bg_etc", "src/bodyprog/world/world_draw.c"),
     ];
     for (name, relative) in inputs {
         let source = decomp.join(relative);
@@ -68,19 +99,25 @@ fn main() {
         // PORT: Compile boot functions against the native interface, excluding unrelated headers/code.
         // Function bodies are read from the pinned decomp, not reimplemented game state machines.
         let selected = match name {
-            "konami" => format!(
-                "{}\n{}",
-                between(
-                    &original,
-                    "void GameState_KonamiLogo_Update",
-                    "s32 GameState_KcetLogo_MemCardCheck"
-                ),
-                between(
-                    &original,
-                    "void BootScreen_ImageSegmentDraw",
-                    "void BootScreen_KcetScreenDraw"
-                )
-            ),
+            "konami" => original.clone(),
+            "settings" => between(
+                &original,
+                "void Settings_ScreenAndVolUpdate",
+                "const s32 __pad_rodata",
+            )
+            .to_owned(),
+            "fs_screens" => between(
+                &original,
+                "void GameFs_TitleGfxSeek",
+                "void GameFs_OptionBinLoad",
+            )
+            .to_owned(),
+            "bg_etc" => between(
+                &original,
+                "void GameFs_BgEtcGfxLoad",
+                "void GameFs_BgItemLoad",
+            )
+            .to_owned(),
             "background" => format!(
                 "q0_8 g_Screen_BackgroundImgGamma = Q8(0.5f);\n{}",
                 between(
@@ -123,6 +160,35 @@ fn main() {
         if name == "game_main" {
             native = native.replace("    s32 gameState;", "");
         }
+        if name == "konami" {
+            // PORT: The sole writable overlay static is separate native data,
+            // restored from its compiled initial image on every native load.
+            native = native
+                .replace(
+                    "    static u8 nextGameState = GameState_Init; // 0x800CA4F0",
+                    "",
+                )
+                .replace("nextGameState", "sh_b_konami_data.next_state")
+                // PORT: Both logo emitters use the same unsigned 32-bit OT tag view.
+                .replace("s32*  ptr;", "u32*  ptr;")
+                // PORT: USA excludes the only consumer of this NTSC-J local.
+                .replace("                    s32 curTime;", "")
+                // PORT: Packet arithmetic uses native pointers, never u32.
+                .replace(
+                    "(g_ActiveBufferIdx << 0xF) + (u32)TEMP_MEMORY_ADDR",
+                    "(PACKET*)(TEMP_MEMORY_ADDR + (g_ActiveBufferIdx << 15))",
+                );
+            native = format!(
+                "typedef struct {{ u8 next_state; }} ShBootOverlayData;\nstatic const ShBootOverlayData sh_b_konami_initial={{GameState_Init}};\nstatic ShBootOverlayData sh_b_konami_data={{GameState_Init}};\nvoid sh_b_konami_reset(void) {{ sh_b_konami_data=sh_b_konami_initial; }}\nint sh_b_konami_reset_probe(void) {{ sh_b_konami_data.next_state=255; sh_b_konami_reset(); return sh_b_konami_data.next_state==GameState_Init; }}\n{native}"
+            );
+        }
+        if name == "settings" {
+            // PORT: Name the first field of the contiguous native binding array.
+            native = native.replace(
+                "ptr = &g_GameWorkPtr->config.controllerConfig;",
+                "ptr = &g_GameWorkPtr->config.controllerConfig.enter;",
+            );
+        }
         // PORT: The native OT is a separate allocation; name its tail instead of PS1 BSS adjacency.
         native = native.replace(
             "(GsOT*)&g_OtTags1[g_ActiveBufferIdx + 1][0]",
@@ -141,7 +207,7 @@ fn main() {
             )
             .replace(
                 "ptr = &g_OtTags0[g_ActiveBufferIdx][15]",
-                "ptr = (s32*)&g_OtTags0[g_ActiveBufferIdx][15]",
+                "ptr = (u32*)&g_OtTags0[g_ActiveBufferIdx][15]",
             )
             .replace(
                 "ot = &g_OtTags0[g_ActiveBufferIdx][5]",
@@ -167,13 +233,18 @@ fn main() {
     }
     for file in [
         "port/boot.h",
+        "port/overlay.h",
         "port/include/common.h",
         "port/include/types.h",
         "port/runtime.c",
+        "port/disk32.h",
+        "port/layout_check.c",
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
     build
         .file(repo.join("port/runtime.c"))
+        .file(repo.join("port/layout_check.c"))
+        .define("SH_CHECK_BOOT_LAYOUT", None)
         .compile("sh_native_boot");
 }

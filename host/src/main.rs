@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
-use silent_hill_boot::disc::RawDisc;
+use silent_hill_boot::disc::{GameDisc, IsoFileSystem, SectorReader};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 struct Options {
     disc: PathBuf,
     inspect: bool,
+    inspect_assets: bool,
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
+    input: Option<PathBuf>,
 }
 
 fn options() -> Result<Options, String> {
@@ -15,14 +17,23 @@ fn options() -> Result<Options, String> {
         disc: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../private/disc/Silent Hill (USA).bin"),
         inspect: false,
+        inspect_assets: false,
         frames: None,
         screenshot: None,
+        input: None,
     };
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
+            Some("--inspect-assets") => {
+                result.inspect = true;
+                result.inspect_assets = true;
+            }
             Some("--disc") => result.disc = args.next().ok_or("--disc needs a path")?.into(),
+            Some("--input") => {
+                result.input = Some(args.next().ok_or("--input needs a path")?.into())
+            }
             Some("--screenshot") => {
                 result.screenshot = Some(args.next().ok_or("--screenshot needs a path")?.into());
             }
@@ -42,8 +53,10 @@ fn options() -> Result<Options, String> {
             _ => return Err(format!("unknown argument: {}", arg.to_string_lossy())),
         }
     }
-    if result.inspect && (result.frames.is_some() || result.screenshot.is_some()) {
-        return Err("--inspect-disc cannot be combined with --frames or --screenshot".into());
+    if result.inspect
+        && (result.frames.is_some() || result.screenshot.is_some() || result.input.is_some())
+    {
+        return Err("--inspect-disc cannot be combined with run arguments".into());
     }
     Ok(result)
 }
@@ -51,24 +64,34 @@ fn options() -> Result<Options, String> {
 fn run() -> Result<(), String> {
     let options = options()?;
     let started = std::time::Instant::now();
-    let mut disc = RawDisc::open(&options.disc).map_err(|e| format!("disc open: {e}"))?;
-    println!("Raw MODE2/2352 disc: {} sectors", disc.sector_count());
-    let entries = disc
-        .root_directory()
+    let mut disc = GameDisc::open(&options.disc)
+        .map_err(|e| format!("disc open/release verification: {e}"))?;
+    println!(
+        "Verified {:?} disc: {} sectors, {} archive entries",
+        disc.release(),
+        disc.source_mut().sector_count(),
+        disc.entries().len()
+    );
+    let iso = IsoFileSystem::open(disc.source_mut()).map_err(|e| e.to_string())?;
+    let entries = iso
+        .read_directory(disc.source_mut(), &iso.root)
         .map_err(|e| format!("ISO root: {e}"))?;
     for entry in entries.iter().filter(|e| !e.is_directory) {
-        println!("{}: LBA {}, {} bytes", entry.name, entry.lba, entry.bytes);
+        println!("{}: LBA {}, {} bytes", entry.name, entry.extent, entry.size);
     }
     println!(
         "Disc inspection: {:.3} ms",
         started.elapsed().as_secs_f64() * 1000.0
     );
     if options.inspect {
+        if options.inspect_assets {
+            silent_hill_boot::assets::inspect_disc(&mut disc)?;
+        }
         return Ok(());
     }
     if let Some(path) = &options.screenshot {
         let private_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/work/boot")
+            .join("../../../private/work/core")
             .canonicalize()
             .map_err(|e| format!("private output directory: {e}"))?;
         let parent = path
@@ -78,7 +101,7 @@ fn run() -> Result<(), String> {
             .canonicalize()
             .map_err(|e| format!("screenshot parent: {e}"))?;
         if !parent.starts_with(&private_root) {
-            return Err("screenshots must be inside private/work/boot/".into());
+            return Err("screenshots must be inside private/work/core/".into());
         }
         if path.exists()
             && !path
@@ -86,10 +109,23 @@ fn run() -> Result<(), String> {
                 .map_err(|e| e.to_string())?
                 .starts_with(&private_root)
         {
-            return Err("resolved screenshot target is outside private/work/boot/".into());
+            return Err("resolved screenshot target is outside private/work/core/".into());
         }
     }
-    silent_hill_boot::native::run(disc, options.frames.unwrap_or(600), options.screenshot)
+    let replay = options
+        .input
+        .map(|path| {
+            std::fs::read_to_string(&path)
+                .map_err(|e| format!("input {}: {e}", path.display()))
+                .and_then(|text| silent_hill_boot::pad::ReplayPad::parse(&text))
+        })
+        .transpose()?;
+    silent_hill_boot::native::run(
+        disc,
+        options.frames.unwrap_or(600),
+        options.screenshot,
+        replay,
+    )
 }
 
 fn main() -> ExitCode {

@@ -1,28 +1,20 @@
-# Boot lane state
+﻿# Core lane checkpoint
 
-## Outcome and constraints
+## Goal and constraints
+Progress from merged Konami boot toward the first controllable map, in brief order. Branch lane/core. Game bytes/captures remain under ../../private/work/core/. No system installations, pushes, merges or GPU/SPU lane edits.
 
-Phase 1 Windows boot spike passes: real native C `main` → BODYPROG `MainLoop` → B_KONAMI; recognisable Konami screenshot after 600 VBlank ticks, clean exit. No emulator or system installations. No game bytes/screenshots in Git. Own branch remains `lane/boot`; `docs/survey/` is untouched.
+## Committed checkpoints
+1. game/decomp submodule pinned to d9e28f8315c7938117224f21516786d9d149a145, SH_DECOMP_DIR override, root workspace and data-free Windows CI. Only explicitly required standalone manifest/profile removals outside core directories. See docs/core/BUILD.md.
+2. psxdisc archive reads by file ID; GPU/SPU/pad traits, software raster default, VRAM transfers, keyboard/XInput and tick replay. See docs/core/SEAMS.md.
+3. Explicit model/map/collision/DMS disk32 decode and save roundtrip; native asset store/checked C leaf views; fixed-width SDK declarations and C layout gates. Full C gameplay consumers still need adapters when linked. See docs/core/ABI.md.
+4. Partial overlay milestone: B_KONAMI exports namespaced, writable initial image restored on load; full native KCET and original USA settings/FS helpers linked. Remaining four screens and 43 maps are not linked. See docs/core/OVERLAYS.md.
 
-## Verified
+## Verified current state
+- fmt, workspace/all-targets clippy with warnings denied, workspace build, 234 unit/integration + 3 doctests pass. Selected native C builds /W4 /WX.
+- MSVC x86/x64 wire assertions pass. Installed LLVM frontend checks actual iOS arm64/LP64 SDK/wire/native layouts and rejects a negative control. Remote CI configured, not run.
+- Disc audit: 622 assets decode, TEST2.DMS rejects unsupported runtime layout; complete audit exits nonzero. No bounds gate weakened.
+- 850-tick neutral replay succeeds and visibly renders KCET (state 2/step 6). Neutral 1600 requested stops after 989 at MovieIntroFadeIn (state 3, code 3). Actual final frame saved/presented. Input Start at 850/release 851 reaches the same guard at 929, proving the game reacts to the pad packet.
+- Private captures/logs: kcet-850.png/log, final-stop.png/final-neutral.log, kcet-skip-stop.png/log; original step2/step3 evidence retained. Captures visually reviewed. No game data/screenshots in Git.
 
-- MSVC 14.44 from `C:\BuildTools2022`, cc 1.6.0, Rust stable 1.99.0, x86-64 Windows.
-- Raw MODE2/2352 reader opens the given disc directly and verifies its ISO root.
-- Native boot compiles with `/W4 /WX`; Rust formatting and Clippy pass; eight tests pass.
-- Final target run: 600 ticks, 9.997 seconds, B_KONAMI first tick 95, 598 window presents with final frame presented, 3,413 GPU sprite/tile primitives; command including build/startup 14.728 seconds.
-- Private evidence: `../../private/work/boot/konami.png`, `boot-600.log`, check logs and generated C under `native-source/`.
-- Longer run: requested 800 ticks; stopped cleanly after 731 at the KCET guard. Disc SHA-1 matches PLAN.md; native PE machine is AMD64; outside-private screenshot guard passed.
-
-## Decisions and limits
-
-- Compile selected real boot functions from external decomp commit `d9e28f8315c7938117224f21516786d9d149a145` with native boot runtime declarations; preserve packet/image wire assertions.
-- Use software packet rasterization and winit/softbuffer for the spike. wgpu and 3D/GTE remain future work; this is not an iOS-ready host.
-- Keep the original full-header compile probe as evidence: 43 size assertions still fail. Disabling them globally was rejected because it would hide real ABI/file-layout errors.
-- Statically link native overlay functions; read/decrypt original binaries into data only. Full map/global data relocation remains unresolved.
-- Stop explicitly at unimplemented states after Konami. Audio, input, memory cards and other irrelevant boot helpers are logged stubs.
-
-## Next work and references
-
-Full-game port is plausible but not proved. Director decides Phase 2 scope. First priorities: wire/native ABI separation and overlay globals, native KCET/title/stream flow, GTE/polygon rendering, media, then interactive/timing systems. Keep the external reference path for now; arrange a pinned submodule or controlled source import before portable CI if needed.
-
-See [boot details](docs/boot/READINESS.md), [every PORT change and shim inventory](docs/boot/PORT_FIXES.md), and uncommitted `REPORT.md`. The read-only reference checkout remained unchanged.
+## Open work and decisions
+Step 4 remains partial; step 5 title/New Game/walking is not achieved. Broad original-header probe still fails 43 size assertion diagnostics (expected opt-in gate, not the native passing configuration). Do not disable those assertions: port resident/map clients to native records and decoder adapters, plus GTE/scratch/packet contracts, then add all overlay namespaces/data-reset descriptors. STREAM/memory-card/native gameplay services and physical controller verification remain pending. Coordinate GPU/SPU lane adapters through the host traits.

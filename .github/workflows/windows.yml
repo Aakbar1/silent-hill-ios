@@ -1,4 +1,4 @@
-name: Windows shell
+﻿name: Windows native workspace
 
 on:
   push:
@@ -12,39 +12,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  shell:
+  workspace:
     runs-on: windows-latest
-    timeout-minutes: 20
-    env:
-      CARGO_TARGET_DIR: ${{ github.workspace }}/ios/shell/target
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt,clippy
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ios/shell
       - name: Check formatting
-        run: cargo fmt --manifest-path ios/shell/Cargo.toml --check
+        run: cargo fmt --all -- --check
       - name: Clippy (warnings are errors)
-        run: cargo clippy --manifest-path ios/shell/Cargo.toml --locked -- -D warnings
-      - name: Tests
-        run: cargo test --manifest-path ios/shell/Cargo.toml --locked
-      - name: Build
-        run: cargo build --manifest-path ios/shell/Cargo.toml --locked
-      - name: Check bundle and workflow definitions
-        run: |
-          python ios/scripts/package.py --dry-run
-          python ios/scripts/test_pipeline.py
-          python ios/scripts/check_workflows.py
-      - name: Run shell GPU smoke
-        run: powershell -NoProfile -File ios/scripts/windows-smoke.ps1
-      - name: Upload Windows log
-        if: always()
-        uses: actions/upload-artifact@v4
+        run: ./tools/dev-cargo.cmd clippy --workspace --all-targets --locked -- -D warnings
+      - name: Tests (synthetic fixtures; no game data)
+        run: ./tools/dev-cargo.cmd test --workspace --locked
+      - name: Build native workspace
+        run: ./tools/dev-cargo.cmd build --workspace --locked
+      - name: Check disk32 layouts on 32-bit and 64-bit C
+        run: ./tools/check-layouts.cmd
+
+  ios-layouts:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
         with:
-          name: SilentHillPort-windows-evidence
-          path: ios/out/windows-smoke/*.log
-          if-no-files-found: warn
-          retention-days: 14
+          submodules: true
+      - name: Type-check disk32 and native pointer layouts for iOS arm64
+        run: python3 tools/check-ios-layouts.py --compiler "$(xcrun --find clang)"

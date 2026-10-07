@@ -1,0 +1,2 @@
+# Deterministic unpressed boot: no live keyboard/controller is sampled.
+0 0000
