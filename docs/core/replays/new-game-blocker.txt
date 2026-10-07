@@ -1,0 +1,8 @@
+# Reproduce the current New Game world-initialization guard (not a passing milestone).
+0 0000
+1400 0008
+1401 0000
+1510 4000
+1511 0000
+1650 4000
+1651 0000

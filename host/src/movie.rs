@@ -170,8 +170,8 @@ impl Movie {
     pub fn end(self, spu: &mut dyn SpuBackend, skipped: bool) {
         spu.cd_stop();
         println!(
-            "MOVIE end id={} decoded={} xa_samples={} skipped={skipped}",
-            self.id, self.decoded_frames, self.audio_samples
+            "MOVIE end id={} decoded={} xa_samples={} skipped={skipped} completed={}",
+            self.id, self.decoded_frames, self.audio_samples, self.finished
         );
     }
 }

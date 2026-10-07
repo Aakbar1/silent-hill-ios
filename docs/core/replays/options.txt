@@ -1,0 +1,8 @@
+# Intro skip; choose OPTION; inspect original main options screen.
+0 0000
+1400 0008
+1401 0000
+1510 0040
+1511 0000
+1520 4000
+1521 0000

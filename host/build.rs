@@ -60,6 +60,23 @@ fn main() {
         PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("native-source");
     fs::create_dir_all(&generated).expect("generated-source directory");
     fs::create_dir_all(generated.join("psyq")).expect("generated SDK directory");
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_option.py").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        decomp.join("src/screens/options/options.c").display()
+    );
+    let option = std::process::Command::new("python")
+        .arg(repo.join("tools/prepare_option.py"))
+        .arg("--decomp")
+        .arg(&decomp)
+        .arg("--out")
+        .arg(&generated)
+        .status()
+        .expect("generate OPTION native state");
+    assert!(option.success(), "OPTION state generation failed");
     // PORT: Reuse pointer-free upstream save/input records, with their original
     // size assertions. Do not include unrelated pointer-bearing gameplay records.
     let joy_header =
@@ -84,6 +101,8 @@ fn main() {
         "// ====================",
     );
     fs::write(generated.join("game_records.h"), format!("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n#define INV_ITEM_COUNT_MAX 40\n#define Chara_Count 45\ntypedef u32 q20_12;\ntypedef struct {{u8 id,count,command,field_3;}} s_InventoryItem;\n{joy_records}\n{save_records}\n{text_constants}\n")).expect("native pointer-free records");
+    let gpu_header = fs::read_to_string(decomp.join("include/gpu.h")).expect("2D GPU records");
+    fs::write(generated.join("gpu_records.h"), format!("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n#define RECT_VERT_COUNT 4\n{}",between(&gpu_header,"/** @brief 2D screen-space line.","/** @brief Primitive color."))).expect("2D GPU records");
     let sine_source = decomp.join("src/bodyprog/libkmath/libkmath.s");
     println!("cargo:rerun-if-changed={}", sine_source.display());
     let sine_text = fs::read_to_string(sine_source).expect("reference sine table");
@@ -128,6 +147,9 @@ fn main() {
         ("stream", "src/screens/stream/stream.c"),
         ("title", "src/bodyprog/events/title.c"),
         ("text", "src/bodyprog/text/text_draw.c"),
+        ("text_debug", "src/bodyprog/text/text_debug_draw.c"),
+        ("texture_mode", "src/bodyprog/items/item_screens_3.c"),
+        ("brightness", "src/bodyprog/gfx/option_brightness_line.c"),
         ("joy", "src/bodyprog/sys/joy.c"),
         ("rng", "src/main/rng.c"),
         ("save_init", "src/bodyprog/game_boot/game_boot.c"),
@@ -149,6 +171,18 @@ fn main() {
         let selected = match name {
             "konami" => original.clone(),
             "title" | "rng" => original.clone(),
+            "texture_mode" => between(
+                &original,
+                "void Gfx_Primitive2dTextureSet",
+                "void Gfx_Results_ItemsDisplay",
+            )
+            .to_owned(),
+            "text_debug" => between(
+                &original,
+                "static DVECTOR g_Text_Debug_PositionSet0",
+                "char* Text_Debug_IntToString",
+            )
+            .to_owned(),
             "save_init" => between(
                 &original,
                 "void GameBoot_SavegameInitialize",
@@ -208,6 +242,18 @@ fn main() {
                 )
             ),
             _ => original.clone(),
+        };
+        let selected = if name == "text" {
+            format!(
+                "{selected}\nstatic struct {{s32 x;}} g_MapMsg_GlyphSprite;\n{}",
+                between(
+                    &original,
+                    "void Gfx_StringDrawInt",
+                    "const s32 unused_Rodata_80025E88"
+                )
+            )
+        } else {
+            selected
         };
         let mut native = selected
             .lines()
@@ -399,6 +445,43 @@ fn main() {
                 .replace(
                     "g_StringColorId = charCode",
                     "g_StringColorId = (s16)charCode",
+                )
+                // PORT: MIPS masks a variable shift by 32 to zero. C's shift
+                // is undefined; the observed quotient is the division result.
+                .replace(
+                    "(val / ATLAS_COLUMN_COUNT) >> 32",
+                    "val / ATLAS_COLUMN_COUNT",
+                )
+                .replace(
+                    "*str     = (val - (quotient * ATLAS_COLUMN_COUNT)) + '0'",
+                    "*str     = (char)((val - (quotient * ATLAS_COLUMN_COUNT)) + '0')",
+                )
+                .replace("*str = val + '0'", "*str = (char)(val + '0')");
+        }
+        if name == "text_debug" {
+            native = native
+                .replace(
+                    "Text_Debug_Draw(char* str)",
+                    "Text_Debug_Draw(const char* str)",
+                )
+                .replace("strCpy = str", "strCpy = (u8*)str")
+                .replace("= x - OFFSET_X", "= (s16)(x - OFFSET_X)")
+                .replace("= y - OFFSET_Y", "= (s16)(y - OFFSET_Y)");
+            native = format!("#include <ctype.h>\n{native}");
+        }
+        if name == "brightness" {
+            native = native
+                .replace(
+                    "line->x1 = ((g_GameWork.gsScreenWidth - 64) / 20) * i",
+                    "line->x1 = (s16)(((g_GameWork.gsScreenWidth - 64) / 20) * i)",
+                )
+                .replace(
+                    "line->y1 = (g_GameWork.gsScreenHeight / 2) - 45",
+                    "line->y1 = (s16)((g_GameWork.gsScreenHeight / 2) - 45)",
+                )
+                .replace(
+                    "color    = (brightness * 8) + 4",
+                    "color    = (u8)((brightness * 8) + 4)",
                 );
         }
         // PORT: The native OT is a separate allocation; name its tail instead of PS1 BSS adjacency.
@@ -460,6 +543,7 @@ fn main() {
         .file(repo.join("port/layout_check.c"))
         .file(repo.join("port/title_services.c"))
         .file(generated.join("sine.c"))
+        .file(generated.join("option.c"))
         .define("SH_CHECK_BOOT_LAYOUT", None)
         .compile("sh_native_boot");
 }

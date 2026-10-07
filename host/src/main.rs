@@ -31,6 +31,25 @@ fn options() -> Result<Options, String> {
         match arg.to_str() {
             Some("--inspect-disc") => result.inspect = true,
             Some("--headless") => result.headless = true,
+            Some("--min-lit-pixels") => {
+                result.check.min_lit_pixels = args
+                    .next()
+                    .ok_or("--min-lit-pixels needs a number")?
+                    .to_str()
+                    .ok_or("invalid pixel count")?
+                    .parse()
+                    .map_err(|_| "invalid pixel count")?
+            }
+            Some("--expect-option-entry") => {
+                result.check.option_entry = Some(
+                    args.next()
+                        .ok_or("--expect-option-entry needs a number")?
+                        .to_str()
+                        .ok_or("invalid entry")?
+                        .parse()
+                        .map_err(|_| "invalid entry")?,
+                )
+            }
             Some("--expect-menu") => {
                 result.check.menu_state = Some(
                     args.next()
@@ -188,6 +207,8 @@ fn run() -> Result<(), String> {
         || options.check.min_movie_frames != 0
         || options.check.movie_skips.is_some()
         || options.check.menu_state.is_some()
+        || options.check.option_entry.is_some()
+        || options.check.min_lit_pixels != 0
     {
         return Err("milestone expectations require --headless".into());
     }

@@ -6,6 +6,7 @@ use crate::{
     movie::Movie,
     pad::{KeyboardController, LiveInput, PadSource, ReplayPad},
     raster::Raster,
+    saves::SaveStore,
 };
 use std::{
     cell::RefCell,
@@ -31,6 +32,8 @@ use winit::{
 unsafe extern "C" {
     fn port_run_game() -> i32;
     fn sh_title_menu_state() -> i32;
+    fn sh_option_selected_entry() -> i32;
+    static g_ScreenFade_Status: i32;
 }
 
 struct Host {
@@ -39,6 +42,7 @@ struct Host {
     spu: Box<dyn SpuBackend>,
     pad: Box<dyn PadSource>,
     assets: AssetStore,
+    saves: SaveStore,
     proxy: Option<EventLoopProxy<Frame>>,
     frames: u64,
     limit: u64,
@@ -92,6 +96,41 @@ unsafe extern "C" fn port_read_file(id: u32, bytes: u32, destination: *mut u8) -
                 h.error = Some(format!("disc read file {id}: {e}"));
                 1
             }
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_save_read(slot: u32, destination: *mut u8, count: u32) -> i32 {
+    if destination.is_null() || count != 636 {
+        return 2;
+    }
+    host(|h| match h.saves.read(slot) {
+        Ok(Some(bytes)) => {
+            // SAFETY: C supplies one writable 636-byte save record for this call.
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), destination, 636);
+            }
+            0
+        }
+        Ok(None) => 1,
+        Err(error) => {
+            h.error = Some(format!("native save read: {error}"));
+            2
+        }
+    })
+}
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_save_write(slot: u32, source: *const u8, count: u32) -> i32 {
+    if source.is_null() || count != 636 {
+        return 2;
+    }
+    // SAFETY: C supplies one readable 636-byte original-format save record.
+    let bytes = unsafe { std::slice::from_raw_parts(source, 636) };
+    host(|h| match h.saves.write(slot, bytes) {
+        Ok(()) => 0,
+        Err(error) => {
+            h.error = Some(format!("native save write: {error}"));
+            2
         }
     })
 }
@@ -531,6 +570,8 @@ pub struct Backends {
 }
 #[derive(Default)]
 pub struct ReplayCheck {
+    pub min_lit_pixels: usize,
+    pub option_entry: Option<i32>,
     pub menu_state: Option<i32>,
     pub state: Option<i32>,
     pub step: Option<i32>,
@@ -545,6 +586,7 @@ pub fn run_headless(
     replay: ReplayPad,
     check: ReplayCheck,
 ) -> Result<(), String> {
+    let saves = SaveStore::app_data()?;
     let now = Instant::now();
     HOST.with(|cell| {
         *cell.borrow_mut() = Some(Host {
@@ -553,6 +595,7 @@ pub fn run_headless(
             spu: Box::<SilentSpu>::default(),
             pad: Box::new(replay),
             assets: AssetStore::default(),
+            saves,
             proxy: None,
             frames: 0,
             limit,
@@ -580,14 +623,20 @@ pub fn run_headless(
             save_png(path, *w, *height, pixels).map_err(|e| e.to_string())?;
         }
         println!(
-            "CHECK code={code} frames={} state={} step={} menu={} movie_frames={} movie_skips={}",
+            "CHECK code={code} frames={} state={} step={} menu={} option_entry={} fade={} movie_frames={} movie_skips={}",
             h.frames,
             h.state,
             h.step,
             unsafe { sh_title_menu_state() },
+            unsafe { sh_option_selected_entry() },
+            unsafe { g_ScreenFade_Status },
             h.movie_frames,
             h.movie_skips
         );
+        let lit = h.last_frame.as_ref().map_or(0, |(_, _, pixels)| {
+            pixels.iter().filter(|p| **p != 0).count()
+        });
+        println!("VISIBLE lit_pixels={lit}");
         if let Some(error) = h.error.take() {
             return Err(error);
         }
@@ -601,6 +650,10 @@ pub fn run_headless(
             return Err(format!("completed {} of {limit} ticks", h.frames));
         }
         if check.state.is_some_and(|state| state != h.state)
+            || lit < check.min_lit_pixels
+            || check
+                .option_entry
+                .is_some_and(|entry| entry != unsafe { sh_option_selected_entry() })
             || check
                 .menu_state
                 .is_some_and(|menu| menu != unsafe { sh_title_menu_state() })
@@ -647,6 +700,7 @@ pub fn run_with_backends(
     input: Arc<LiveInput>,
     backends: Backends,
 ) -> Result<(), String> {
+    let saves = SaveStore::app_data()?;
     let event_loop = EventLoop::<Frame>::with_user_event()
         .build()
         .map_err(|e| e.to_string())?;
@@ -662,6 +716,7 @@ pub fn run_with_backends(
                 spu: backends.spu,
                 pad: backends.pad,
                 assets: AssetStore::default(),
+                saves,
                 proxy: Some(proxy),
                 frames: 0,
                 limit,
@@ -682,6 +737,9 @@ pub fn run_with_backends(
         // SAFETY: This is the sole game worker. C's exit jump only crosses C frames after Rust callbacks return.
         let code = unsafe { port_run_game() };
         host(|h| {
+            if let Some(movie) = h.movie.take() {
+                movie.end(h.spu.as_mut(), false);
+            }
             if code != 0 {
                 if let (Some(path), Some((w, height, pixels))) = (&h.screenshot, &h.last_frame)
                     && let Err(error) = save_png(path, *w, *height, pixels)
@@ -755,6 +813,7 @@ mod tests {
             fn port_overlay_activate(file_id: u32) -> i32;
             fn sh_b_konami_reset_probe() -> i32;
             fn sh_save_init_probe() -> i32;
+            fn sh_option_reset_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
@@ -762,6 +821,7 @@ mod tests {
             assert_eq!(port_overlay_activate(4), 0);
             assert_eq!(sh_b_konami_reset_probe(), 1);
             assert_eq!(sh_save_init_probe(), 1);
+            assert_eq!(sh_option_reset_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }

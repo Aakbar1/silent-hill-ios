@@ -29,6 +29,9 @@ s_FsImageDesc g_KcetLogoImg={{0,14},0,0,0,1};
 s_FsImageDesc g_MemCardWarningImg={{0,28},0,0,0,2};
 s_FsImageDesc g_TitleImg={{1,13},32,0,224,15};
 s_FsImageDesc g_ItemInspectionImg={{1,5},0,16,224,14};
+s_FsImageDesc g_ControllerButtonAtlasImg={{0,7},32,0,464,0};
+s_FsImageDesc g_BrightnessScreenImg0={{0,28},0,16,288,0};
+s_FsImageDesc g_BrightnessScreenImg1={{0,30},0,16,288,0};
 // PORT: No memory-card backend: report absent cards, never synthesize saves.
 static PortMemCardEntry absent_cards[2];
 PortMemCardEntry* g_MemCard_ActiveMemCardSlotSaves;
@@ -98,6 +101,7 @@ int port_overlay_activate(u32 file_id) {
     switch (file_id) {
         case FILE_1ST_B_KONAMI_BIN: sh_b_konami_reset(); break;
         case FILE_VIN_STREAM_BIN: sh_stream_reset(); break;
+        case FILE_VIN_OPTION_BIN: sh_option_reset(); break;
         default: return 1;
     }
     active_dynamic_overlay=file_id; return 0;
@@ -133,7 +137,7 @@ void Fs_QueueUpdate(void) {
     u32 lba=g_FileTable[job.file].startSector;
     if (bytes>sizeof(port_fs_buffers[0]) || port_read_file((u32)job.file,bytes,(u8*)job.destination)) longjmp(stop,2);
     printf("READ file=%d LBA=%u bytes=%u%s\n",job.file,lba,bytes,job.image?" TIM":"");
-    if (job.file==FILE_1ST_B_KONAMI_BIN || job.file==FILE_VIN_STREAM_BIN) {
+    if (job.file==FILE_1ST_B_KONAMI_BIN || job.file==FILE_VIN_STREAM_BIN || job.file==FILE_VIN_OPTION_BIN) {
         if (port_overlay_activate((u32)job.file)) longjmp(stop,2);
         printf("NATIVE OVERLAY selected; initial data restored (id=%u)\n",active_dynamic_overlay);
     }
@@ -300,7 +304,6 @@ int PadSetMainMode(int port,int mode,int lock) { (void)mode;(void)lock;return po
 int PadSetActAlign(int port,u8* alignment) { (void)alignment;return port==0; }
 int PadInfoAct(int port,int actuator,int info) { (void)port;(void)actuator;(void)info;return 0; }
 void PadSetAct(int port,u8* values,int count) { (void)port;(void)values;(void)count; }
-void Text_Debug_PositionSet(s32 x,s32 y) {(void)x;(void)y;}
 // PORT: Native STR service replaces STREAM's SDK/CD/MDEC blocking loop. State
 // handlers above remain upstream; num_frames is the original end-frame limit.
 void open_main(s32 file,s16 last_frame) {

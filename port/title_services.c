@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only; startup subset derived from silent-hill-decomp. */
 #include "boot.h"
+#include <stdio.h>
 s32 g_MemCard_SavegameCount;
 struct PortMapHeader g_MapOverlayHdr;
 void SysWork_StateSetNext(s32 state) {g_SysWork.sysState=state;g_SysWork.sysStateCounter=0;}
@@ -35,3 +36,8 @@ int sh_save_init_probe(void) {
     memcpy(&difficulty,(const u8*)g_SavegamePtr+0x260,4);
     return difficulty==0x10000000u;
 }
+void Game_TimerUpdate(void) {port_unimplemented("Game_TimerUpdate/native gameplay work");}
+void Game_RadioSoundStop(void) {port_unimplemented("Game_RadioSoundStop/native audio tasks");}
+void Bgm_MenuUpdate(void) {port_unimplemented("Bgm_MenuUpdate/native audio tasks");}
+// PORT: Menu audio remains logged until the game-owned libsd tasks are linked.
+void Sd_SfxPlay(s32 id,s32 pan,s32 volume) {(void)pan;(void)volume;SD_Call(id);}

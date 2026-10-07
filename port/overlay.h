@@ -18,5 +18,6 @@ int sh_b_konami_reset_probe(void);
 #define GameState_DebugMoviePlayer_Update sh_stream_GameState_DebugMoviePlayer_Update
 #define open_main sh_stream_open_main
 void sh_stream_reset(void);
+#include "option_namespace.h"
 int port_overlay_activate(unsigned int file_id);
 #endif

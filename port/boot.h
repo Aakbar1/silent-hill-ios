@@ -24,13 +24,16 @@ void GsInitGraph2(u_short x,u_short y,u_short mode,u_short dtd,u_short vram);
 void GsDefDispBuff2(u_short x0,u_short y0,u_short x1,u_short y1);
 void GsInit3D(void);
 void GsSwapDispBuff(void);
-enum { PRIM_RECT=0x60, RECT_TEXTURE=4, RECT_BLEND=2 };
+enum { PRIM_RECT=0x60, RECT_TEXTURE=4, RECT_BLEND=2,PRIM_POLY=0x20,PRIM_LINE=0x40,RECT_SIZE_1=8,RECT_SIZE_8=16,RECT_SIZE_16=24 };
+enum {Sfx_MenuError=1304};
 #define getTPageN(tp,abr,xn,yn) (((tp)<<7)|((abr)<<5)|((yn)<<4)|(xn))
 #define setRECTFast(p,_x,_y,_w,_h) ((p)->x=(s16)(_x),(p)->y=(s16)(_y),(p)->w=(s16)(_w),(p)->h=(s16)(_h))
 #define setCodeWord(p,c,rgb) (*(u32*)((u8*)(p)+4)=((u32)(c)<<24)|((u32)(rgb)&0xffffff))
 #define setWHFast(p,_w,_h) (*(u32*)&(p)->w=(u32)(u16)(_w)|((u32)(u16)(_h)<<16))
 #define setUV0AndClut(p,u,v,cx,cy) (*(u32*)&(p)->u0=(u32)(u)|((u32)(v)<<8)|((u32)(((cy)<<6)|((cx)>>4))<<16))
 #define setRGBC0(p,r,g,b,c) (*(u32*)&(p)->r0=(u32)(r)|((u32)(g)<<8)|((u32)(b)<<16)|((u32)(c)<<24))
+#define setRGBC1(p,r,g,b,c) (*(u32*)&(p)->r1=(u32)(r)|((u32)(g)<<8)|((u32)(b)<<16)|((u32)(c)<<24))
+#define setRGBC2(p,r,g,b,c) (*(u32*)&(p)->r2=(u32)(r)|((u32)(g)<<8)|((u32)(b)<<16)|((u32)(c)<<24))
 #define addPrimFast(ot,p,len) ((p)->tag=getaddr(ot)|((u32)(len)<<24),setaddr(ot,p))
 #include "bodyprog/math/arithmetic.h"
 #include "bodyprog/math/constants.h"
@@ -40,11 +43,14 @@ enum { PRIM_RECT=0x60, RECT_TEXTURE=4, RECT_BLEND=2 };
 // PORT: Boot runtime records are native objects, never views of game-file bytes.
 // Full gameplay records must be migrated separately; upstream assertions stay intact in the baseline gate.
 #include "game_records.h"
+#include "gpu_records.h"
+#include "screens/options.h"
 #include "main/rng.h"
 #include <string.h>
 typedef struct { s_ControllerConfig controllerConfig;
     s32 screenPositionX,screenPositionY,soundType,volumeBgm,volumeSe,
-        extraWeaponCtrl,brightness,vibrationEnabled,extraBloodColor,autoLoad,extraOptionsEnabled; } PortOptions;
+        extraWeaponCtrl,brightness,vibrationEnabled,extraBloodColor,autoLoad,extraOptionsEnabled,
+        extraViewCtrl,extraViewMode,extraRetreatTurn,extraWalkRunCtrl,extraAutoAiming,extraBulletAdjust; } PortOptions;
 typedef struct { u8 tPage[2], u, v; s16 clutX, clutY; } s_FsImageDesc;
 STATIC_ASSERT_SIZEOF(s_FsImageDesc, 8);
 STATIC_ASSERT_SIZEOF(SPRT, 20);
@@ -136,10 +142,12 @@ extern _Alignas(8) u8 port_overlay_body[1024*1024], port_overlay_dynamic[1024*10
 #define FS_BUFFER_0 ((void*)port_fs_buffers[0])
 #define FS_BUFFER_1 ((void*)port_fs_buffers[1])
 #define FS_BUFFER_3 ((void*)port_fs_buffers[3])
+#define IMAGE_BUFFER_3 FS_BUFFER_3
 #define FS_BUFFER_5 ((void*)port_fs_buffers[5])
 #define FS_BUFFER_6 ((void*)port_fs_buffers[6])
 #define FS_BUFFER_7 ((void*)port_fs_buffers[7])
 #define TEMP_MEMORY_ADDR ((s8*)port_packets[0])
+#define PSX_SCRATCH_ADDR(offset) (port_scratch+(offset))
 
 // PORT: OT links remain 24-bit tokens, resolved through a native pointer registry.
 u32 port_gpu_token(const void* p);
@@ -153,6 +161,11 @@ void* port_gpu_pointer(u32 token);
 // PORT: Pack signed 16-bit coordinates with unsigned shifts, preserving PS1 bits without C UB.
 #undef setXY0Fast
 #define setXY0Fast(p,x,y) (*(u32*)&(p)->x0 = (u32)(u16)(x) | ((u32)(u16)(y)<<16))
+#define setXY1Fast(p,x,y) (*(u32*)&(p)->x1 = (u32)(u16)(x) | ((u32)(u16)(y)<<16))
+#define setXY2Fast(p,x,y) (*(u32*)&(p)->x2 = (u32)(u16)(x) | ((u32)(u16)(y)<<16))
+#define setXY3Fast(p,x,y) (*(u32*)&(p)->x3 = (u32)(u16)(x) | ((u32)(u16)(y)<<16))
+#undef setXY0
+#define setXY0(p,x,y) ((p)->x0=(s16)(x),(p)->y0=(s16)(y))
 #undef setXY4
 #define setXY4(p,a,b,c,d,e,f,g,h) ((p)->x0=(s16)(a),(p)->y0=(s16)(b),(p)->x1=(s16)(c),(p)->y1=(s16)(d),(p)->x2=(s16)(e),(p)->y2=(s16)(f),(p)->x3=(s16)(g),(p)->y3=(s16)(h))
 
@@ -181,7 +194,6 @@ void GameState_Init_Update(void);
  X(GameState_LoadSavegameScreen_Update) \
  X(GameState_LoadScreen_Update) X(GameState_InGame_Update) X(GameState_MapEvent_Update) \
  X(GameState_ItemScreens_Update) X(GameState_PaperMapScreen_Update) \
- X(GameState_Options_Update) \
  X(GameState_LoadStatusScreen_Update) X(GameState_LoadMapScreen_Update) X(GameState_Credits_Update)
 #define DECLARE_STATE(name) void name(void);
 PORT_OTHER_STATES(DECLARE_STATE)
@@ -192,6 +204,7 @@ DECLARE_STATE(GameState_MovieOpening_Update)
 DECLARE_STATE(GameState_ExitMovie_Update)
 DECLARE_STATE(GameState_DebugMoviePlayer_Update)
 DECLARE_STATE(GameState_MainMenu_Update)
+DECLARE_STATE(GameState_Options_Update)
 #undef DECLARE_STATE
 void ResetCallback(void);
 int CdInit(void);
@@ -234,6 +247,9 @@ void Map_EffectTexturesLoad(s32 map);
 void nullsub_800334C8(void);
 // Rust-owned disc/rasterizer callbacks. No borrowed pointers survive these synchronous calls.
 int port_read_file(u32 id, u32 bytes, u8* destination);
+// Returns 0 on success, 1 for a missing slot, 2 for invalid/corrupt/I/O failure.
+int port_save_read(u32 slot,u8* destination,u32 bytes);
+int port_save_write(u32 slot,const u8* source,u32 bytes);
 void port_pad_read(u8* destination);
 void port_begin_ot(void);
 void port_end_ot(void);
@@ -253,7 +269,8 @@ int port_movie_tick(void);
 void port_movie_end(s32 skipped);
 void open_main(s32 file,s16 last_frame);
 void Screen_RectInterlacedClear(s16 x,s16 y,s16 w,s16 h,u8 r,u8 g,u8 b);
-void Text_Debug_PositionSet(s32 x,s32 y);
+void Text_Debug_PositionSet(s16 x,s16 y);
+void Text_Debug_Draw(const char* text);
 void MainMenu_SelectedOptionIdxReset(void);
 void MainMenu_FogUpdate(void);
 void Screen_Refresh(s32 width,bool interlaced);
@@ -276,6 +293,16 @@ void port_unimplemented(const char* name);
 void Game_SavegameResetPlayer(void);
 void Gfx_StringPositionSet(s32 x,s32 y);
 void Gfx_StringColorSet(s16 color);
+void Gfx_StringLayerIdxSet(s32 layer);
+void Gfx_StringLayerIdxReset(void);
 bool Gfx_StringDraw(const char* text,s32 length);
+void Gfx_StringDrawInt(s32 width,s32 value);
+void Game_TimerUpdate(void);
+void Game_RadioSoundStop(void);
+void Bgm_MenuUpdate(void);
+void Sd_SfxPlay(s32 id,s32 pan,s32 volume);
+void Gfx_Primitive2dTextureSet(s32 x,s32 y,s32 layer,s32 blend);
+void Options_BrightnessMenu_LinesDraw(s32 brightness);
+extern s_FsImageDesc g_BrightnessScreenImg0,g_BrightnessScreenImg1,g_ControllerButtonAtlasImg;
 int port_run_game(void);
 #endif
