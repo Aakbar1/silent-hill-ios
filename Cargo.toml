@@ -1,5 +1,5 @@
 [workspace]
-members = ["host", "game/compiler-probe", "crates/psxdisc", "crates/psxmedia", "crates/touch", "ios/shell"]
+members = ["host", "game/compiler-probe", "crates/psxdisc", "crates/psxmedia", "crates/touch", "ios/shell", "crates/sys-combat"]
 # GPU/SPU lane crates retain their standalone workspaces. Consumers may depend
 # on them without treating their manifests as a second root of this workspace.
 exclude = ["crates/psxgpu", "crates/psxspu"]
