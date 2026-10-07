@@ -271,5 +271,8 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
 @end
 
 void sh_ios_application_main(void) {
-    @autoreleasepool { UIApplicationMain(0, NULL, nil, NSStringFromClass(SHDelegate.class)); }
+    // UIApplicationMain requires a non-null argv; Rust owns the real process arguments.
+    static char name[] = "SilentHillPort";
+    static char *argv[] = {name, NULL};
+    @autoreleasepool { UIApplicationMain(1, argv, nil, NSStringFromClass(SHDelegate.class)); }
 }
