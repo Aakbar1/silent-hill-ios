@@ -58,6 +58,7 @@ s32 Math_MulFixed(s32 a,s32 b,s32 shift) { return (s32)(((s64)a*b)>>shift); }
 
 static jmp_buf stop;
 static int stop_code;
+static const char* blocked_service;
 static s32 vblanks, active;
 static s32 hblanks;
 static bool display_enabled;
@@ -362,12 +363,13 @@ void open_main(s32 file,s16 last_frame) {
 #define GameState_InGame_Update port_previous_InGame_guard
 PORT_OTHER_STATES(STOP_STATE)
 #undef GameState_InGame_Update
-void port_unimplemented(const char* name) {printf("BLOCKED native service: %s at state=%d step=%d VBlank=%d\n",name,g_GameWork.gameState,g_GameWork.gameStateSteps[0],vblanks);stop_code=3;longjmp(stop,1);}
+void port_unimplemented(const char* name) {blocked_service=name;printf("BLOCKED native service: %s at state=%d step=%d VBlank=%d\n",name,g_GameWork.gameState,g_GameWork.gameStateSteps[0],vblanks);stop_code=3;longjmp(stop,1);}
 
 extern int sh_main(void);
 // PORT: Terminate the otherwise infinite C boot loop at a host frame/cancel boundary.
 // Rust callbacks return before any jump, so only C stack frames are unwound here.
 int port_run_game(void) {
+    blocked_service=NULL;
     int result=setjmp(stop);
     if (!result) { printf("ENTER native decomp main\n"); return sh_main(); }
     fflush(stdout);return result==1?stop_code:2;
@@ -379,12 +381,14 @@ int port_run_world_probe(void) {
     fflush(stdout);return result==1?stop_code:2;
 }
 
-// PORT: Rendering-only milestone at the original player's startup boundary.
+// PORT: Rendering-only milestone after the merged player's measured BGM guard.
 // This runs after the guarded game loop has returned; it never substitutes a
 // successful gameplay update or changes the startup dispatcher.
 extern void port_render_first_map(void);
 int port_capture_render_boundary(void) {
-    if(g_GameWork.gameState!=10 || g_GameWork.gameStateSteps[0]!=5)return 4;
+    if(g_GameWork.gameState!=11 || g_GameWork.gameStateSteps[0]!=2 ||
+       vblanks!=2266 || stop_code!=3 || !blocked_service ||
+       strcmp(blocked_service,"Bgm_Update/original layer controller")!=0)return 4;
     int result=setjmp(stop);
     if(!result){port_render_first_map();fflush(stdout);return 0;}
     fflush(stdout);return result==1?stop_code:2;

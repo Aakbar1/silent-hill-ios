@@ -30,7 +30,29 @@ def function(text, name):
     raise ValueError(f'unterminated function {name}')
 
 
+def prepare_shared_types(decomp, out):
+    """One declaration owner for the world/player environment ABI."""
+    game = (decomp / 'include/game.h').read_text()
+    body = (decomp / 'include/bodyprog/bodyprog.h').read_text()
+    text = '/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations; derived from silent-hill-decomp. */\n'
+    text += '#ifndef SH_SHARED_TYPES_H\n#define SH_SHARED_TYPES_H\n'
+    text += between(game, 'typedef enum _SpecialEnvEventFlags', '/** @brief Game workspace.')
+    text += between(body, 'typedef enum _PrimitiveType', 'typedef enum _LoadingScreenId')
+    text += between(body, 'typedef struct _MapEnvPresetIdxs', 'typedef struct\n{\n    /* 0x0   */ DVECTOR')
+    text += 'STATIC_ASSERT_SIZEOF(s_MapEnvPresetIdxs, 2);\n_Static_assert(offsetof(s_MapEnvPresetIdxs,presetIdx1)==1,"environment preset byte indices");\n'
+    effects = between(game, '/** @brief Map effects info.', '/** @brief Main system workspace.')
+    original = 'STATIC_ASSERT_SIZEOF(s_SysWork_2388, 392);'
+    if effects.count(original) != 1:
+        raise ValueError('upstream environment layout declaration drift')
+    text += effects.replace(original, '// PORT: Native primitive-data pointer and alignment; PS1 size is 392.\nSTATIC_ASSERT_SIZEOF(s_SysWork_2388, 400);')
+    text += '_Static_assert(offsetof(s_SysWork_2388,field_4)==8,"native environment pointer");\n'
+    text += '_Static_assert(offsetof(s_SysWork_2388,field_1C)==36,"native environment presets");\n'
+    text += '_Static_assert(offsetof(s_SysWork_2388,field_154)==348,"native live environment");\n#endif\n'
+    (out / 'shared_types.h').write_text(text)
+
+
 def generate(decomp, out):
+    prepare_shared_types(decomp, out)
     def read(path):
         return (decomp / path).read_text()
     def no_includes(text):
@@ -57,11 +79,7 @@ def generate(decomp, out):
     game = read('include/game.h')
     player = between(game, 'typedef struct _PlayerExtra', '/** @brief Map effects info.')
     data.append(player.replace('e_InvItemId', 's32'))
-    # PORT: Pointer-free environment presets retain their original assertions.
-    data.append(between(game, '/** @brief Map effects info.', '// Current enviroment effects information.'))
-    env_work=between(game,'// Current enviroment effects information.', '/** @brief Main system workspace.')
-    env_work=env_work.replace('STATIC_ASSERT_SIZEOF(s_SysWork_2388, 392);','// PORT: Native primitive-data pointer and alignment.\nSTATIC_ASSERT_SIZEOF(s_SysWork_2388, 400);')
-    data.append(env_work)
+    data.append('#include "shared_types.h"\n')
     native_sizes = {'s_AnimInfo':(16,32), 's_ModelAnim':(20,32), 's_Model':(24,40),
                     's_800D5710':(52,64), 's_PropsPuppetNurse':(64,72),
                     's_SubCharacter':(296,328), 's_PlayerExtra':(44,64), 's_PlayerWork':(340,392)}
@@ -271,7 +289,6 @@ def prepare_player_startup(decomp, out):
         'src/bodyprog/events/player_pos_update.c': ['Game_PlayerHeightUpdate'],
         'src/bodyprog/events/bgm_update.c': ['Bgm_LayerGlobalVariablesMute'],
         'src/bodyprog/game_boot/load_screen.c': ['GameBoot_WolrdEnvInit'],
-        'src/bodyprog/world/world_effects.c': ['WorldEnv_MapPresetSet', 'Gfx_MapEnvSet', 'Gfx_MapEnvUpdate', 'Gfx_MapEnvStepUpdate', 'Gfx_FogParametersSet'],
         'src/bodyprog/gfx/bodyprog_effects_8005E0DC.c': ['func_8005E650','func_8005E70C'],
         'src/bodyprog/events/npc_main.c': ['Game_NpcRoomInitSpawn','Math_Distance2dCheck'],
         'src/bodyprog/events/chara_spawn.c': ['Chara_Spawn'],
@@ -295,10 +312,7 @@ def prepare_player_startup(decomp, out):
     sound = read('src/bodyprog/game_boot/background_sound_init.c')
     for name in ['g_BgmTaskLoad', 'g_BgmChannelSetTask', 'g_AmbientVabTaskLoad']:
         source.append(initializer(sound, name))
-    effects = read('src/bodyprog/world/world_effects.c')
-    for name in ['D_800A9F80','D_800A9F84','D_800A9F88','D_800A9F8C','D_800A9F98']:
-        source.append(initializer(effects, name))
-    source.append(initializer(read('src/bodyprog/sys/map_info.c'), 'MAP_EFFECTS_INFOS'))
+    # PORT: The shared environment functions/tables are owned by render_consumers.c.
     source.append('s16 D_800C4408;\ns8 D_800C4414;\n')
     for path, names in selections.items():
         for name in names:
