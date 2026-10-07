@@ -105,6 +105,10 @@ typedef struct {
     // PORT: Append the full native environment record without shifting earlier fields.
     s_SysWork_2388 gameplayEnvironment;
     s32 cutsceneBorderState;
+    // PORT: Original temporary system-state words, appended for movement/combat.
+    s32 sysStateStepData[2];
+    // PORT: Original hierarchical event steps; earlier FFI offsets stay fixed.
+    s32 sysStateSteps[3];
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)

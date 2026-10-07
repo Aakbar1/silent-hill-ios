@@ -5,7 +5,7 @@
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 enum {BoneHierarchy_End=-2,BoneHierarchy_MultiModel=-3,MaterialFlag_None=0,MaterialFlag_0=1,MaterialFlag_1=2,MaterialFlag_2=4};
 typedef struct {s32 animFileIdx,modelFileIdx,textureFileIdx,materialBlendMode;
-    s32 cameraAnchor; q19_12 cameraOffsetY;} PortCharaFileInfo;
+    s32 cameraAnchor; q19_12 cameraOffsetY;s16 field_6;s_FsImageDesc* field_8;} PortCharaFileInfo;
 extern const PortCharaFileInfo CHARA_FILE_INFOS[Chara_Count];
 typedef struct {s32 itemId,queueIdx;char* textureName;s_FsImageDesc imageDesc;s_LmHeader* lmHdr;s_Bone bone;} s_HeldItem;
 // PORT: Bootstrap's native work contains owned model slots and empty map caches.
@@ -24,7 +24,9 @@ extern s_LmHeader port_global_lm,port_held_lm,port_npc_lm;
 extern u8 port_map_chunk_storage[0x2C000];
 #define GLOBAL_LM_BUFFER (&port_global_lm)
 #define HELD_ITEM_LM_BUFFER (&port_held_lm)
-#define MAP_CHARA_LM_BUFFER ((u8*)&port_npc_lm)
+// PORT: Each native NPC model header has stable descriptor storage.
+extern s_LmHeader port_npc_models[CHARA_GROUP_COUNT];
+#define MAP_CHARA_LM_BUFFER ((u8*)&port_npc_models[0])
 #define IPD_BUFFER ((void*)port_map_chunk_storage)
 #define HARRY_LM_BUFFER (&port_harry_lm)
 extern s8* D_800C15B0;
@@ -71,13 +73,13 @@ enum {CollisionTriggerFlag_Map=1,
 #define SetPolyG4 setPolyG4
 #define SetPolyF4 setPolyF4
 typedef struct {q3_12 positionY,field_2,field_4;s16 field_6,field_8,pad;SVECTOR field_C,position;} s_800AE204;
-typedef struct {s_AnmHeader* allocAddr,*activeAnmHdr;s32 allocSize,activeSize;GsCOORDINATE2* boneCoords;} PortAnimSlot;
+typedef struct {s_AnmHeader* allocAddr,*activeAnmHdr;s32 allocSize,activeSize;GsCOORDINATE2* boneCoords;s32 activeCharaId;} PortAnimSlot;
 extern PortAnimSlot g_CharaModelAnimsData[CHARA_GROUP_COUNT];
 extern s32 g_Inventory_EquippedItem,g_Player_CutsceneState,g_Player_LastWeaponSelected;
 extern s16 D_800C4588;
 extern q19_12 g_Player_GrabReleaseInputTimer,D_800C45EC;
 extern bool g_Player_DisableControl;
-typedef struct {u16 flags;s32 collisionTriggerCount;} PortActiveCollision;
+typedef struct {u16 flags;s32 collisionTriggerCount;s_CollisionTrigger* collisionTriggers[20];} PortActiveCollision;
 extern PortActiveCollision g_ActiveCollisionTriggers;
 void Collision_Init(void);
 void Collision_FlagsSet(u16 flags);

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "native_player_loop.h"
+#include "native_player_movement.h"
 s32 Inventory_HyperBlasterFunctionalTest(void) {
     port_unimplemented("Inventory_HyperBlasterFunctionalTest/original inventory service");return 0;
 }
@@ -48,5 +49,32 @@ u32 port_player_controls_probe(void) {
     g_Player_IsInWalkToRunTransition=saved_transition;
     g_Player_MoveStickMag=saved_stick;
     for(size_t i=0;i<ARRAY_SIZE(histories);i++)*histories[i]=saved_histories[i];
+    return checks;
+}
+
+// PORT: Regression fixtures for native word coordinates, SDK product rounding
+// and the original unsigned gameplay timer. All live save state is restored.
+u32 port_move_native_probe(void) {
+    u32 checks=0;
+    s_CollisionResult collision={0};
+    Collision_DefaultResultSet(&collision,-100000,900000,655360,-131072);
+    if(collision.offset.vx==-100000 && collision.offset.vy==900000 && collision.offset.vz==655360 && collision.surface.groundHeight==-131072)checks|=1;
+    MATRIX matrix={{{-65,123,45},{17,-234,67},{111,222,333}},{123456,-234567,345678}};
+    Math_RotMatrixZ(256,&matrix);
+    // Pinned SDK sine/cosine at 22.5 degrees are 1567/3784. Individual
+    // arithmetic product shifts yield -67/-10 for the first column.
+    if(matrix.m[0][0]==-67 && matrix.m[1][0]==-10)checks|=2;
+    if(matrix.m[2][0]==111 && matrix.m[2][1]==222 && matrix.m[2][2]==333 && matrix.t[0]==123456 && matrix.t[1]==-234567 && matrix.t[2]==345678)checks|=4;
+    if(SquareRoot12(0)==0 && SquareRoot12(4096)==4096 && SquareRoot12(16384)==8192)checks|=8;
+    s_Savegame saved=*g_SavegamePtr;s32 saved_raw=g_DeltaTimeRaw;
+    g_SavegamePtr->gameplayTimer=4276224000u-5;g_SavegamePtr->add290Hours=0;g_DeltaTimeRaw=10;
+    port_move_game_timer_update();
+    if(g_SavegamePtr->gameplayTimer==5 && g_SavegamePtr->add290Hours==1)checks|=16;
+    g_SavegamePtr->gameplayTimer=4276224001u;g_SavegamePtr->add290Hours=3;g_DeltaTimeRaw=0;
+    port_move_game_timer_update();
+    if(g_SavegamePtr->gameplayTimer==1916928000u && g_SavegamePtr->add290Hours==3)checks|=32;
+    g_SavegamePtr->gameplayTimer=0;port_move_game_timer_update();
+    if(g_SavegamePtr->gameplayTimer==1)checks|=64;
+    *g_SavegamePtr=saved;g_DeltaTimeRaw=saved_raw;
     return checks;
 }

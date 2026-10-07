@@ -37,9 +37,9 @@ def main():
     import os
     lane = os.environ.get("SH_MILESTONE_LANE")
     if lane:
-        if lane != "player":
+        if lane not in ("player","move"):
             raise SystemExit("unsupported private milestone lane")
-        private = root.parent.parent / "private/work/player"
+        private = root.parent.parent / ("private/work/"+lane)
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     executable = root / "target/release/silent-hill-boot.exe"
@@ -153,15 +153,19 @@ def first_map_main():
     import os
     parser = argparse.ArgumentParser(description="Original first-map player/camera milestone")
     parser.add_argument("--first-map", action="store_true")
+    parser.add_argument("--sound-stub-bgm", action="store_true", help="test only: return from BGM updates as if no music is due")
     parser.add_argument("--disc", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    output = root.parent.parent / "private/work/player/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    output = root.parent.parent / "private/work/move/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     command = [str(root/"target/release/silent-hill-boot.exe"),"--headless","--audio","off","--frames","3720","--input",str(root/"docs/core/replays/first_map.txt"),"--expect-state","11"]
     if args.disc:
         command += ["--disc",str(args.disc.resolve())]
     env = dict(os.environ,SH_PLAYER_TRACE="1")
+    env.pop("SH_SOUND_STUB_BGM",None)
+    if args.sound_stub_bgm:
+        env["SH_SOUND_STUB_BGM"]="1"
     try:
         run = subprocess.run(command,cwd=root,env=env,capture_output=True,text=True,timeout=180)
     except subprocess.TimeoutExpired as error:

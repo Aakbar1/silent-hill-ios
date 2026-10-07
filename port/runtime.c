@@ -152,9 +152,13 @@ void Fs_QueueUpdate(void) {
     } else if (type==FileType_Ipd) {
         if(job.has_image || port_asset_load_ipd((u32)job.file,(s_IpdHeader*)job.destination,g_MapOverlayHdr.mapInfo->plmFileIdx)) longjmp(stop,2);
         ((s_IpdHeader*)job.destination)->isLoaded=false; // PORT: Decoded graph readiness precedes original material/texture initialization.
+    } else if (type==3) { // PORT: DMS publishes a separately decoded native graph.
+        if(job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
     } else if (type==FileType_Anm || type==FileType_Plm || type==FileType_Ilm) {
         if (job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
         if(type==FileType_Plm && job.destination==GLOBAL_LM_BUFFER)((s_LmHeader*)job.destination)->isLoaded=false;
+        // PORT: NPC animation publication initializes its separately owned coordinates.
+        if(type==FileType_Anm)port_move_npc_animation_ready((s_AnmHeader*)job.destination);
     } else if(job.file>=FILE_VIN_MAP0_S00_BIN && job.file<=FILE_VIN_MAP7_S03_BIN) {
         // PORT: Native map descriptors contain only compiled GPL C data.
         // Reading an overlay's machine code cannot initialize native objects.

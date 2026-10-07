@@ -1,3 +1,27 @@
+# Move lane - in progress
+
+Goal 1 is not passed. Own branch `lane/move`, pinned submodule initialized.
+The opt-in runner `python tools/milestones.py --first-map --sound-stub-bgm`
+sets a test-only BGM bypass at the generated gameplay call site; the public
+`Bgm_Update` and its default path remain unchanged.
+
+The original player delegate closure, wall response and production ray queries
+are generated from pinned GPL source. Original empty-group NPC scheduling,
+gameplay timer and unarmed combat setup/cleanup are linked. Damage reads the
+owned encrypted BODYPROG attack table through the combat lane's decoder.
+Current verification is provisional: the last completed release build passed
+before the added effect scheduler; its warning fixes are still being checked.
+First-map replays reached the original player loop at state 11 / step 2 /
+VBlank 2266, then the timer guard, then unarmed combat setup's dependency.
+Latest measured evidence: `private/work/move/milestones/20261007T190242941190Z/`.
+No walking, screenshot, opening DMS/Cheryl, attacks or transition pass is claimed.
+Provisional arm64 check was 31/33, with compile-only CRT declarations being fixed.
+Next: finish effect scheduling, remeasure the opening guard, link its native DMS
+and character publication prerequisites, then run the real movement gate.
+Generated game data stays in `private/work/move`; no merge/push/main changes.
+
+---
+
 # Player lane checkpoint
 
 **The brief is not passed: Harry does not yet move.** The owned-disc opening now completes the original New Game startup and `GameBoot_InGameInit`, enters state 11, and executes the original gameplay dispatcher. The deepest measured guard is `Bgm_Update/original layer controller`, state **11 / step 2 / VBlank 2266**, before `Player_Update`. The final host CHECK still reports step 0 because that is the last presented frame, before the failing update. Do not treat loader animation, input fixtures or the available boot/menu suite as a movement pass.

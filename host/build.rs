@@ -716,6 +716,18 @@ fn main() {
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
+    // PORT: Original movement delegate closure owned by the move lane.
+    build.file(generated.join("player_movement.c"));
+    build.file(generated.join("player_collision.c"));
+    build.file(generated.join("player_services.c"));
+    build.file(generated.join("player_sfx.c"));
+    build.file(generated.join("npc_loop.c"));
+    build.file(generated.join("npc_models.c"));
+    build.file(generated.join("player_events.c"));
+    build.file(generated.join("player_rays.c"));
+    build.file(generated.join("player_effects.c"));
+    println!("cargo:rerun-if-changed={}", repo.join("port/player_dms.c").display());
+    build.file(generated.join("player_dms.c")).file(repo.join("port/player_dms.c"));
     build
         .file(repo.join("port/runtime.c"))
         .file(repo.join("port/layout_check.c"))

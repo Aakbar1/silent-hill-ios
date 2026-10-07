@@ -10,6 +10,8 @@
 void GameBoot_NpcInit(void);
 void GameBoot_InGameInit(void);
 void Fs_CharaAnimDataAlloc(s32,e_CharaId,s_AnmHeader*,GsCOORDINATE2*);
+extern s8 g_CharaAnimDataIdxs[Chara_Count];
+void port_move_npc_animation_ready(s_AnmHeader*);
 void Fs_CharaAnimBoneInfoSet(void);
 s32 WorldGfx_MapInitCharaLoad(s_MapOverlayHdr*);
 void WorldGfx_CharaModelProcessAllLoads(void);
