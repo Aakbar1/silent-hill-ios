@@ -58,7 +58,7 @@ bool Lm_MaterialFsImageApply(s_LmHeader* lm,char* name,s_FsImageDesc* image,s32 
 void Material_FsImageApply(s_Material* mat,s_FsImageDesc* image,s32 blend);
 void Lm_MaterialFlagsApply(s_LmHeader* lm);
 void Model_MaterialFlagsApply(s_ModelHeader* model,s32 index,const s_Material* mat,s32 flags);
-enum {UnkGfxEnum_0=0,CollisionTriggerFlag_Map=1,
+enum {CollisionTriggerFlag_Map=1,
     ItemToggleFlag_FlashlightOff=2,InvItemGroup_MeleeWeapons=4,InvItemGroup_GunWeapons=5,
     PlayerCutsceneState_RunForward=0,
     GameDifficulty_Normal=0};

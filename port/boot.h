@@ -92,6 +92,19 @@ typedef struct {
     VECTOR3 lightPosition;
     SVECTOR lightRotation;
     struct {bool isFlashlightOn;} field_2388;
+    // PORT: Native gameplay scalars appended without changing existing FFI offsets.
+    s32 field_228C[1],npcFlags;
+    s8 npcFlagId;
+    u16 charaGroupFlags[CHARA_GROUP_COUNT];
+    s8 field_2349;
+    u8 field_234A;
+    s8 areaTransitionFlags;
+    q3_12 bgmLayerVolumes[9];
+    bool isMgsStringSet;
+    u8 invItemLoadFlags;
+    // PORT: Append the full native environment record without shifting earlier fields.
+    s_SysWork_2388 gameplayEnvironment;
+    s32 cutsceneBorderState;
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)

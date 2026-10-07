@@ -704,6 +704,11 @@ fn main() {
         "port/gte_services.c",
         "port/gameplay.h",
         "port/gameplay.c",
+        "port/npc_startup.h",
+        "port/npc_startup.c",
+        "port/player_controls.c",
+        "port/player_trace.c",
+        "port/player_loop.c",
         "port/map.h",
         "port/map.c",
         "port/camera_services.c",
@@ -718,6 +723,15 @@ fn main() {
         .file(repo.join("port/gte_services.c"))
         .file(generated.join("gte_command_probe.c"))
         .file(generated.join("gameplay_consumers.c"))
+        // PORT: Original player startup plus native NPC animation ownership.
+        .file(generated.join("player_startup.c"))
+        .file(generated.join("player_controls.c"))
+        .file(generated.join("player_loop.c"))
+        .file(generated.join("player_combat.c"))
+        .file(repo.join("port/npc_startup.c"))
+        .file(repo.join("port/player_controls.c"))
+        .file(repo.join("port/player_trace.c"))
+        .file(repo.join("port/player_loop.c"))
         .file(generated.join("native_math.c"))
         .file(generated.join("vc_main.c"))
         .file(generated.join("vc_util.c"))
