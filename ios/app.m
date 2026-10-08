@@ -43,7 +43,8 @@ void sh_ios_synthetic_audio_notifications(void) {
 }
 static dispatch_queue_t importQueue;
 static BOOL sceneActive = YES, audioInterrupted;
-static UIBackgroundTaskIdentifier pauseTask = UIBackgroundTaskInvalid;
+// UIBackgroundTaskInvalid is an extern constant, not a compile-time one, so it is set at startup.
+static UIBackgroundTaskIdentifier pauseTask;
 
 // Touch identity lasts from began through ended/cancelled. Coordinates and safe
 // areas are in the SAME logical view used by the display-copy overlay.
@@ -418,6 +419,7 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
 @end
 
 void sh_ios_application_main(void) {
+    pauseTask = UIBackgroundTaskInvalid;
     // UIApplicationMain requires a non-null argv; Rust owns the real process arguments.
     static char name[] = "SilentHillPort";
     static char *argv[] = {name, NULL};
