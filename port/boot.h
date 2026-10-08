@@ -109,6 +109,9 @@ typedef struct {
     s32 sysStateStepData[2];
     // PORT: Original hierarchical event steps; earlier FFI offsets stay fixed.
     s32 sysStateSteps[3];
+    // PORT: Original text-rollout scalars appended without shifting the live ABI.
+    q19_12 mapMsgTimer;
+    bool silentYesSelection;
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)

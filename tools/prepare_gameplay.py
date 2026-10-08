@@ -167,6 +167,7 @@ def generate(decomp, out):
                 code=code.replace('WorldGfx_MapInit(&g_MapOverlayHdr,','WorldGfx_MapInit((s_MapOverlayHdr*)&g_MapOverlayHdr,')
                 code=code.replace('WorldGfx_MapInitCharaLoad(&g_MapOverlayHdr)', 'WorldGfx_MapInitCharaLoad((s_MapOverlayHdr*)&g_MapOverlayHdr)')
             if name=='Math_MatrixTransform':
+                code=code.replace('static void Math_MatrixTransform','void Math_MatrixTransform')
                 # PORT: SubCharacter owns a six-byte SVECTOR3. Copy named values
                 # to the SDK's padded eight-byte rotation argument.
                 code=code.replace('SVECTOR* rot,','const SVECTOR3* rot,')
@@ -433,8 +434,9 @@ def prepare_player_loop(decomp,out):
     source=['/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_loop.h"\n']
     for name in guarded_states:
         header.append(f'void {name}(void);\n')
-        source.append(f'void {name}(void) {{port_unimplemented("{name}/native system state");}}\n')
-    names=['GameState_InGame_Update','SysState_Gameplay_Update','SysState_EventCallback_Update']
+        if name not in ['SysState_Fmv_Update','SysState_ReadMessage_Update','SysState_EventSetFlag_Update','SysState_EventPlaySound_Update']:
+            source.append(f'void {name}(void) {{port_unimplemented("{name}/native system state");}}\n')
+    names=['GameState_InGame_Update','SysState_Gameplay_Update','SysState_EventCallback_Update','SysState_Fmv_Update','SysState_ReadMessage_Update','SysState_EventSetFlag_Update','SysState_EventPlaySound_Update']
     header += [f'void {name}(void);\n' for name in names]
     header += ['void Player_Update(s_SubCharacter*,s_AnmHeader*,GsCOORDINATE2*);\n',
                'void Event_Update(bool);\nvoid func_800892A4(s32);\nvoid Game_FlashlightToggle(void);\n',
@@ -450,6 +452,8 @@ def prepare_player_loop(decomp,out):
         header[-1]=header[-1].replace('#endif', re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n#endif')
     source.append(between(states,'static void (*g_SysStateFuncs[])(void)', '/** Used to store'))
     source.append('static q19_12 g_DeltaTimeCpy;\nbool g_IsLoadingFinished;\ns32 g_MapEventSysState;\nu32 g_MapEventParam;\ns_EventData* g_MapEventData;\nstatic u32 g_Demo_RandSeedBackup;\n')
+    # PORT: Original movie snapshot uses owned native storage, never PS1 fixed-address bytes.
+    source.append('static u32 port_events_fmv_image[160*240/2];\n#define IMAGE_BUFFER_0 ((u8*)port_events_fmv_image)\n')
     for name in names:
         code=function(states,name)
         code=code.replace('g_SysWork.field_2388.', 'g_SysWork.gameplayEnvironment.')
@@ -458,6 +462,11 @@ def prepare_player_loop(decomp,out):
         # PORT: First member is the player, but native C calls it by its actual type.
         code=code.replace('Player_CombatUpdate(&g_SysWork.playerWork,','Player_CombatUpdate(&g_SysWork.playerWork.player,')
         code=code.replace('Chara_Flag8Clear(', 'sh_combat_Chara_Flag8Clear(')
+        code=code.replace('i < ARRAY_SIZE(g_SysWork.npcs)', 'i < (s32)ARRAY_SIZE(g_SysWork.npcs)')
+        code=code.replace('i == ARRAY_SIZE(g_SysWork.npcs)', 'i == (s32)ARRAY_SIZE(g_SysWork.npcs)')
+        code=code.replace('Gfx_MapMsg_Draw(g_MapEventParam)', 'Gfx_MapMsg_Draw((s32)g_MapEventParam)')
+        code=code.replace('void (**unfreezePlayerFunc)(bool);','void (*unfreezePlayerFunc)(bool);').replace('unfreezePlayerFunc = &g_MapOverlayHdr.playerControlUnfreeze;','unfreezePlayerFunc = g_MapOverlayHdr.playerControlUnfreeze;')
+        code=code.replace('open_main(BASE_AUDIO_FILE_IDX - g_MapEventParam, g_FileTable[BASE_AUDIO_FILE_IDX - g_MapEventParam].blockCount);','open_main((s32)(BASE_AUDIO_FILE_IDX - g_MapEventParam), (s16)g_FileTable[BASE_AUDIO_FILE_IDX - g_MapEventParam].blockCount);')
         source.append(code)
     for name in ['Demo_DemoRandSeedBackup','Demo_DemoRandSeedRestore','Demo_DemoRandSeedAdvance']:
         source.append(function(read('src/bodyprog/demo.c'),name))
@@ -774,6 +783,8 @@ def prepare_player_services(decomp,out):
     def read(path):return (decomp/path).read_text(encoding='utf-8')
     source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n#include <stdio.h>\n'
     source+='u8 g_Player_AnimResetRequest;\n'
+    source+=function(read('src/bodyprog/player_control.c'),'Rng_RandQ12')
+    source+=narrow(function(read('src/bodyprog/bodyprog_math_8005BF38.c'),'Math_AngleNormalizeSigned'),'')
     source+='void func_800892DC(s32 index,u8 strength) { // PORT: PS1 motor requests have no native motor backend.\n printf("HAPTIC index=%d strength=%u\\n",index,strength);}\n'
     original=read('src/bodyprog/bodyprog_80089090.c')
     for name in ['func_800893D0','func_8008944C','func_80089470','func_80089494']:
@@ -785,7 +796,10 @@ def prepare_player_services(decomp,out):
         source+=function(original,name).replace('1 << 31','1u << 31')
     mesh=function(original,'WorldGfx_CharaMeshSwap')
     for name in set(re.findall(r'\b(WorldGfx_\w+MeshSwap)\(',mesh))-{'WorldGfx_CharaMeshSwap','WorldGfx_HarryMeshSwap'}:
-        source+=f'static void {name}(s_Skeleton* skeleton,s32 status) {{(void)skeleton;(void)status;port_unimplemented("{name}/character mesh variant");}}\n'
+        if name=='WorldGfx_StalkerMeshSwap':
+            source+='enum {StalkerVariantMesh_None=0,StalkerVariantMesh_1=1,StalkerVariantMesh_2=2};\n'
+            source+=function(original,name)
+        else:source+=f'static void {name}(s_Skeleton* skeleton,s32 status) {{(void)skeleton;(void)status;port_unimplemented("{name}/character mesh variant");}}\n'
     source+=mesh
     code=function(read('src/bodyprog/world/bodyprog_bone_80044F14.c'),'func_80044F14')
     code=code.replace('rot    = PSX_SCRATCH;', 'SVECTOR nativeRotation; MATRIX nativeMatrix;\n    rot=&nativeRotation; // PORT: Typed SDK scratch, independent of PS1 arena addresses.')
@@ -814,14 +828,19 @@ def prepare_player_services(decomp,out):
     # PORT: Reuse the combat lane's production decoder on decrypted owned data.
     decoder=(Path(__file__).resolve().parents[1]/'port/sys/combat/combat.c').read_text()
     source+=function(decoder,'half')+function(decoder,'word')+function(decoder,'sh_combat_attack_decode')
+    source+=function(decoder,'sh_combat_sqrt_decode')
     source+='''extern int port_move_bodyprog_read(u32,u32,u8*);
 static u32 nativeAttackAux;
+extern s16 SQRT[192];
 void port_move_attack_tables_ensure(void) {
     static bool loaded;
     if(loaded)return;
     u8 bytes[70*24];s_800AD4C8 decoded[70];
     if(port_move_bodyprog_read(0x800AD4C8u-0x80024B60u,sizeof(bytes),bytes))port_unimplemented("combat attack table read");
     for(size_t i=0;i<70;i++)if(!sh_combat_attack_decode(bytes+i*24,24,0x800AD4C4u,&decoded[i],&nativeAttackAux))port_unimplemented("combat attack auxiliary identity");
+    u8 sqrtBytes[384];s16 sqrtDecoded[192];
+    if(port_move_bodyprog_read(0x800AFFCCu-0x80024B60u,sizeof(sqrtBytes),sqrtBytes) || !sh_combat_sqrt_decode(sqrtBytes,sizeof(sqrtBytes),sqrtDecoded,192))port_unimplemented("combat square-root table read");
+    memcpy(SQRT,sqrtDecoded,sizeof(sqrtDecoded));
     memcpy(D_800AD4C8,decoded,sizeof(decoded));loaded=true;
 }
 '''
@@ -837,7 +856,7 @@ void port_move_attack_tables_ensure(void) {
     # the renderer's earlier Harry-only entry remains independently owned.
     draw=function(read('src/bodyprog/world/world_draw.c'),'WorldGfx_CharaDraw')
     draw=draw.replace('WorldGfx_CharaDraw(', 'port_move_npc_draw(')
-    draw=draw.replace('{','{\n    if(charaId!=Chara_Cheryl || !g_WorldGfxWork.registeredCharaModels[charaId])port_unimplemented("NPC rendering model publication");',1)
+    draw=draw.replace('{','{\n    if(charaId<=Chara_None || charaId>=Chara_Count || !g_WorldGfxWork.registeredCharaModels[charaId])port_unimplemented("NPC rendering model publication");',1)
     draw=draw.replace('Q8_TO_Q12(CHARA_FILE_INFOS[charaId].field_6)', '(q3_12)Q8_TO_Q12(CHARA_FILE_INFOS[charaId].field_6)')
     draw=draw.replace('WorldGfx_HeldItemDraw();','port_render_held_item();')
     draw=draw.replace('clutY = WorldGfx_CharaClutYGet(charaId, paletteIdx);','clutY = (s16)WorldGfx_CharaClutYGet(charaId,paletteIdx);')
@@ -1089,8 +1108,12 @@ def prepare_player_events(decomp,out):
         header+=enumeration(files,tag)
     original=read('src/bodyprog/events/events_util.c')
     source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_events.h"\n'
-    for name in ['Event_SysStateStepIncrement','Event_SysStateStepSet','Event_WaitTimer','Event_CharaAnimCmdExecute','Event_ScreenFadeCmd']:
+    source+='static VECTOR3 g_Event_PathWaypoints[2][8];static q3_12 g_Event_PathWaypointHeadingAngles[8];static q19_12 g_Event_TweenTimers[6];\n'
+    source+='void port_events_helpers_reset(void){memset(g_Event_PathWaypoints,0,sizeof(g_Event_PathWaypoints));memset(g_Event_PathWaypointHeadingAngles,0,sizeof(g_Event_PathWaypointHeadingAngles));memset(g_Event_TweenTimers,0,sizeof(g_Event_TweenTimers));}\n'
+    for name in ['Event_SysStateStepIncrement','Event_SysStateStepSet','Event_WaitTimer','Event_CharaAnimCmdExecute','Event_ScreenFadeCmd','Event_DisplayMapMsg','Event_WaitPlayerStop','Event_PathWaypointSet','Event_PathWaypointExecutePlayer','Event_PathWaypointExecuteChara','Event_PathWaypointExecuteCharaNoWait','Event_TweenReset','Event_TweenLinear','Event_CameraPositionSet','Event_CameraLookAtSet','Event_DisplayMapMsgWithAudio']:
         code=function(original,name)
+        from prepare_camera import narrow
+        code=narrow(code,read('include/bodyprog/view/structs.h'))
         header+=re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n'
         source+=code
     source+='q19_12 g_Cutscene_Timer=NO_VALUE;\nVECTOR3 g_CameraPositionTarget,g_CameraLookAtTarget;\n'
@@ -1098,18 +1121,354 @@ def prepare_player_events(decomp,out):
     header+='bool Chara_Load(s32,s8,GsCOORDINATE2*,s8,s_LmHeader*,s_FsImageDesc*);bool Chara_ProcessLoads(void);void Chara_BonesInit(s32);\n'
     border=read('include/bodyprog/screen/cutscene_border.h')
     header+=between(border,'#define CutsceneBorder_ForceShow()', 'void Screen_CutsceneCameraStateUpdate')
-    header+='void Event_DisplayMapMsg(bool,s32,bool,bool,s32,bool);\n#endif\n'
-    source+='void Event_DisplayMapMsg(bool a,s32 b,bool c,bool d,s32 e,bool f) {(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;port_unimplemented("opening map message/native text rollout");}\n'
+    msg_header=read('include/bodyprog/events/map_msg.h')
+    for tag in ['MapMsgReturnCode','MapMsgState','MapMsgAudioType']:
+        header+=enumeration(msg_header,tag)
+    header+=between(msg_header,'typedef struct _MapMsgSelect','s32 Gfx_MapMsg_Draw')
+    header+='#define MAP_MSG_UNSKIPPABLE_AUDIO_TYPE_FLAG (1<<0)\n#define MAP_MESSAGE_DISPLAY_ALL_LENGTH 400\n'
+    header+='#define BgmStatusFlag_VoiceDialog (1<<5)\n#define AudioStreamingState_XaLoadPending 4\n'
+    header+='s32 Gfx_MapMsg_Draw(s32);s32 Gfx_MapMsg_SelectionUpdate(u8,s32*);\ns32 Gfx_MapMsg_WidthsCompute(s32);s32 Gfx_MapMsg_StringDraw(char*,s32);void Gfx_MapMsg_Reset(void);\n#endif\n'
+    header=header.replace('#endif','q3_12 Math_AngleNormalizeSigned(q3_12);\nstatic inline q3_12 port_events_angle(s32 angle){return Math_AngleNormalizeSigned((q3_12)angle);}\n#endif')
+    source=source.replace('g_SysWork.bgmStatusFlags |= BgmStatusFlag_VoiceDialog;', 'g_SysWork.bgmStatusFlags |= (1<<5);')
     (out/'native_player_events.h').write_text(header,encoding='utf-8')
     (out/'player_events.c').write_text(source,encoding='utf-8')
+    prepare_map_text(decomp,out)
     for file in ['player_loop.c','player_movement.c']:
         p=out/file;code=p.read_text(encoding='utf-8').replace('#include "native_player_movement.h"','#include "native_player_events.h"').replace('SysWork_StateSetNext(', 'port_move_state_next(')
         p.write_text(code,encoding='utf-8')
+
+
+def prepare_map_text(decomp,out):
+    """Extend the shared font unit with original USA map glyphs and rollout."""
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    text=read('src/bodyprog/text/text_draw.c')
+    header=read('include/bodyprog/text/text_draw.h')
+    source='\n/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_events.h"\n'
+    source+='\n'.join(line for line in header.splitlines() if line.startswith('#define MAP_MSG_CODE_'))+'\n'
+    source+='s_MapMsgLine g_MapMsg_ActiveLine; s32 g_MapMsg_WidthIdx,g_MapMsg_Widths[12];\n'
+    for name in ['Gfx_MapMsg_WidthsCompute','Gfx_MapMsg_StringDraw','Gfx_MapMsg_Reset']:
+        code=function(text,name)
+        if name=='Gfx_MapMsg_WidthsCompute':
+            # PORT: USA has no result; return a defined zero for its JP-only caller.
+            code=code.replace('mapMsg = g_MapOverlayHdr.mapMessages[mapMsgIdx];','mapMsg = (u8*)g_MapOverlayHdr.mapMessages[mapMsgIdx];')
+            code=code[:-2]+'    return 0;\n}\n'
+        code=code.replace('((glyphPosY) << 16)','((u32)(u16)glyphPosY << 16)')
+        code=code.replace('((glyphPosY) << 16)', '((u32)(u16)glyphPosY << 16)')
+        for target in ['g_StringPosition.vx','g_StringPosition.vy','g_StringColorId']:
+            code=re.sub(r'('+re.escape(target)+r'\s*=(?!=))\s*([^;{}]+);',r'\1 (s16)(\2);',code)
+        code=code.replace('g_MapMsg_ActiveLine.positionIdx = posIdx;', 'g_MapMsg_ActiveLine.positionIdx = (u8)posIdx;')
+        code=code.replace('g_MapMsg_AudioType = arg + 1;', 'g_MapMsg_AudioType = (u8)(arg + 1);')
+        code=code.replace('    u32       temp_a0;', '    u32       temp_a0;')
+        # PORT: GPU packet aliases remain fixed 32-bit; keep byte/halfword narrowing explicit.
+        code=re.sub(r'(\*\(\(u16\*\)&glyphPoly->u[23]\) =) ([^;]+);',r'\1 (u16)(\2);',code)
+        source+=code
+    rollout=read('src/bodyprog/text/map_msg_display.c')
+    source+='static s32 g_MapMsg_CurrentIdx;static q3_12 g_MapMsg_SelectFlashTimer;\nu8 g_MapMsg_AudioType;s8 g_MapMsg_SelectCancelIdx;\n'
+    source+='static s32 rolloutState,menuSelection,port_msg_displayLength,activeMapMsgIdx,displayLengthInc;static bool loadAudio;\nextern void port_events_message_trace(s32,s32,s32,s32);extern void port_events_page_trace(s32);\n'
+    for name in ['Gfx_MapMsg_Draw','Gfx_MapMsg_SelectionUpdate']:
+        code=function(rollout,name)
+        if name=='Gfx_MapMsg_Draw':
+            code=re.sub(r'^    static (?:s32|bool)\s+\w+;\n','',code,flags=re.M)
+            code=code.replace('    if (menuSelection != FINISH_MAP_MSG)', '    port_events_message_trace(g_MapMsg_CurrentIdx,displayLength,rolloutState,menuSelection);\n    if (menuSelection != FINISH_MAP_MSG)')
+            code=re.sub(r'\bdisplayLength\b','port_msg_displayLength',code)
+            code=code.replace('g_MapMsg_CurrentIdx++;','port_events_page_trace(g_MapMsg_CurrentIdx);\n                    g_MapMsg_CurrentIdx++;')
+            code=code.replace('    g_SysWork.isMgsStringSet         = false;', '    port_events_page_trace(g_MapMsg_CurrentIdx);\n    g_SysWork.isMgsStringSet         = false;')
+        code=code.replace('    s32         unkJapVal;', '')
+        code=code.replace('unkJapVal = Gfx_MapMsg_WidthsCompute', '(void)Gfx_MapMsg_WidthsCompute')
+        code=code.replace('Gfx_MapMsg_SelectionUpdate(g_MapMsg_CurrentIdx,','Gfx_MapMsg_SelectionUpdate((u8)g_MapMsg_CurrentIdx,')
+        code=code.replace('Gfx_MapMsg_StringDraw(g_MapOverlayHdr.mapMessages[mapMsgIdx],', 'Gfx_MapMsg_StringDraw((char*)g_MapOverlayHdr.mapMessages[mapMsgIdx],')
+        code=code.replace('g_MapMsg_SelectFlashTimer += g_DeltaTimeRaw;', 'g_MapMsg_SelectFlashTimer = (q3_12)(g_MapMsg_SelectFlashTimer + g_DeltaTimeRaw);')
+        code=code.replace('g_MapMsg_Select.maxIdx           = curMenuSelection;', 'g_MapMsg_Select.maxIdx           = (s8)curMenuSelection;')
+        code=code.replace('g_MapMsg_Select.maxIdx = curMenuSelection;', 'g_MapMsg_Select.maxIdx = (s8)curMenuSelection;')
+        code=code.replace('g_MapMsg_Select.selectedEntryIdx = g_MapMsg_SelectCancelIdx;', 'g_MapMsg_Select.selectedEntryIdx = (u8)g_MapMsg_SelectCancelIdx;')
+        code=code.replace('Gfx_StringColorSet(((g_MapMsg_SelectFlashTimer >> 10) * 3) + 4);','Gfx_StringColorSet((s16)(((g_MapMsg_SelectFlashTimer >> 10) * 3) + 4));')
+        source+=code
+    source+='void port_events_text_reset(void){g_MapMsg_CurrentIdx=0;g_MapMsg_SelectFlashTimer=0;rolloutState=0;menuSelection=0;port_msg_displayLength=0;activeMapMsgIdx=0;displayLengthInc=0;loadAudio=false;g_MapMsg_AudioType=0;g_MapMsg_SelectCancelIdx=0;memset(&g_MapMsg_Select,0,sizeof(g_MapMsg_Select));Gfx_MapMsg_Reset();}\n'
+    (out/'player_map_text.inc').write_text(source,encoding='utf-8')
+
+
+def extend_event_maps(decomp,out):
+    """Events-owned additions to generated map code; maps' generator is unchanged."""
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    descriptor=out/'native_map_records.h'
+    declarations=descriptor.read_text(encoding='utf-8')
+    # PORT: The original unused descriptor field lacked a prototype. Its now
+    # linked implementation takes an actor and reset mode; pointer size is unchanged.
+    declarations=declarations.replace('(*charaAnimReset)()', '(*charaAnimReset)(s_SubCharacter*, bool)')
+    descriptor.write_text(declarations,encoding='utf-8')
+    consumers=out/'gameplay_consumers.c'
+    startup=consumers.read_text(encoding='utf-8')
+    startup='extern void port_events_text_reset(void),port_events_helpers_reset(void),sh_combat_reset_scratch(void);\n'+startup
+    startup=startup.replace('void GameBoot_WorldInit(void)\n{','void GameBoot_WorldInit(void)\n{\n    port_events_text_reset();port_events_helpers_reset();sh_combat_reset_scratch();')
+    consumers.write_text(startup,encoding='utf-8')
+    spawn=out/'player_spawn.c'
+    code=spawn.read_text(encoding='utf-8')
+    original=function(read('src/bodyprog/items/item_utils.c'),'func_8004C564')
+    original=narrow(original,'')
+    original=original.replace('D_800C3960 = g_SavegamePtr->mapIdx','D_800C3960 = (s8)g_SavegamePtr->mapIdx')
+    combat=read('src/bodyprog/bodyprog_combat_8008A058.c')
+    providers='#include "native_player_events.h"\nvoid Sfx_WithFlagsAndPitchPlay(e_SfxId,const VECTOR3*,q23_8,s32,s32);void func_800892DC(s32,u8);q19_12 Rng_RandQ12(void);\n'
+    provider_names=['func_8008B438','func_8008B3E4','func_8008B40C','func_8008B474']
+    providers+=''.join(re.sub(r'//[^\n]*','',function(combat,name).split('{',1)[0]).strip()+';\n' for name in provider_names)
+    motor=function(read('src/bodyprog/bodyprog_80089090.c'),'func_80089314')
+    motor=motor.replace('func_800892DC(21, D_800AFD04 + 32)', 'func_800892DC(21, (u8)(D_800AFD04 + 32))')
+    motor=motor.replace('D_800AFD05 += g_VBlanks;', 'D_800AFD05 = (u8)(D_800AFD05 + g_VBlanks);')
+    providers+='static u8 D_800AFD04,D_800AFD05;\n'+narrow(motor,'')
+    for name in provider_names:providers+=narrow(function(combat,name),'')
+    code=code.replace(function(code,'func_8004C564'),providers+original)
+    # The earlier generated no-weapon statics move inside their complete original owner.
+    code=code.replace('static s8 D_800C3960,D_800C3961,D_800C3962;\nstatic u8 D_800C3963;\n','')
+    spawn.write_text(code,encoding='utf-8')
+    path=out/'map0_s00.c'
+    code=path.read_text(encoding='utf-8')
+    player=read('src/maps/characters/player.c')
+    events=read('src/maps/map0_s00/map0_s00_2.c')
+    names=['Player_MoveSpeedIsZero','Player_PathWaypointExecute','Chara_PathWaypointExecute','Chara_MovementReset','Chara_AnimReset','MapEvent_CutsceneCherylFootsteps0','MapEvent_CutsceneCherylFootsteps1','MapEvent_CutsceneCherylFootsteps2','MapEvent_CutsceneCherylSpotted','MapEvent_CutsceneCherylRedirect0','MapEvent_CutsceneCherylRedirect1','MapEvent_CutsceneCherylRedirect2','MapEvent_CutsceneCherylRedirect3','MapEvent_CutsceneCherylIntoTheAlley','func_800DB26C','func_800DB870','func_800DBE00','func_800DC33C','func_800DC694','func_800DC8D8','func_800DCA30']
+    extra='\n/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#undef playerChara\n#undef playerExtra\n#undef playerProps\n#undef cherylProps\n'
+    objects='static q19_12 D_800DFAB8,sharedData_800DD5A0_0_s00;static s16 sharedData_800DD5A4_0_s00;static q3_12 sharedData_800E39E0_0_s00,sharedData_800E39E2_0_s00;\n'
+    objects+='static s32 sharedData_800DF1F4_0_s00;static s16 sharedData_800DF1F8_0_s00,sharedData_800DF1FA_0_s00;static u16 g_Cutscene_MapMsgAudioCmds[3];static u8 D_800DFAC2,g_Cutscene_MapMsgAudioIdx;static bool g_WarpCamera0;\n'
+    objects+='static q19_12 D_800DFAD0,D_800DFAD4;static bool g_WarpCamera;\n'
+    helpers=['Cheryl_DistantFootstepSfxPlay']
+    for name in helpers:
+        extra+=f'#define {name} sh_map0_s00_{name}\n'
+        extra+=re.sub(r'//[^\n]*','',function(events,name).split('{',1)[0]).strip()+';\n'
+    extra+=objects
+    record=(out/'native_gameplay_records.h').read_text(encoding='utf-8')
+    record=re.sub(r'\b(?:s16|s32|q3_12|q4_12)\s+(?:vx|vy|vz)\s*;', '',record)
+    for name in names:
+        new=function(player if name.startswith('Player_') else read('src/maps/chara_util.c') if name.startswith('Chara_') else events,name)
+        new=new.replace('SysWork_StateSetNext(', 'port_move_state_next(')
+        new=new.replace('Math_AngleNormalizeSigned(', 'port_events_angle(')
+        new=new.replace('block_7:\n','')
+        if name=='Player_PathWaypointExecute':
+            # PORT: The source reads one past its last waypoint on completion.
+            # Retain its completion state without reading outside the native path.
+            new=new.replace('playerVecDist = SquareRoot0(Q12_2D_DISTANCE_SQR(localVec[sharedData_800DD5A4_0_s00], playerChara->position));\n\n                if', 'playerVecDist = sharedData_800DD5A4_0_s00 < vecCount ? SquareRoot0(Q12_2D_DISTANCE_SQR(localVec[sharedData_800DD5A4_0_s00], playerChara->position)) : 0;\n\n                if')
+        if name=='Chara_MovementReset':
+            new=new.replace('*(s32*)&npc->properties.npc.field_EC = Q12(0.0f);','npc->properties.npc.field_EC=0;npc->properties.npc.field_EE=0;')
+        if name=='Chara_PathWaypointExecute':
+            new=new.replace('Math_ShortestAngleGet(chara->rotation.vy, angleIn,','Math_ShortestAngleGet(chara->rotation.vy, (q3_12)angleIn,')
+            new=new.replace('dist = SquareRoot0(Q12_2D_DISTANCE_SQR(arg2[sharedData_800DF1F8_0_s00], chara->position));\n\n                if','dist = sharedData_800DF1F8_0_s00 < arg4 ? SquareRoot0(Q12_2D_DISTANCE_SQR(arg2[sharedData_800DF1F8_0_s00], chara->position)) : 0;\n\n                if')
+        new=narrow(new,record)
+        new=re.sub(r'(sharedData_800E39E[02]_0_s00\s*=(?!=))\s*([^;{}]+);',r'\1 (q3_12)(\2);',new)
+        new=re.sub(r'(sharedData_800DF1FA_0_s00\s*=(?!=))\s*([^;{}]+);',r'\1 (s16)(\2);',new)
+        if name=='func_800DC33C':new=new.replace('var_a0 = var_s1 << 16;', 'var_a0 = (s32)((u32)(u16)var_s1 << 16);')
+        old=function(code,name)
+        if 'port_unimplemented' not in old:raise ValueError('events/map callback already linked; reconcile '+name)
+        if old.startswith('static '):new='static '+new
+        code=code.replace(old,re.sub(r'//[^\n]*','',new.split('{',1)[0]).strip()+';\n')
+        extra+=new
+    foot=function(events,'Cheryl_DistantFootstepSfxPlay')
+    for declaration in ['    s32     temp_s0;\n','    s32     temp_v0_5;\n','    s32     temp_v1;\n','    s32     var_a3;\n']:
+        foot=foot.replace(declaration,'')
+    foot=foot.replace('Rng_GenerateUInt(75, 106), Rng_GenerateInt(-16, 15)', '(u8)Rng_GenerateUInt(75, 106), (s8)Rng_GenerateInt(-16, 15)')
+    extra+=narrow(foot,record)
+    code=code.replace('void sh_map0_s00_reset(void)', 'static void port_events_base_reset(void)')
+    extra+='void sh_map0_s00_reset(void){port_events_base_reset();D_800DFAB8=0;sharedData_800DD5A0_0_s00=0;sharedData_800DD5A4_0_s00=0;sharedData_800E39E0_0_s00=0;sharedData_800E39E2_0_s00=0;sharedData_800DF1F4_0_s00=0;sharedData_800DF1F8_0_s00=0;sharedData_800DF1FA_0_s00=0;memset(g_Cutscene_MapMsgAudioCmds,0,sizeof(g_Cutscene_MapMsgAudioCmds));D_800DFAC2=0;g_Cutscene_MapMsgAudioIdx=0;g_WarpCamera0=false;D_800DFAD0=0;D_800DFAD4=0;g_WarpCamera=false;}\n'
+    code=code.replace('int sh_map0_s00_load_data(void)', 'static int port_events_base_load_data(void)')
+    extra+='int sh_map0_s00_load_data(void){u8 bytes[12];if(port_events_base_load_data() || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x16544,sizeof(bytes),bytes))return 1;for(size_t i=0;i<3;i++)g_Cutscene_MapMsgAudioCmds[i]=move_half(bytes+i*2);D_800DFAC2=bytes[6];g_WarpCamera0=bytes[8]!=0;return 0;}\n'
+    path.write_text(code+extra,encoding='utf-8')
+    print('events: 17 additional original descriptor callbacks, 4 Cheryl companion helpers, 15 reset objects')
+    prepare_events_combat(decomp,out)
+    prepare_events_npcs(decomp,out)
+
+
+def prepare_events_combat(decomp,out):
+    """Reuse the combat lane's production migration; never compile its harness."""
+    from prepare_combat import generate as prepare_combat, names as combat_names
+    from prepare_maps import initializer
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    prepared=out/'combat-production'
+    prepare_combat(decomp,prepared)
+    code=(prepared/'combat_original.c').read_text(encoding='utf-8')
+    code=code.replace('#include "combat.h"','#include "native_player_events.h"\n#include "native_player_rays.h"\n')
+    code=code.replace(initializer(code,'D_800AD4C8'),'')
+    # These sound handlers already have a shared native owner reached by text.
+    for name in ['func_8008B398','func_8008B3E4','func_8008B40C','func_8008B438','func_8008B474']:
+        code=code.replace(function(code,name),'')
+    code=code.replace('D_800297B8','HARRY_BASE_ANIM_INFOS')
+    code=code.replace('sh_combat_harry_map_anims','g_MapOverlayHdr.harryMapAnimInfos')
+    code=code.replace('sh_combat_dark_environment','(g_SysWork.gameplayEnvironment.field_154.effectsInfo.flags.field_0 & SpecialEnvEventFlags_DarkEnvironment)')
+    combat=read('src/bodyprog/bodyprog_combat_8008A058.c')
+    prototypes=''.join(re.sub(r'//[^\n]*','',function(combat,name).split('{',1)[0]).strip()+';\n' for name in combat_names(combat))
+    prototypes+='s32 sh_combat_ps1_div(s32,s32);u32 sh_combat_lzc(u32);s32 sh_combat_npc_index(const s_SubCharacter*);extern u32 sh_combat_lzc_input;extern s16 SQRT[192];\n'
+    prototypes+='s_AnimInfo* func_80044918(s_ModelAnim*);q19_12 func_8007FD2C(void);s32 func_80080540(q19_12,q19_12,q19_12);q19_12 Math_Distance2dGet(const VECTOR3*,const VECTOR3*);\n'
+    prototypes+='void func_8005F6B0(s_SubCharacter*,VECTOR3*,s32,s32);void func_80089314(s32);void func_8009151C(u32,s32,q19_12);s32 func_8009146C(s32);void func_800914C4(s32,s32);s32 Game_HyperBlasterBeamColorGet(void);\n'
+    prototypes+='void Sfx_WithFlagsAndPitchPlay(e_SfxId,const VECTOR3*,q23_8,s32,s32);q19_12 Rng_RandQ12(void);\n'
+    prototypes+='void port_events_hit_trace(const s_SubCharacter*,const s_SubCharacter*,s32);\n'
+    # Match the engine's enum-width SFX ABI while preserving the migrated values.
+    code=code.replace('Sfx_WithFlagsPlay((u16)sfxId,','Sfx_WithFlagsPlay((e_SfxId)sfxId,')
+    code=code.replace('Sfx_WithFlagsPlay(sp1C->field_12','Sfx_WithFlagsPlay(sp1C->field_12')
+    hit=function(code,'func_8008B714')
+    instrumented=hit.replace('{','{\n    s32 previousDamage=target->damage.amount;',1)
+    instrumented=re.sub(r'\breturn ([^;]+);',r'{if(target->damage.amount>previousDamage)port_events_hit_trace(attacker,target,target->damage.amount-previousDamage);return \1;}',instrumented)
+    code=code.replace(hit,instrumented)
+    # Original player/character flag helpers retain their already-public names.
+    damaged=function(read('src/bodyprog/events/npc_main.c'),'Chara_DamagedFlagUpdate')
+    code+=damaged
+    for name in ['Chara_Flag8Clear','Chara_DamagedFlagUpdate']:
+        prototypes=prototypes.replace(name+'(', 'sh_combat_'+name+'(')
+        code=code.replace(name+'(', 'sh_combat_'+name+'(')
+    helpers=(Path(__file__).resolve().parents[1]/'port/sys/combat/combat.c').read_text(encoding='utf-8')
+    for name in ['sh_combat_ps1_div','sh_combat_lzc','sh_combat_npc_index']:
+        helper=function(helpers,name).replace('abort();','port_unimplemented("combat NPC identity");return 0;')
+        code+=helper
+    code+='u32 sh_combat_lzc_input;s16 SQRT[192];\n'
+    anim=function(read('src/bodyprog/world/bodyprog_anim_800445A4.c'),'func_80044918')
+    # PORT: Select the map element without forming a pointer before its owned array.
+    anim=anim.replace('animInfos  = mapAnimInfos;\n        animInfos -= mapAnimStatusStart;', 'return &mapAnimInfos[animStatus-mapAnimStatusStart];')
+    code+=anim
+    for name in ['func_8007FD2C','Math_Distance2dGet']:
+        body=function(read('src/bodyprog/player_control.c'),name)
+        body=body.replace('playerProps.', 'g_SysWork.playerWork.player.properties.player.')
+        code+=body
+    code+=function(read('src/bodyprog/items/item_utils.c'),'Game_HyperBlasterBeamColorGet')
+    ranking=read('src/bodyprog/ranking.c')
+    code+=narrow(function(ranking,'func_8009151C'),read('include/game.h'))
+    # PORT: Translate the pinned MULT/MFHI/MFLO Q12 square operations to wide C
+    # products, retaining the original wrapping 32-bit sum.
+    code+='s32 func_80080540(q19_12 x,q19_12 y,q19_12 z){return (s32)((u32)(((s64)x*x)>>12)+(u32)(((s64)y*y)>>12)+(u32)(((s64)z*z)>>12));}\n'
+    code+='void func_8005F6B0(s_SubCharacter* target,VECTOR3* pos,s32 kind,s32 group){(void)target;(void)pos;(void)kind;(void)group;port_unimplemented("combat blood/impact native effect publication");}\n'
+    (out/'player_combat.c').write_text('#include "native_player_events.h"\n#include "native_player_rays.h"\n'+prototypes+code,encoding='utf-8')
+
+
+def prepare_events_npcs(decomp,out):
+    """Original first-map Stalker AI and real movement/LOS/shape providers."""
+    from prepare_combat import names as names_in, mask
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    records=(out/'native_gameplay_records.h').read_text(encoding='utf-8')
+    records=re.sub(r'\b(?:s16|s32|q3_12|q4_12)\s+(?:vx|vy|vz)\s*;', '',records)
+    providers={}
+    for path in ['src/bodyprog/bodyprog_npc_8005BF38.c','src/bodyprog/collision/los.c','src/bodyprog/collision/chara.c']:
+        text=read(path)
+        for name in names_in(text):providers[name]=function(text,name)
+    existing='\n'.join(path.read_text(encoding='utf-8') for path in out.glob('*.c') if path.name!='npc_ai.c')
+    owned={name:body for name,body in providers.items() if not re.search(r'^\w+\s*\**\s+'+name+r'\([^;{}]*\)[^{;]*\{',existing,re.M) or name in ['func_8005CD38','func_8005D50C']}
+    header='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_events.h"\n#include "native_player_rays.h"\n'
+    header+=''.join(re.sub(r'//[^\n]*','',body.split('{',1)[0]).strip()+';\n' for body in providers.values())
+    header+='void Savegame_EnemyStateUpdate(s_SubCharacter*);q19_12 Rng_RandQ12(void);void func_8005F6B0(s_SubCharacter*,VECTOR3*,s32,s32);\n'
+    header+='void Math_MatrixTransform(VECTOR3*,const SVECTOR3*,GsCOORDINATE2*);void func_800622B8(s32,s_SubCharacter*,s32,s32);\n'
+    header+='s32 sh_combat_ps1_div(s32,s32);\n'
+    header+='static inline q3_12 port_events_atan(s32 y,s32 x){return (q3_12)ratan2(y,x);}\n'
+    header+='#ifndef USHRT_MAX\n#define USHRT_MAX 65535\n#endif\n'
+    header+='#define Chara_HasFlag(chara,flag) ((chara)->flags & (flag))\n'
+    (out/'native_npc_ai.h').write_text(header,encoding='utf-8')
+    code=header
+    for name,body in owned.items():
+        body=body.replace('Math_AngleNormalizeSigned(', 'port_events_angle(')
+        body=body.replace('g_SysWork.field_2388.field_154.', 'g_SysWork.gameplayEnvironment.field_154.')
+        body=body.replace('ARRAY_SIZE(g_SysWork.npcs)', '(s32)ARRAY_SIZE(g_SysWork.npcs)')
+        body=body.replace('q25_6','s32')
+        body=narrow(body,records)
+        if name=='func_8006FD90':
+            # PORT: The source's two stack vectors alias a PS1 RayTrace; its
+            # +16 word is the character identity. Own the complete native trace.
+            body=body.replace('VECTOR3 sp10;','s_RayTrace trace={0};').replace('VECTOR3 sp20;','')
+            body=body.replace('Ray_CharaTraceQuery(&sp10,','Ray_CharaTraceQuery(&trace,').replace('sp20.vx != Q12(0.0f)', 'trace.character != NULL')
+        body=re.sub(r'(angles[02]\[[^]]+\]\s*=(?!=))\s*([^;{}]+);',r'\1 (q3_12)(\2);',body)
+        body=re.sub(r'(chara->collision.shapeOffsets\.(?:box|cylinder)\.v[xz]\s*=(?!=))\s*([^;{}]+);',r'\1 (s16)(\2);',body)
+        body=re.sub(r'(scale\[[012]\]\s*=(?!=))\s*([^;{}]+);',r'\1 (q3_12)(\2);',body)
+        body=body.replace('i == npcIdx', '(u32)i == npcIdx')
+        code+=body
+    code+=function(read('src/bodyprog/events/npc_main.c'),'Savegame_EnemyStateUpdate')
+    code+='void func_800622B8(s32 a,s_SubCharacter* chara,s32 status,s32 group){(void)a;(void)chara;(void)status;(void)group;port_unimplemented("Stalker death/blood native effect publication");}\n'
+    # Replace the two aim-selection boundaries with these real NPC/LOS providers.
+    services=out/'player_services.c'
+    service_code=services.read_text(encoding='utf-8')
+    for name in ['func_8005CD38','func_8005D50C']:
+        service_code=service_code.replace(function(service_code,name),'')
+    services.write_text(service_code,encoding='utf-8')
+    (out/'npc_ai.c').write_text(code,encoding='utf-8')
+    # Every Stalker function belongs to this overlay's namespace and reset image.
+    stalker=read('src/maps/characters/stalker.c')
+    ai_names=names_in(stalker)
+    path=out/'map0_s00.c'
+    code=path.read_text(encoding='utf-8')
+    code=code.replace(function(code,'Stalker_Update'),'void Stalker_Update(s_SubCharacter*,s_AnmHeader*,GsCOORDINATE2*);\n')
+    extra='\n#include "native_npc_ai.h"\n#undef cherylProps\n#undef playerChara\n#define stalkerProps stalker->properties.stalker\n'
+    for name in ['STALKER_ANIM_INFOS','g_Stalker_TargetPositionX','g_Stalker_TargetPositionZ','sharedData_800E3A20_0_s00','sharedData_800E3A24_0_s00','sharedData_800E3A28_0_s00','sharedData_800E3A2C_0_s00']:
+        extra+=f'#define {name} sh_map0_s00_{name}\n'
+    extra+=re.sub(r'^#include[^\n]*','',read('include/maps/characters/stalker.h'),flags=re.M)+'\n'
+    for name in ai_names:
+        if name!='Stalker_Update':extra+=f'#define {name} sh_map0_s00_{name}\n'
+    extra+=''.join(re.sub(r'//[^\n]*','',function(stalker,name).split('{',1)[0]).strip()+';\n' for name in ai_names)
+    extra+='// PORT: Clear the whole native property union, including its host-pointer padding.\n#undef Chara_PropsClear\n#define Chara_PropsClear(chara) memset(&(chara)->properties,0,sizeof((chara)->properties))\n'
+    extra+='#define Chara_CollisionSet(chara,keyframe) do {(chara)->collision.box=(keyframe).box;(chara)->collision.shapeOffsets=(keyframe).shapeOffsets;} while(0)\n'
+    chara_header=read('include/bodyprog/chara/chara.h')
+    for name in ['Chara_AnimSet']:
+        extra+=narrow(function(chara_header,name),records)
+    shared=read('include/maps/shared.h')
+    extra+=function(shared,'ModelAnim_AnimInfoSet')
+    extra+=between(shared,'#define APPROACH(', '#define APPROACH_ALT(')
+    extra+=between(shared,'#define Chara_MoveSpeedUpdate(', '// TODO: Is it possible to merge these macros?')
+    extra+=between(shared,'#define Chara_MoveSpeedUpdate3(', '#define Chara_MoveSpeedUpdate4(')
+    table_names=re.findall(r'extern s_Keyframe (\w+)(\[\d+\])?;',stalker)
+    counts={name:int(array[1:-1]) if array else 1 for name,array in table_names}
+    extra+='s_AnimInfo STALKER_ANIM_INFOS[96];\n'
+    extra+='static u8 sharedData_800DD5A6_0_s00;static s32 sharedData_800E39E4_0_s00,sharedData_800E39E8_0_s00,sharedData_800E39EC_0_s00[8];static u16 sharedData_800E3A0C_0_s00[6];\n'
+    extra+='q19_12 sharedData_800E3A20_0_s00,sharedData_800E3A24_0_s00,sharedData_800E3A28_0_s00,sharedData_800E3A2C_0_s00;static q19_12 g_Stalker_TargetPositionX,g_Stalker_TargetPositionZ;\n'
+    extra+=''.join(f'static s_Keyframe {name}'+(f'[{count}]' if count>1 else '')+';\n' for name,count in counts.items())
+    extra+='static s_Keyframe* port_events_keyframe(s_Keyframe* table,s32 count,s32 index){if(index<0 || index>=count)port_unimplemented("Stalker keyframe table bounds");return &table[index];}\n'
+    for name in ai_names:
+        body=function(stalker,name)
+        # PORT: Some original control states are empty for MAP0_S00.
+        body=body.replace('{','{\n    (void)stalker;',1)
+        body=body.replace('ratan2(', 'port_events_atan(')
+        body=body.replace('Math_AngleNormalizeSigned(', 'port_events_angle(').replace('g_SysWork.field_2388.field_154.', 'g_SysWork.gameplayEnvironment.field_154.')
+        body=body.replace('*(s32*)&stalkerProps.flags','stalkerProps.flags')
+        # PORT: Keep the PS1 DIV zero/overflow results at both variable frame
+        # divisors. Native division must not trap during these original states.
+        body=body.replace('(Q12_MULT_PRECISE(duration, g_DeltaTime) * animMult) / animDiv', 'sh_combat_ps1_div((s32)((u32)Q12_MULT_PRECISE(duration,g_DeltaTime)*(u32)animMult),animDiv)')
+        body=body.replace('(s32)(dist * (u32)Q12_MULT_PRECISE(STALKER_ANIM_INFOS[stalker->model.anim.status].duration.constant, g_DeltaTime)) /\n               FP_TO(distDiv, Q12_SHIFT)', 'sh_combat_ps1_div((s32)(dist * (u32)Q12_MULT_PRECISE(STALKER_ANIM_INFOS[stalker->model.anim.status].duration.constant,g_DeltaTime)),FP_TO(distDiv,Q12_SHIFT))')
+        body=body.replace('    s32 i;\n','') if name=='Stalker_Init' else body
+        body=body.replace('ptr = PSX_SCRATCH;', 's_sharedFunc_800D6970_0_s00 nativeScratch={0};ptr=&nativeScratch; // PORT: Typed native scratch retains the original numeric fields.')
+        body=body.replace('Math_RotMatrixZxyNegGte(&stalker->rotation,', 'SVECTOR nativeRotation={stalker->rotation.vx,stalker->rotation.vy,stalker->rotation.vz,0};\n    Math_RotMatrixZxyNegGte(&nativeRotation,')
+        body=body.replace('s_CollisionResult* sp10[7];','s_CollisionResult sp10={0};')
+        body=body.replace('&g_SysWork.playerWork,', '&g_SysWork.playerWork.player,')
+        body=body.replace('newHealth          = stalker->health','newHealth          = (u32)stalker->health').replace('MIN(newHealth, stalkerProps.health_110)', '(s32)MIN(newHealth,(u32)stalkerProps.health_110)')
+        body=narrow(body,records.replace('q4_12','q3_12')+body)
+        body=re.sub(r'(sharedData_800E3A0C_0_s00\[[^]]+\]\s*=(?!=))\s*([^;{}]+);',r'\1 (u16)(\2);',body)
+        for table,count in counts.items():
+            if count==1:continue
+            body=re.sub(r'&'+table+r'\[([^]]+)\]',lambda m:f'port_events_keyframe({table},{count},{m[1]})',body)
+            body=re.sub(table+r'\[([^]]+)\]',lambda m:f'(*port_events_keyframe({table},{count},{m[1]}))',body)
+        extra+=body
+    # Decode only numeric data leaves from the owned map; no code bytes are relocated.
+    decoder=(Path(__file__).resolve().parents[1]/'port/sys/combat/combat.c').read_text(encoding='utf-8')
+    extra+=function(decoder,'sh_combat_keyframe_decode').replace('half(bytes+i*2)','move_half(bytes+i*2)')
+    reset_names=['STALKER_ANIM_INFOS','g_Stalker_TargetPositionX','g_Stalker_TargetPositionZ','sharedData_800DD5A6_0_s00','sharedData_800E39E4_0_s00','sharedData_800E39E8_0_s00','sharedData_800E39EC_0_s00','sharedData_800E3A0C_0_s00','sharedData_800E3A20_0_s00','sharedData_800E3A24_0_s00','sharedData_800E3A28_0_s00','sharedData_800E3A2C_0_s00',*counts]
+    extra+='static void port_events_stalker_reset(void){'+''.join(f'memset(&{name},0,sizeof({name}));' for name in reset_names)+'}\n'
+    # PORT: Stalker's original first blend has status 0xff, and its idle
+    # playback has status 0. Status is a reset/base identity, not the row index.
+    extra+='static int port_events_stalker_load(void){u8 rows[96*16];s_AnimInfo decoded[96]={0};if(port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x14030,sizeof(rows),rows))return 1;for(size_t i=0;i<96;i++){const u8* row=rows+i*16;s_AnimInfo* info=&decoded[i];switch(move_word(row)){case 0:info->playbackFunc=NULL;break;case 0x80044CA4:info->playbackFunc=Anim_BlendLinear;break;case 0x80044B38:info->playbackFunc=Anim_PlaybackLoop;break;case 0x800449F0:info->playbackFunc=Anim_PlaybackOnce;break;default:return 1;}if((row[4]!=255 && row[4]>=96) || row[5] || (row[6]!=255 && row[6]>=96))return 1;info->status=row[4];info->linkStatus=row[6];info->duration.constant=(s32)move_word(row+8);info->startKeyframeIdx=(s16)move_half(row+12);info->endKeyframeIdx=(s16)move_half(row+14);}memcpy(STALKER_ANIM_INFOS,decoded,sizeof(decoded));\n'
+    for table,count in counts.items():
+        symbols=read('configs/USA/maps/sym.map0_s00.txt')
+        pinned=int(re.search(r'^'+re.escape(table)+r'\s*=\s*(0x[0-9a-fA-F]+)',symbols,re.M)[1],16)
+        if pinned!=int(re.search(r'800[0-9A-Fa-f]+',table)[0],16):raise ValueError('Stalker numeric table symbol drift '+table)
+        address=pinned-0x800C9578
+        extra+=f'{{u8 bytes[{count}*20];if(port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x{address:x},sizeof(bytes),bytes))return 1;for(size_t i=0;i<{count};i++)if(!sh_combat_keyframe_decode(bytes+i*20,20,'+(f'&{table}[i]' if count>1 else f'&{table}')+'))return 1;}\n'
+    extra+='return 0;}\n'
+    event_objects=['D_800DFAB8','sharedData_800DD5A0_0_s00','sharedData_800DD5A4_0_s00','sharedData_800E39E0_0_s00','sharedData_800E39E2_0_s00','sharedData_800DF1F4_0_s00','sharedData_800DF1F8_0_s00','sharedData_800DF1FA_0_s00','g_Cutscene_MapMsgAudioCmds','D_800DFAC2','g_Cutscene_MapMsgAudioIdx','g_WarpCamera0','D_800DFAD0','D_800DFAD4','g_WarpCamera']
+    all_objects=event_objects+reset_names
+    extra+='static bool port_events_is_zero(const void* data,size_t size){const u8* bytes=data;for(size_t i=0;i<size;i++)if(bytes[i])return false;return true;}\n'
+    extra+='u32 port_events_reset_probe(void){if(sh_combat_ps1_div(7,0)!=-1 || sh_combat_ps1_div(-7,0)!=1 || sh_combat_ps1_div((-2147483647-1),-1)!=(-2147483647-1))return 0;'+''.join(f'memset(&{name},0xa5,sizeof({name}));' for name in all_objects)+'sh_map0_s00_reset();'+''.join(f'if(!port_events_is_zero(&{name},sizeof({name})))return 0;' for name in all_objects)+f'return {len(all_objects)};'+'}\n'
+    reset=function(code,'sh_map0_s00_reset')
+    code=code.replace(reset,reset[:-2]+'port_events_stalker_reset();}\n')
+    load=function(code,'sh_map0_s00_load_data')
+    code=code.replace(load,load.replace('return 0;', 'return port_events_stalker_load();'))
+    code='static void port_events_stalker_reset(void);static int port_events_stalker_load(void);\n'+code
+    path.write_text(code+extra,encoding='utf-8')
+    print(f'events: {len(ai_names)} Stalker functions, {sum(counts.values())} collision keyframes; {len(all_objects)} extra reset objects')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--decomp', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--extend-maps',action='store_true')
     args = parser.parse_args()
-    generate(args.decomp, args.out)
+    if args.extend_maps:extend_event_maps(args.decomp,args.out)
+    else:generate(args.decomp, args.out)

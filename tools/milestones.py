@@ -38,7 +38,7 @@ def main():
     import os
     lane = os.environ.get("SH_MILESTONE_LANE")
     if lane:
-        if lane not in ("player","move"):
+        if lane not in ("player","move","events"):
             raise SystemExit("unsupported private milestone lane")
         private = root.parent.parent / ("private/work/"+lane)
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -169,7 +169,9 @@ def first_map_main():
     parser.add_argument("--disc", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    output = root.parent.parent / "private/work/move/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    lane=os.environ.get('SH_MILESTONE_LANE','move')
+    if lane not in ('player','move','events'):raise SystemExit('unsupported private milestone lane')
+    output = root.parent.parent / f"private/work/{lane}/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     command = [str(root/"target/release/silent-hill-boot.exe"),"--headless","--audio","off","--frames","3720","--input",str(root/"docs/core/replays/first_map.txt"),"--expect-state","11"]
     command += ["--scale",str(args.scale)]
@@ -215,5 +217,89 @@ def first_map_main():
     return 0 if result["pass"] else 1
 
 
+def check_opening_trace(log):
+    """Require the real full movie, gradual timed dialogue and restored control."""
+    if "BLOCKED native service:" in log or "CHECK code=0 frames=4600 state=11 step=2" not in log:
+        raise ValueError("unskipped opening did not finish in gameplay")
+    if "MOVIE end id=2055 decoded=338" not in log or not re.search(r"MOVIE end id=2055 .* skipped=false completed=true",log):
+        raise ValueError("opening movie was skipped or incomplete")
+    events=[{key:int(value) for key,value in re.findall(r"(\w+)=(-?\d+)",line)} for line in log.splitlines() if line.startswith("EVENTS_FRAME ")]
+    steps={row["step0"] for row in events if row["sys"]==10 and row["event"]==2}
+    if steps!=set(range(15)):
+        raise ValueError("opening callback did not execute every original step")
+    messages=[{key:int(value) for key,value in re.findall(r"(\w+)=(-?\d+)",line)} for line in log.splitlines() if line.startswith("MESSAGE_FRAME ")]
+    for message in range(15,20):
+        rows=[row for row in messages if row["id"]==message]
+        if not rows or not any(0<row["length"]<400 for row in rows) or not re.search(r'MESSAGE_PAGE tick=\d+ id='+str(message)+r'$',log,re.M):
+            raise ValueError(f"message {message} has no rollout/completion evidence")
+        if any(row["length"]==400 for row in rows):
+            raise ValueError(f"message {message} was fast-forwarded")
+    restored=[row for row in events if row["tick"]>4300 and row["sys"]==0 and row["flags"]==0 and row["npc0"]==28]
+    if not restored or any(row["health"]!=409600 for row in restored):
+        raise ValueError("opening did not restore gameplay/Cheryl without injected damage")
+    return {"opening_movie_frames":338,"opening_steps":len(steps),"messages":5,"restored_control_tick":restored[0]["tick"]}
+
+
+def check_combat_trace(log):
+    """Require native queued hits and observed HP loss in each direction."""
+    if 'BLOCKED native service:' in log or 'CHECK code=0 frames=11000 state=11' not in log:
+        raise ValueError('first-area replay did not finish without a native guard')
+    def rows(prefix):
+        return [{key:int(value) for key,value in re.findall(r'(\w+)=(-?\d+)',line)} for line in log.splitlines() if line.startswith(prefix)]
+    players=rows('COMBAT_PLAYER ')
+    npcs=rows('COMBAT_NPC ')
+    hits=rows('COMBAT_HIT ')
+    player_drops=[current for previous,current in zip(players,players[1:]) if current['tick']==previous['tick']+1 and previous['health']>0 and current['health']<previous['health']]
+    previous_npcs={}
+    enemy_drops=[]
+    for row in npcs:
+        key=(row['slot'],row['id'])
+        previous=previous_npcs.get(key)
+        if previous and row['tick']==previous['tick']+1 and 1<row['id']<=24 and previous['health']>0 and row['health']<previous['health']:
+            enemy_drops.append(row)
+        previous_npcs[key]=row
+    hurting=[hit for hit in hits if 0<=hit['attacker']<6 and hit['target']==6 and hit['damage']>0]
+    fighting=[hit for hit in hits if hit['attacker']==6 and 0<=hit['target']<6 and hit['damage']>0]
+    if not any(0<=drop['tick']-hit['tick']<=3 for drop in player_drops for hit in hurting):
+        raise ValueError('no original enemy hit followed by Harry HP loss')
+    if not any(drop['slot']==hit['target'] and 0<=drop['tick']-hit['tick']<=3 for drop in enemy_drops for hit in fighting):
+        raise ValueError('no original Harry hit followed by enemy HP loss')
+    return {'enemy_hits':len(hurting),'player_hits':len(fighting),'player_hp_drops':len(player_drops),'enemy_hp_drops':len(enemy_drops)}
+
+
+def events_main():
+    import os
+    parser=argparse.ArgumentParser(description="Events lane original progression milestones")
+    group=parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--opening-noskip',action='store_true')
+    group.add_argument('--first-area-combat',action='store_true')
+    parser.add_argument('--disc',type=Path)
+    parser.add_argument('--scale',type=int,choices=range(1,5),default=1)
+    args=parser.parse_args()
+    root=Path(__file__).resolve().parents[1]
+    name='opening_noskip' if args.opening_noskip else 'first_area_combat'
+    frames=4600 if args.opening_noskip else 11000
+    output=root.parent.parent/'private/work/events/milestones'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    output.mkdir(parents=True)
+    command=[str(root/'target/release/silent-hill-boot.exe'),'--headless','--audio','off','--scale',str(args.scale),'--frames',str(frames),'--input',str(root/'docs/core/replays'/f'{name}.txt'),'--expect-state','11']
+    if args.disc:command+=['--disc',str(args.disc.resolve())]
+    env=dict(os.environ,SH_PLAYER_TRACE='1',SH_EVENTS_TRACE='1')
+    env.pop('SH_SOUND_STUB_BGM',None)
+    run=subprocess.run(command,cwd=root,env=env,capture_output=True,text=True,timeout=180)
+    log=run.stdout+run.stderr
+    (output/f'{name}.log').write_text(log,encoding='utf-8')
+    result={'exit':run.returncode,'pass':False,'boundary':[line for line in log.splitlines() if line.startswith(('CHECK ','BLOCKED '))]}
+    try:
+        if run.returncode:raise ValueError('native progression stopped before milestone completion')
+        if args.opening_noskip:result.update(check_opening_trace(log))
+        else:result.update(check_combat_trace(log))
+        result['pass']=True
+    except ValueError as error:result['reason']=str(error)
+    (output/'results.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+    print(('PASS' if result['pass'] else 'FAIL')+' '+name+': '+json.dumps(result),flush=True)
+    print('Evidence: '+str(output),flush=True)
+    return int(not result['pass'])
+
+
 if __name__ == "__main__":
-    sys.exit(first_map_main() if "--first-map" in sys.argv else main())
+    sys.exit(events_main() if any(flag in sys.argv for flag in ('--opening-noskip','--first-area-combat')) else first_map_main() if "--first-map" in sys.argv else main())

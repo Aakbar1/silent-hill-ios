@@ -1,3 +1,37 @@
+# Events lane checkpoint - 8 October 2026
+
+**The required events pass is incomplete.** Native story text and the initial
+unskipped opening movie/dialogue pass. The progression replay reaches the first
+alley door, then stops at `SysState_LoadArea_Update`, state 11 / step 2 /
+VBlank 9552. Combat damage both ways, pickups, inventory and saving are unproved.
+
+The original text parser, glyph packets, choice input and timed page rollout use
+the shared font state. `--opening-noskip` requires all 338 opening movie frames,
+all 15 opening callback steps, gradual rollout/completion of messages 15-19,
+and restored gameplay/Cheryl. No input follows New Game in that replay. The
+private VBlank 3300 capture was visually inspected and shows rolling story text.
+
+MAP0_S00 adds 18 original descriptor callbacks (including Stalker), four Cheryl
+companion handlers, waypoint/camera/tween helpers and source-driven in-game FMV,
+read-message and flag/sound states. Its original opening, footsteps, spotted and
+into-the-alley sequences execute in the deeper replay. 52 additional mutable
+objects have a destructive/restoring reset fixture; descriptor size/offsets
+remain unchanged. `charaAnimReset` now has its implementation's typed prototype.
+
+The 21-function combat production slice and all 21 Stalker functions are linked
+with real native ray/LOS, movement, animation and collision providers. Stalker's
+96 animation entries and 279 collision keyframes are decoded from owned map data.
+Blood/impact/death effects retain explicit guards. NPC damage, equipped weapon
+fragments and Air Screamer/Groaner gameplay are not certified by compilation.
+
+See [events replay notes](replays/EVENTS.md) and the uncommitted root REPORT.md
+for verification, the exact handoff boundary and director requests. The root
+PROJECT_STATE.md belongs to core; publish this checkpoint there through core.
+
+---
+
+The following move checkpoint is historical context for this events handoff.
+
 # Move lane checkpoint - 8 October 2026
 
 **Goal 1 passes.** `python tools/milestones.py --first-map` completes the original

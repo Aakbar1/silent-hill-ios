@@ -184,6 +184,23 @@ fn main() {
     .status()
     .expect("generate native maps");
     assert!(maps.success(), "native map generation failed");
+    // PORT: Events adds owned callback bodies after the maps lane's descriptor generation.
+    let events = std::process::Command::new(
+        if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
+            "python3"
+        } else {
+            "python"
+        },
+    )
+    .arg(repo.join("tools/prepare_gameplay.py"))
+    .arg("--extend-maps")
+    .arg("--decomp")
+    .arg(&decomp)
+    .arg("--out")
+    .arg(&generated)
+    .status()
+    .expect("extend native event callbacks");
+    assert!(events.success(), "native event callback extension failed");
     println!(
         "cargo:rerun-if-changed={}",
         repo.join("tools/prepare_option.py").display()
@@ -764,6 +781,13 @@ fn main() {
         fs::write(&output, format!("/* SPDX-License-Identifier: GPL-3.0-only; derived from silent-hill-decomp. */\n#include \"boot.h\"\n#line 1 \"{}\"\n{native}\n", source.display().to_string().replace('\\', "/"))).expect("generate boot C");
         build.file(output);
     }
+    // PORT: Events extends the original text unit so font/color state has one owner.
+    let text_path = generated.join("text.c");
+    let mut text = fs::read_to_string(&text_path).expect("native text unit");
+    text.push_str(
+        &fs::read_to_string(generated.join("player_map_text.inc")).expect("map text rollout"),
+    );
+    fs::write(text_path, text).expect("extend native text unit");
     for file in [
         "port/boot.h",
         "port/overlay.h",
@@ -795,6 +819,7 @@ fn main() {
     build.file(generated.join("player_services.c"));
     build.file(generated.join("player_sfx.c"));
     build.file(generated.join("npc_loop.c"));
+    build.file(generated.join("npc_ai.c"));
     build.file(generated.join("npc_models.c"));
     build.file(generated.join("player_events.c"));
     build.file(generated.join("player_rays.c"));

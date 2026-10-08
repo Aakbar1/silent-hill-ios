@@ -535,6 +535,9 @@ def prepare_all_maps(decomp, output, records):
             # bit patterns without overflowing a signed constant expression.
             source = re.sub(r'Q12\((0x[89A-Fa-f][0-9A-Fa-f]{7})\)',r'(s32)((u32)\1 * 4096u)',source)
             source = re.sub(r'Q12\((\d+)\)', lambda m: f'(s32)({int(m[1])*4096 & 0xffffffff}u)' if int(m[1])>524287 else m[0],source)
+            # PORT: events links Chara_AnimReset(actor, mode); keep generated stubs on the same prototype.
+            source = re.sub(r'static void Chara_AnimReset\(void\) \{port_unimplemented\("([^"]+)"\);\}',
+                            r'static void Chara_AnimReset(s_SubCharacter* npc, bool cond) {(void)npc;(void)cond;port_unimplemented("\1");}', source)
             (output / f'{lane}.c').write_text(source, encoding='utf-8')
             inventory.append(dict(name=lane.upper(), index=index, provider='maps', objects=writable + zeros, guards=sorted(callbacks), blocker=blocker,original_empty_init=empty_init))
         registry += f'extern const s_MapOverlayHdr* {prefix}descriptor(void);\nextern void {prefix}reset(void);\nextern int {prefix}reset_probe(void);\nextern int {prefix}load_data(void);\n'
