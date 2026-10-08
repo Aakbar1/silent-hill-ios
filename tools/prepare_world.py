@@ -16,6 +16,12 @@ def generate(decomp,out):
     for name,old,new in [('s_MapChunk',28,32),('s_ChunkTextures',328,416),('s_WorldMapWork',1420,1592)]:
         records=records.replace(f'STATIC_ASSERT_SIZEOF({name}, {old});',f'// PORT: {name} contains native pointers.\nSTATIC_ASSERT_SIZEOF({name}, {new});')
     header=NOTICE+'#ifndef SH_WORLD_H\n#define SH_WORLD_H\n#include "camera.h"\n#define bzero(p,n) memset(p,0,n)\n#define NAME_PART_CHARS 4\n#define NAME_CHAR_BITS 6\n#define NAME_CHAR_OFFSET 0x20\nenum {BlendMode_Additive=1};\n'+records
+    header+='''// PORT: Object storage is lane-owned; preceding shared workspace offsets stay intact.
+typedef struct {s_WorldObjectModel* model;s32 positionX:18;s32 positionY:14;s32 positionZ:18;s32 pad:14;s32 rotationX:10;s32 rotationY:12;s32 rotationZ:10;} PortWorldObject;
+extern PortWorldObject port_world_objects[29];
+extern s_LmHeader port_world_item_lm;extern s32 port_world_item_queue;
+'''
+    header+='void port_world_common_items_load(void);void WorldObjects_Clear(s_WorldGfxWork*);\n'
     header+='void port_world_ipd_check(s_IpdHeader*);void port_world_lm_check(s_LmHeader*);\ns16* port_world_grid(s_WorldMapWork*,s32,s32);\n'
     header+='void port_camera_loading_probe(void);void func_8008E4EC(s_LmHeader*);void Fs_EncodeFileName(s32*,s32*,const char*);s32 Fs_FindNextFile(const char*,s32,s32);\n'
     sources=[]
@@ -32,19 +38,29 @@ def generate(decomp,out):
             'WorldMap_NextChunkLoadCheck','WorldMap_CloseChunkEdgeCheck','WorldMap_ChunkPositionMatchCheck',
             'WorldMap_TextureLoadedCheck','WorldMap_HeaderCollisionDataGet','WorldMap_ChunkPropertiesSet',
             'WorldMap_ChunkMaterialsLoad','WorldMap_ChunkHalfPageMaterialCountGet','LmFilter_IsFullPage','LmFilter_IsHalfPage','func_80044044',
-            'WorldMap_ChunksDraw','WorldMap_Draw','WorldMap_SubcellVisibleCheck'],
+            'WorldMap_ChunksDraw','WorldMap_Draw','WorldMap_SubcellVisibleCheck','WorldMap_ObjectModelLocationGet'],
         'src/bodyprog/gfx/materials.c':['Lm_MaterialCountGet','Lm_MaterialsLoadWithFilter','Lm_IsTextureLoaded',
-            'Lm_MaterialRefCountDec','Lm_MaterialFsImageApply1','StringCopy'],
+            'Lm_MaterialRefCountDec','Lm_MaterialFsImageApply1','Lm_ModelFind','StringCopy'],
         'src/bodyprog/gfx/texture_utils.c':['Texture_Init','Texture_Get','Texture_RefCountReset','func_8005B378',
             'Texture_RefClear','Material_TimFileNameGet','Textures_ActiveTex_CountReset','Textures_ActiveTex_PutTextures','Textures_ActiveTex_FindTexture'],
         'src/bodyprog/world/world_draw.c':['WorldGfx_MapInit','WorldGfx_MapReset','WorldGfx_CloseRangeChunksInit',
-            'WorldGfx_ChunkInitCheck','WorldGfx_IpdSamplePointStore','WorldGfx_IpdSamplePointReset','WorldGfx_Draw'],
+            'WorldGfx_ChunkInitCheck','WorldGfx_IpdSamplePointStore','WorldGfx_IpdSamplePointReset','WorldGfx_Draw',
+            'GameFs_CommonItemsTextureLoad','WorldObject_ModelNameSet','WorldObjects_Add',
+            'WorldObjects_DrawAllObjects','WorldObjects_Draw','WorldObjects_DrawStep'],
         'src/main/fileinfo.c':['Fs_EncodeFileName','Fs_FindNextFile'],
         'src/bodyprog/world/collision_trigger.c':['World_CollisionTriggersSet'],
     }
     for path,names in selections.items():
         for name in names:
             code=function(read(path),name).removeprefix('static ')
+            code=code.replace('s_WorldObject*','PortWorldObject*').replace('q21_10','s32')
+            code=code.replace('model->metadata.modelLocation = modelLoc;', 'model->metadata.modelLocation = (s8)modelLoc;')
+            code=code.replace('g_WorldGfxWork.objects','port_world_objects').replace('worldGfxWork->objects','port_world_objects')
+            code=code.replace('g_WorldGfxWork.itemLmHdr','port_world_item_lm').replace('g_WorldGfxWork.itemLmQueueIdx','port_world_item_queue')
+            if name=='GameFs_CommonItemsTextureLoad':code=code.replace('Lm_HeaderPtrsInit(', 'port_world_lm_check(')
+            if name=='WorldObjects_Draw':
+                for f in ['vx','vy','vz']:code=re.sub(r'(rot\.'+f+r'\s*=) ([^;]+);',r'\1 (s16)(\2);',code)
+            if name=='WorldMap_ObjectModelLocationGet':code=code.replace('return (curChunk - g_WorldMapWork.activeChunks)', 'return (s32)(curChunk - g_WorldMapWork.activeChunks)')
             code=code.replace('WorldMap_Init(s_LmHeader* lmHdr, s_IpdHeader* ipdBuf, s32 ipdBufSize)', 'WorldMap_Init(s_LmHeader* lmHdr, void* ipdBuf, s32 ipdBufSize)')
             if name=='WorldMap_Init':code=code.replace('= ipdBuf;', '= native_chunks;\n    (void)ipdBuf;')
             if name=='WorldMap_TexturesInit':code=code.replace('x += 16','x = (s16)(x + 16)').replace('NULL, 0, y,','NULL, 0, (u8)y,')
@@ -88,7 +104,9 @@ def generate(decomp,out):
             code=code.replace('largestOutsideCount < curChunk->outsideCount','largestOutsideCount < (u32)curChunk->outsideCount')
             code=code.replace('tex->queueIdx = NO_VALUE', 'tex->queueIdx = (u32)NO_VALUE')
             if name=='WorldGfx_MapInit':code=code.replace('s_MapInfo* mapInfo;', 'const s_MapInfo* mapInfo;').replace('mapInfo->tag,', '(char*)mapInfo->tag,')
-            if name=='WorldGfx_Draw':code=code.replace('WorldObjects_DrawAllObjects(', 'port_render_world_objects(')
+            if name=='WorldGfx_Draw':
+                code=code.replace('{\n','{\n    port_render_world_models=0; // PORT: Read-only milestone draw accounting.\n',1)
+                code=code.replace('WorldObjects_DrawAllObjects(', 'port_render_world_objects(')
             if name=='WorldMap_Draw':
                 # PORT: Subcell orders are a named native array, not PS1 header adjacency.
                 code=code.replace('&ipdHdr->textureCount + (subcellZ * 10) + (subcellX * 2)',
@@ -106,6 +124,9 @@ def generate(decomp,out):
             if name=='ConvertHexToS8':
                 code=re.sub(r'\b(high|low|letterIdx|hexVal) (\|=|<<=|=) ([^;]+);',lambda m:m[1]+' = (char)('+ (m[3] if m[2]=='=' else m[1]+' '+m[2][:-1]+' ('+m[3]+')')+');',code)
                 code=code.replace('    *out = (hexVal << 24) >> 24;', '    *out = (s8)hexVal; // PORT: Explicit signed byte extension avoids negative signed shifts.')
+            # PORT: Namespace registration bridges so map-owned local helpers can compile independently.
+            for old,new in [('WorldObjects_Add','port_world_object_add'),('WorldObject_ModelNameSet','port_world_object_name_set')]:
+                code=re.sub(r'\b'+old+r'\b',new,code)
             prototype=re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n'
             header+=prototype
             sources.append(code)

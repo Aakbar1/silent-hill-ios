@@ -26,3 +26,33 @@ void func_8008E4EC(s_LmHeader* lm) {
     if(port_water_texture_name(name))port_unimplemented("water texture filename read");
     Lm_MaterialFsImageApply1(lm,name,&image,1);
 }
+
+// PORT: Native sidecars for the original bounded object list and common item LM.
+PortWorldObject port_world_objects[29];
+s_LmHeader port_world_item_lm;
+s32 port_world_item_queue=-1;
+void port_world_common_items_load(void) {
+    port_world_item_queue=Fs_QueueStartRead(FILE_BG_BG_ITEM_PLM,&port_world_item_lm);
+}
+int port_world_registration_probe(void) {
+    // PORT: Exercise the original nonempty registration path without assets.
+    // This runs inside the single existing native-global fixture and restores it.
+    PortWorldObject saved[29];memcpy(saved,port_world_objects,sizeof(saved));
+    s32 savedCount=g_WorldGfxWork.objectCount;
+    s_WorldObjectModel model={0};
+    port_world_object_name_set(&model,"PROBEOBJ");
+    model.metadata.modelLocation=WorldModelLocation_Global;
+    VECTOR3 pos={-25395,0,657408};SVECTOR3 rot={-20,1000,12};
+    WorldObjects_Clear(&g_WorldGfxWork);
+    port_world_object_add(&model,&pos,&rot);
+    port_world_object_add(&model,&pos,&rot);
+    int ok=g_WorldGfxWork.objectCount==1 &&
+        port_world_objects[0].model==&model && port_world_objects[0].positionX==-1588 &&
+        port_world_objects[0].positionZ==41088 && port_world_objects[0].rotationX==-5 &&
+        port_world_objects[0].rotationY==1000 && port_world_objects[0].rotationZ==3;
+    for(s32 i=1;i<=29;i++) {pos.vx=i*4096;port_world_object_add(&model,&pos,&rot);}
+    ok=ok && g_WorldGfxWork.objectCount==29;
+    WorldObjects_Clear(&g_WorldGfxWork);ok=ok && g_WorldGfxWork.objectCount==0;
+    memcpy(port_world_objects,saved,sizeof(saved));g_WorldGfxWork.objectCount=savedCount;
+    return ok;
+}

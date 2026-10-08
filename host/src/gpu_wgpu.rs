@@ -761,6 +761,50 @@ impl FrameTexture {
 mod tests {
     use super::*;
     #[test]
+    fn billboard_fog_preserves_transparent_background_mask() {
+        unsafe extern "C" {
+            fn port_render_priority_probe(words: *mut u32);
+        }
+        let mut priorities = [0; 9];
+        // SAFETY: Three local three-word packets; no native globals are touched.
+        unsafe { port_render_priority_probe(priorities.as_mut_ptr()) };
+        assert_eq!(
+            priorities,
+            [
+                0x02000000, 0xe6000001, 0, 0x02000000, 0xe6000003, 0, 0x02000000, 0xe6000000, 0
+            ]
+        );
+        let mut gpu = WgpuGpu::new(1).unwrap();
+        let mut soft = Raster::default();
+        gpu.env([0, 32, 4, 1], [0, 32]);
+        soft.env([0, 32, 4, 1], [0, 32]);
+        let palette = [0, 4 | (4 << 5) | (4 << 10)];
+        gpu.load([192, 2, 2, 1], &palette);
+        soft.load(192, 2, 2, 1, &palette);
+        gpu.load([768, 0, 1, 1], &[0x1010]);
+        soft.load(768, 0, 1, 1, &[0x1010]);
+        let packets: &[&[u32]] = &[
+            &priorities[..3],
+            &[0, 0x6074646c, 0, 0x00010004],
+            &priorities[6..],
+            &[0, 0xe100002c],
+            &[0, 0x64808080, 0, 140 << 16, 0x00010004],
+            &priorities[3..6],
+            &[0, 0x62080808, 0, 0x00010004],
+            &priorities[6..],
+        ];
+        for packet in packets {
+            gpu.packet(packet);
+            soft.packet(packet);
+        }
+        let background = 0x8000 | 13 | (12 << 5) | (14 << 10);
+        let fogged = 5 | (5 << 5) | (5 << 10) | 0x8000;
+        let expected = [background, fogged, background, fogged];
+        assert_eq!(gpu.read([0, 32, 4, 1]), expected);
+        assert_eq!(soft.read([0, 32, 4, 1]), expected);
+        assert!(gpu.error().is_none());
+    }
+    #[test]
     fn interlaced_aspect_letterbox_and_wide_presentation() {
         assert_eq!(viewport_for(1280, 896, false), [0, 0, 1280, 896]);
         assert_eq!(viewport_for(1280, 896, true), [0, 88, 1280, 720]);
