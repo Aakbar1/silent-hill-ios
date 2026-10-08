@@ -1,0 +1,23 @@
+# Diagnostic initial warp MAP2_S04:4, then original pad-driven overlays only.
+# Candidate until the transit evaluator confirms both loads and restored play.
+0 0000
+1400 0008
+1401 0000
+1510 4000
+1511 0000
+1650 4000
+1651 0000
+2201 0008
+2202 0000
+2400 0040
+2450 0000
+2480 0010
+2525 0000
+2530 4000
+2534 0000
+2900 0020
+2933 0000
+2960 0010
+2980 0000
+2990 4000
+2994 0000

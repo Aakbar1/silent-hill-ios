@@ -1,3 +1,38 @@
+# Transit checkpoint - 9 October 2026
+
+The no-skip opening now passes the first alley gate through the original room
+loader. Both opening/Cheryl movies complete unskipped (338 and 119 frames), all
+15 opening steps and messages 15-19 retain gradual rollout, and player control
+is enabled again at VBlank 9615 in room 22. The 11000-frame milestone checks
+1386 subsequent control samples. No pose, flag, item or HP is injected.
+
+`opening_noskip.txt` continues by pad input through the winding alley and selects
+the second door at 12901. The next exact guard is MAP0_S00/wheel positional SFX,
+state 10/step 11/VBlank 12961. This is an explicit incomplete boundary, not a
+claim that the dream combat or cafe transition works.
+
+The original load-area state machine, source-point copy, startup/fade/door SFX
+and generic effect atlas are linked. Map event and callback indices use each
+overlay's actual array sizes. Shared loading, player-control and BGM callbacks
+are bound across all other overlays; remaining event/enemy leaves stay guarded.
+Player_ItemRemove and its original sorting/merge behavior are linked; six
+isolated inventory cases pass, including the original empty-inventory early return.
+
+The police route is blocked before gameplay by the unowned host animation-file
+whitelist. Its timings and return are unverified. The exact generic identity
+predicate is implemented/tested for the director to wire; no alternate file or
+success result is substituted. The shared inventory UI must use the appended
+native `port_player_inv_item_selected` field when that UI is integrated.
+
+Evidence, commands and director requests: [TRANSIT.md](replays/TRANSIT.md),
+[MAPS.md](MAPS.md), and the uncommitted root REPORT.md. Root PROJECT_STATE.md
+remains core-owned. Native assets/captures stay in private/work/transit.
+
+---
+
+The following events/move/player checkpoints are historical. Their load-area
+boundary is superseded by the transit result above.
+
 # Events lane checkpoint - 8 October 2026
 
 **The required events pass is incomplete.** Native story text and the initial

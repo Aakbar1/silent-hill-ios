@@ -1,19 +1,32 @@
-# Objects lane checkpoint - 8 October 2026
+# Transit map checkpoint - 9 October 2026
 
-**43/43 overlays activate; 41/43 finish the object-init stage; 15/43 pass the
-world-frame warp smoke, up from 2/43. No process crashes.** The independent
-flashlight fixture also passes 15/43. A submitted mesh or a flare pixel alone
-is not a rendering pass. These are static world diagnostics, not gameplay.
-The full brief is not passed: the reversible walking milestone remains blocked,
-and MAP1_S04 cannot supply a faithful playable world at its original spawn.
+**43/43 overlays activate; 42/43 finish object initialization; 15/43 pass
+the world-frame warp smoke. Zero crashes.** Item removal unblocks MAP1_S00's
+initializer, but its world shading still fails the meaningful-pixel gate.
+The pass count has not risen. Remaining static failures concern shading,
+the original NO_STAGE sound-test map and MAP1_S05's unloaded SFX bank.
+
+The original generic load-area dispatcher, player-position transfer, door SFX,
+startup/fade services and effect-atlas selection are linked. Each overlay now
+supplies its own event and callback bounds. Across the other 42 overlays, 833
+shared loading/player-control/BGM descriptor bindings replace fatal wrappers;
+event-specific and enemy callbacks remain guarded. New numeric tables participate
+in destructive/restoring reset probes. Compilation is not an all-map gameplay pass.
+
+The no-skip story route crosses the first gate at 9552, restores enabled control
+in room 22 at 9615, and crosses the second door at 12901. Its next measured
+boundary is the wheel positional-SFX guard at state 10/step 11/VBlank 12961.
+The police walking replay fails before gameplay because the unowned host
+accepts only HB_M0S00.ANM. See [transit replay notes](replays/TRANSIT.md).
 
 ## Object-init closure and groups
 
 All 37 previous blanket init guards were replaced by the original initializer
-bodies. The two encountered init leaves still guarded are Player_ItemRemove
-(events ownership) and an unloaded VAB header for MAP1_S05's Sfx_Unk1478.
-MAP0_S00 callback bodies and all events/player/NPC/combat/items lane files stay
-unchanged. Other unlinked descriptor callbacks retain typed fatal guards.
+bodies. The remaining encountered initializer leaf is an unloaded VAB header for
+MAP1_S05's Sfx_Unk1478. Player_ItemRemove now uses its original implementation
+and inventory sort/merge helper, with a six-case isolated fixture.
+Transit adds the original MAP0_S00 post-gate environment ramp and numeric
+waypoints. Combat/fx and the other lanes' source files stay unchanged. Other unlinked descriptor callbacks retain typed fatal guards.
 
 | Original shared helper | Initializers using it (other than MAP0_S00) | Native service |
 |---|---:|---|
@@ -99,86 +112,81 @@ are under private/work/objects, with map-named default and -lit logs.
 
 | Map | Reset objects | Warp result / precise blocker |
 |---|---:|---|
-| MAP0_S00 | 33 | PASS: 41 colors / 13 meshes / 49573 varied pixels |
-| MAP0_S01 | 37 | PASS: 60 colors / 55 meshes / 61565 varied pixels |
-| MAP0_S02 | 27 | PASS: 67 colors / 48 meshes / 54968 varied pixels |
-| MAP1_S00 | 29 | BLOCKED: Player_ItemRemove (events/items integration) |
-| MAP1_S01 | 29 | BLOCKED: world shading, 0 varied pixels / 22 meshes (light fixture: 0) |
-| MAP1_S02 | 36 | BLOCKED: world shading, 0 varied pixels / 36 meshes (light fixture: 1) |
-| MAP1_S03 | 29 | BLOCKED: world shading, 0 varied pixels / 14 meshes (light fixture: 1) |
-| MAP1_S04 | 19 | BLOCKED: original NO_STAGE sound-test overlay; no mesh at (0,0) |
-| MAP1_S05 | 22 | BLOCKED: Sfx_Unk1478 requires a loaded VAB header |
-| MAP1_S06 | 24 | PASS: 57 colors / 19 meshes / 60416 varied pixels |
-| MAP2_S00 | 44 | PASS: 108 colors / 75 meshes / 59350 varied pixels |
-| MAP2_S01 | 24 | PASS: 54 colors / 21 meshes / 57559 varied pixels |
-| MAP2_S02 | 19 | PASS: 44 colors / 38 meshes / 53267 varied pixels |
-| MAP2_S03 | 20 | PASS: 33 colors / 8 meshes / 43466 varied pixels |
-| MAP2_S04 | 25 | PASS: 108 colors / 5 meshes / 41710 varied pixels |
-| MAP3_S00 | 22 | PASS: 85 colors / 3 meshes / 55833 varied pixels |
-| MAP3_S01 | 28 | PASS: 54 colors / 15 meshes / 50224 varied pixels |
-| MAP3_S02 | 17 | PASS: 90 colors / 12 meshes / 52362 varied pixels |
-| MAP3_S03 | 30 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
-| MAP3_S04 | 20 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
-| MAP3_S05 | 32 | BLOCKED: world shading, 0 varied pixels / 2 meshes (light fixture: 0) |
-| MAP3_S06 | 21 | PASS: 79 colors / 4 meshes / 60147 varied pixels |
-| MAP4_S00 | 18 | PASS: 47 colors / 4 meshes / 41193 varied pixels |
-| MAP4_S01 | 25 | BLOCKED: world shading, 0 varied pixels / 25 meshes (light fixture: 0) |
-| MAP4_S02 | 20 | BLOCKED: world shading, 0 varied pixels / 38 meshes (light fixture: 0) |
-| MAP4_S03 | 34 | BLOCKED: world shading, 0 varied pixels / 46 meshes (light fixture: 1) |
-| MAP4_S04 | 18 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 0) |
-| MAP4_S05 | 20 | BLOCKED: world shading, 0 varied pixels / 55 meshes (light fixture: 1) |
-| MAP4_S06 | 18 | PASS: 47 colors / 4 meshes / 41193 varied pixels |
-| MAP5_S00 | 20 | BLOCKED: water reflection service in flashlight fixture |
-| MAP5_S01 | 20 | BLOCKED: world shading, 0 varied pixels / 50 meshes (light fixture: 0) |
-| MAP5_S02 | 28 | BLOCKED: world shading, 0 varied pixels / 60 meshes (light fixture: 1) |
-| MAP5_S03 | 23 | BLOCKED: world shading, 0 varied pixels / 10 meshes (light fixture: 0) |
-| MAP6_S00 | 21 | BLOCKED: world shading, 0 varied pixels / 11 meshes (light fixture: 1) |
-| MAP6_S01 | 20 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
-| MAP6_S02 | 22 | BLOCKED: world shading, 0 varied pixels / 19 meshes (light fixture: 0) |
-| MAP6_S03 | 24 | BLOCKED: water reflection service in flashlight fixture |
-| MAP6_S04 | 37 | BLOCKED: world shading, 0 varied pixels / 71 meshes (light fixture: 0) |
-| MAP6_S05 | 16 | BLOCKED: world shading, 0 varied pixels / 40 meshes (light fixture: 0) |
-| MAP7_S00 | 20 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
-| MAP7_S01 | 58 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
-| MAP7_S02 | 60 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
-| MAP7_S03 | 30 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP0_S00 | 93 | PASS: 41 colors / 13 meshes / 49573 varied pixels |
+| MAP0_S01 | 43 | PASS: 60 colors / 55 meshes / 61565 varied pixels |
+| MAP0_S02 | 42 | PASS: 67 colors / 48 meshes / 54968 varied pixels |
+| MAP1_S00 | 37 | BLOCKED: world shading, 0 varied pixels / 30 meshes; item-removal init now passes |
+| MAP1_S01 | 37 | BLOCKED: world shading, 0 varied pixels / 22 meshes (light fixture: 0) |
+| MAP1_S02 | 44 | BLOCKED: world shading, 0 varied pixels / 36 meshes (light fixture: 1) |
+| MAP1_S03 | 37 | BLOCKED: world shading, 0 varied pixels / 14 meshes (light fixture: 1) |
+| MAP1_S04 | 26 | BLOCKED: original NO_STAGE sound-test overlay; no mesh at (0,0) |
+| MAP1_S05 | 29 | BLOCKED: Sfx_Unk1478 requires a loaded VAB header |
+| MAP1_S06 | 31 | PASS: 57 colors / 19 meshes / 60416 varied pixels |
+| MAP2_S00 | 51 | PASS: 108 colors / 75 meshes / 59350 varied pixels |
+| MAP2_S01 | 38 | PASS: 54 colors / 21 meshes / 57559 varied pixels |
+| MAP2_S02 | 26 | PASS: 44 colors / 38 meshes / 53267 varied pixels |
+| MAP2_S03 | 26 | PASS: 33 colors / 8 meshes / 43466 varied pixels |
+| MAP2_S04 | 39 | PASS: 108 colors / 5 meshes / 41710 varied pixels |
+| MAP3_S00 | 29 | PASS: 85 colors / 3 meshes / 55833 varied pixels |
+| MAP3_S01 | 35 | PASS: 54 colors / 15 meshes / 50224 varied pixels |
+| MAP3_S02 | 25 | PASS: 90 colors / 12 meshes / 52362 varied pixels |
+| MAP3_S03 | 38 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP3_S04 | 28 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
+| MAP3_S05 | 40 | BLOCKED: world shading, 0 varied pixels / 2 meshes (light fixture: 0) |
+| MAP3_S06 | 28 | PASS: 79 colors / 4 meshes / 60147 varied pixels |
+| MAP4_S00 | 25 | PASS: 47 colors / 4 meshes / 41193 varied pixels |
+| MAP4_S01 | 40 | BLOCKED: world shading, 0 varied pixels / 25 meshes (light fixture: 0) |
+| MAP4_S02 | 31 | BLOCKED: world shading, 0 varied pixels / 38 meshes (light fixture: 0) |
+| MAP4_S03 | 45 | BLOCKED: world shading, 0 varied pixels / 46 meshes (light fixture: 1) |
+| MAP4_S04 | 26 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 0) |
+| MAP4_S05 | 31 | BLOCKED: world shading, 0 varied pixels / 55 meshes (light fixture: 1) |
+| MAP4_S06 | 25 | PASS: 47 colors / 4 meshes / 41193 varied pixels |
+| MAP5_S00 | 26 | BLOCKED: water reflection service in flashlight fixture |
+| MAP5_S01 | 26 | BLOCKED: world shading, 0 varied pixels / 50 meshes (light fixture: 0) |
+| MAP5_S02 | 43 | BLOCKED: world shading, 0 varied pixels / 60 meshes (light fixture: 1) |
+| MAP5_S03 | 38 | BLOCKED: world shading, 0 varied pixels / 10 meshes (light fixture: 0) |
+| MAP6_S00 | 31 | BLOCKED: world shading, 0 varied pixels / 11 meshes (light fixture: 1) |
+| MAP6_S01 | 35 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP6_S02 | 32 | BLOCKED: world shading, 0 varied pixels / 19 meshes (light fixture: 0) |
+| MAP6_S03 | 30 | BLOCKED: water reflection service in flashlight fixture |
+| MAP6_S04 | 48 | BLOCKED: world shading, 0 varied pixels / 71 meshes (light fixture: 0) |
+| MAP6_S05 | 27 | BLOCKED: world shading, 0 varied pixels / 40 meshes (light fixture: 0) |
+| MAP7_S00 | 26 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
+| MAP7_S01 | 64 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
+| MAP7_S02 | 66 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP7_S03 | 36 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
 
 ## Reversible transition handoff
 
-The selected pair is MAP2_S04 -> MAP2_S02 -> MAP2_S04 (police station/street).
-MAP2_S04 event 15 uses trigger point 4 and destination point 9 in its source
-table; MAP2_S02 event 16 uses trigger point 21 and source destination point 23.
-Both are button-triggered overlay loads with no required item or story flag.
-SysState_LoadArea_Update copies the destination point from the current overlay
-before loading the new one; these point indices are not destination-array indices.
+MAP2_S04 -> MAP2_S02 -> MAP2_S04 remains the source-checked pair. Event 15 in
+MAP2_S04 uses trigger point 4 and destination point 9 from its **source** overlay.
+Event 16 in MAP2_S02 uses trigger point 21 and source destination point 23.
+Neither requires an item or story flag. The destination point is copied before
+queued overlay replacement, as in the original dispatcher.
 
-`python tools/prepare_maps.py --transition-candidate` verifies those source
-records and writes police-return.candidate.txt/.json in the private lane tree.
-This is a BLOCKED, unrun pad candidate. Its timings are uncalibrated, and it is
-not a milestone pass. The events-owned load-area dispatcher is still guarded;
-non-MAP0_S00 BGM, player/update callbacks and the map effect-texture startup
-boundary also need integration before a real walk-through and return can run.
-No positions/completion flags are injected after the explicit diagnostic warp.
+`docs/core/replays/police_return.txt` is a failed candidate, not a passed milestone.
+The opt-in `maps::warp_tests::transit_walking_replay` starts original boot and
+the main loop with one explicit initial MAP2_S04:4 warp. It injects no later
+position, flag, inventory, damage or successful callback result. At frame 1651
+the host returns `map animation fragment identity is not linked`, before walking.
+The new exact `maps::is_player_map_fragment` predicate is ready for the director's
+one-line change in unowned host/src/native.rs; the existing bounded arena decoder
+and ownership remain authoritative. Timings and both transitions are unverified.
 
 ## Verification and requests
 
-Release MSVC /W4 /WX, fmt, workspace/all-target Clippy -D warnings, workspace
-tests (307 unit/integration + 3 doctests passed, zero failed, 6 opt-in ignored),
-all-43 reset, map arm64 frontend (47 units), core
-frontend (18 units), extended renderer frontend (39 units), MSVC x86/x64 layouts
-and arm64 layout positive/negative controls are the required recorded gates.
-The map frontend now also compiles the real SH_NATIVE_AUDIO bank-check branch.
-The release build, fmt check and Clippy pass; MSVC x86/x64 layout checks and
-arm64 positive/negative controls pass. Both 43-map smokes return failure for
-their 28 explicitly blocked maps, with 15 passed and zero crashes each.
-Commands and logs are recorded in REPORT.md and private/work/objects.
-Apple SDK/device runtime, golden image parity and a gameplay transition are untested.
+The 43-map normal smoke is 15 passed, 28 blocked, zero crashes. MAP1_S00's new
+shading boundary is recorded in private/work/transit/MAP1_S00.log. The all-43
+reset probe includes the new callback data and validates each event terminator.
+Release MSVC /W4 /WX and the 87-unit arm64 production frontend pass; the latter
+uses the actual prepared production units. MSVC x86/x64 layouts and arm64 layout
+positive/negative controls pass. See REPORT.md for the final Cargo/replay gates.
+No Apple SDK/device runtime or render parity is certified.
 
-Director/events: bind Player_ItemRemove and original map transition startup/
-callbacks; replace the fixed MAP0_S00 event bound before other maps run gameplay.
-Director/audio: load/verify the Sfx_Unk1478 VAB bank before its original init call.
-Director/render: diagnose the mode-1 world shading and link water reflection;
-keep the meaningful-pixel check instead of counting a flare as a map frame.
-Director: record MAP1_S04 as the original NO_STAGE sound-test overlay, publish
-this checkpoint into the core-owned root state, and run the actual Apple SDK CI.
-No main/merge/push, system install, disc copy or extracted game data in Git.
+Director: wire the exact animation identity predicate in host/src/native.rs,
+then re-run the police candidate to expose its next service boundary. Complete
+remaining map event/enemy providers in their owning lanes. Audio: bind the wheel
+falloff/pitch service and load MAP1_S05's VAB bank. Render: resolve the existing
+mode-1 shading and water reflection; retain the 64-pixel/world-mesh checks.
+Publish the checkpoint to core-owned PROJECT_STATE.md and run Apple SDK CI.
+No main, merge, push, system install, disc copy or extracted game data in Git.

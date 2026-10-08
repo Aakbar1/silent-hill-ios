@@ -140,13 +140,12 @@ def generate(decomp, out):
         'src/bodyprog/player_control.c':['Game_PlayerInfoInit','GameFs_PlayerMapAnimLoad'],
     }
     source.append('static PACKET g_Map_GfxPackets[2][0xA10];\nstatic GsCOORDINATE2* g_ViewCoord;\n')
-    source.append('static void GameBoot_LoadingScreen(void);\nstatic s32 g_MapAreaLoadCounter;\n')
+    source.append('static void GameBoot_LoadingScreen(void);\ns32 g_MapAreaLoadCounter;\n')
     from prepare_maps import initializer
     source.append(initializer(read('src/bodyprog/game_boot/fs_chara_anim.c'),'D_800A998C'))
     # PORT: Retain the entire original startup dispatcher. Unavailable leaves
     # fail with their own names rather than replacing or skipping its states.
-    guards = ['Demo_DemoFileSavegameUpdate','Demo_PlayFileBufferSetup','Demo_PlayDataRead','Demo_Start',
-              'AreaLoad_TransitionSound']
+    guards = ['Demo_DemoFileSavegameUpdate','Demo_PlayFileBufferSetup','Demo_PlayDataRead','Demo_Start']
     headers='\n'.join(read(path) for path in ['include/bodyprog/bodyprog.h','include/bodyprog/demo.h','include/bodyprog/game_boot/background_sound_init.h','include/bodyprog/game_boot/fs_chara_anim.h','include/bodyprog/game_boot/game_boot.h'])
     for name in guards:
         signature=re.search(r'^(?:void|bool|s32|u32|u16|s16|s8|u8)\s+'+name+r'\([^;{}]*\);',headers,re.M)
@@ -164,8 +163,11 @@ def generate(decomp, out):
         for name in names:
             code = function(original, name)
             if name=='GameBoot_InGameStartup':
+                code=code.replace('{','{\n    if(g_GameWork.gameStateSteps[0]==4)port_maps_boot_spawn();',1)
                 code=code.replace('WorldGfx_MapInit(&g_MapOverlayHdr,','WorldGfx_MapInit((s_MapOverlayHdr*)&g_MapOverlayHdr,')
                 code=code.replace('WorldGfx_MapInitCharaLoad(&g_MapOverlayHdr)', 'WorldGfx_MapInitCharaLoad((s_MapOverlayHdr*)&g_MapOverlayHdr)')
+            if name=='GameBoot_MapLoad':
+                code=code.replace('{','{\n    mapIdx=port_maps_boot_map(mapIdx);',1)
             if name=='Math_MatrixTransform':
                 code=code.replace('static void Math_MatrixTransform','void Math_MatrixTransform')
                 # PORT: SubCharacter owns a six-byte SVECTOR3. Copy named values
@@ -276,6 +278,63 @@ def generate(decomp, out):
     prepare_player_loop(decomp, out)
     prepare_player_collision(decomp, out)
     prepare_player_movement(decomp, out)
+    prepare_transit_services(decomp, out)
+
+
+def prepare_transit_services(decomp, out):
+    """Original effect atlas streaming and inventory removal on native storage."""
+    from prepare_maps import initializer, enumeration
+    from prepare_camera import narrow
+    def read(path): return (decomp/path).read_text(encoding='utf-8')
+    path=out/'player_loop.c'
+    code=path.read_text(encoding='utf-8')
+    effects=read('src/bodyprog/gfx/bodyprog_effects_8005E0DC.c')
+    code+='\n/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n'
+    code+=enumeration(read('include/bodyprog/bodyprog.h'),'EffectTextureFlags')
+    for name in ['D_800A9084','D_800A908C','D_800A9094']:
+        code+=initializer(read('src/bodyprog/screen/screen_data.c'),name)
+    body=function(effects,'Map_EffectTexturesLoad')
+    body=re.sub(r'    static s16 __pad_bss_800C42DA\[7\];\n','',body)
+    # PORT: Queue consumers own decoded TIMs; no fixed FONT24 arena arithmetic.
+    body=re.sub(r'\(s32\)FONT24_BUFFER - ALIGN\(Fs_GetFileSize\(\w+\), 0x800\)', 'port_fs_buffers[2]',body)
+    body=body.replace('if (gte_IsDisabled())', 'if (false) // PORT: Native GTE has no disabled coprocessor state.')
+    body=body.replace('loadedEffectTextureFlags |= 1 << i;', 'loadedEffectTextureFlags = (u16)(loadedEffectTextureFlags | (1u << i));')
+    body=body[:-2]+'    (void)loadedEffectTextureFlags;\n}\n'
+    code+=body
+    code+='extern s_FsImageDesc g_LoadingScreenImg;\nvoid Screen_BackgroundImgDraw(s_FsImageDesc*);\n'
+    code+=function(read('src/bodyprog/game_boot/load_screen.c'),'GameBoot_LoadScreen_BackgroundImg')
+    items=read('src/bodyprog/items/item_screens_2.c')
+    code+='\n#define INV_WEAPON_AMMO_ID(id) ((id)+32)\nu8 port_player_inv_item_selected;\n'
+    groups=enumeration(read('include/bodyprog/items.h'),'InvItemGroup')
+    # PORT: The shared gameplay header already owns these two group constants.
+    groups=groups.replace('InvItemGroup_MeleeWeapons','PortTransit_MeleeWeapons').replace('InvItemGroup_GunWeapons','PortTransit_GunWeapons')
+    code+=groups+initializer(items,'D_80025EB0')
+    sort=function(items,'func_8004F190').replace('func_8004F190','port_transit_inventory_sort')
+    # PORT: Copy the original four inventory bytes through their actual type.
+    sort=re.sub(r'\*\(s32\*\)&tempItem\s*=.*?;', 'tempItem = savePtr->items[i];',sort,flags=re.S)
+    sort=re.sub(r'\*\(s32\*\)&savePtr->items\[i\]\.id\s*=.*?;', 'savePtr->items[i] = savePtr->items[j];',sort,flags=re.S)
+    sort=re.sub(r'\*\(s32\*\)&savePtr->items\[j\]\.id\s*=.*?;', 'savePtr->items[j] = tempItem;',sort,flags=re.S)
+    sort=sort.replace('D_80025EB0[savePtr->items[i].id - InvItemId_HealthDrink]', 'port_transit_item_order(savePtr->items[i].id)')
+    sort=sort.replace('g_SysWork.invItemSelectedIdx','port_player_inv_item_selected')
+    sort=sort.replace('= InvItemId_Empty;', '= (u8)InvItemId_Empty;').replace('= id;', '= (u8)id;')
+    sort=sort.replace('weaponInventoryIdx = i;', 'weaponInventoryIdx = (s8)i;').replace('port_player_inv_item_selected = count;', 'port_player_inv_item_selected = (u8)count;')
+    sort=re.sub(r'(savePtr->items\[[^]]+\]\.count)\s*\+=\s*([^;]+);',r'\1 = (u8)(\1 + (\2));',sort)
+    code+='static u8 port_transit_item_order(u8 id){if(id<InvItemId_HealthDrink || (u32)(id-InvItemId_HealthDrink)>=ARRAY_SIZE(D_80025EB0))port_unimplemented("inventory sort item ID bounds");return (u8)D_80025EB0[id-InvItemId_HealthDrink];}\n'
+    code+=narrow(sort,read('include/bodyprog/savegame.h'))
+    remove=function(items,'Player_ItemRemove').replace('func_8004F190(g_SavegamePtr)', '(u8)port_transit_inventory_sort(g_SavegamePtr)')
+    remove=remove.replace('= InvItemId_Empty;', '= (u8)InvItemId_Empty;')
+    code+=remove
+    math=function(read('src/bodyprog/bodyprog_math_8005BF38.c'),'func_8005C478')
+    math=math.replace('Math_AngleNormalizeSigned(ratan2(', 'Math_AngleNormalizeSigned((q3_12)ratan2(')
+    math=math.replace('*arg0 = ((var_s1 << Q12_SHIFT) / temp);', '*arg0 = (s16)(((s32)((u32)var_s1 << Q12_SHIFT)) / temp); // PORT: Preserve PS1 wrapping shift.')
+    math=math.replace('return ABS(', 'return (u32)ABS(')
+    code+=math
+    wave=function(read('src/bodyprog/events/bgm_update.c'),'func_800364BC')
+    wave=wave.replace('g_DeltaTimeRaw * (Q12(64.0f) + 1)', '(u32)g_DeltaTimeRaw * (u32)(Q12(64.0f) + 1)')
+    wave=wave.replace('Math_Sin(D_800BCD58 >> 18)', 'Math_Sin((s32)(D_800BCD58 >> 18))').replace('Math_Sin((D_800BCD58 & 0xFFFF) / 16)', 'Math_Sin((s32)((D_800BCD58 & 0xFFFF) / 16))')
+    wave=wave.replace('var0 += Math_Sin', 'var0 += (u32)Math_Sin').replace('var1  = Math_Sin', 'var1  = (u32)Math_Sin')
+    code+=wave
+    path.write_text(code,encoding='utf-8')
 
 
 def prepare_player_startup(decomp, out):
@@ -434,9 +493,9 @@ def prepare_player_loop(decomp,out):
     source=['/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_loop.h"\n']
     for name in guarded_states:
         header.append(f'void {name}(void);\n')
-        if name not in ['SysState_Fmv_Update','SysState_ReadMessage_Update','SysState_EventSetFlag_Update','SysState_EventPlaySound_Update']:
+        if name not in ['SysState_Fmv_Update','SysState_ReadMessage_Update','SysState_EventSetFlag_Update','SysState_EventPlaySound_Update','SysState_LoadArea_Update']:
             source.append(f'void {name}(void) {{port_unimplemented("{name}/native system state");}}\n')
-    names=['GameState_InGame_Update','SysState_Gameplay_Update','SysState_EventCallback_Update','SysState_Fmv_Update','SysState_ReadMessage_Update','SysState_EventSetFlag_Update','SysState_EventPlaySound_Update']
+    names=['GameState_InGame_Update','SysState_Gameplay_Update','SysState_EventCallback_Update','SysState_Fmv_Update','SysState_ReadMessage_Update','SysState_EventSetFlag_Update','SysState_EventPlaySound_Update','SysState_LoadArea_Update','AreaLoad_UpdatePlayerPosition','AreaLoad_TransitionSound']
     header += [f'void {name}(void);\n' for name in names]
     header += ['void Player_Update(s_SubCharacter*,s_AnmHeader*,GsCOORDINATE2*);\n',
                'void Event_Update(bool);\nvoid func_800892A4(s32);\nvoid Game_FlashlightToggle(void);\n',
@@ -454,8 +513,26 @@ def prepare_player_loop(decomp,out):
     source.append('static q19_12 g_DeltaTimeCpy;\nbool g_IsLoadingFinished;\ns32 g_MapEventSysState;\nu32 g_MapEventParam;\ns_EventData* g_MapEventData;\nstatic u32 g_Demo_RandSeedBackup;\n')
     # PORT: Original movie snapshot uses owned native storage, never PS1 fixed-address bytes.
     source.append('static u32 port_events_fmv_image[160*240/2];\n#define IMAGE_BUFFER_0 ((u8*)port_events_fmv_image)\n')
+    from prepare_maps import initializer, enumeration
+    source.append('#include "maps_registry.h"\n#include "native_player_movement.h"\n')
+    source.append('// PORT: Previously absent transition fields own native storage without changing the shared work ABI.\ns_MapPoint2d g_MapPoint;\nstatic s8 port_transit_sfx_pair;\ntypedef struct {u16 sfx_0,sfx_2;} s_AreaLoadSfx;\nextern s32 g_MapAreaLoadCounter;\nvoid Bgm_SongChange(s32);\n#define BgmStatusFlag_Pause (1<<0)\n')
+    # PORT: These door task IDs are GPL source constants, never owned sound bytes.
+    source.append(initializer(read('src/bodyprog/events/bodyprog_data_800A99B4.c'),'SFX_PAIRS'))
     for name in names:
         code=function(states,name)
+        if name=='SysState_EventCallback_Update':
+            code=code.replace('g_MapOverlayHdr.mapEventFuncs[g_MapEventParam]();','port_maps_callback_validate(g_MapEventParam);\n    g_MapOverlayHdr.mapEventFuncs[g_MapEventParam]();')
+        if name=='SysState_LoadArea_Update':
+            # PORT: Validate source-overlay indices before queuing replacement.
+            code=code.replace('{','{\n    port_maps_transition_validate(g_MapEventData);',1)
+            code=code.replace('offsetZ               = g_SysWork.playerWork.player.position.vz - mapPoint->positionZ;', 'offsetZ               = (u32)g_SysWork.playerWork.player.position.vz - (u32)mapPoint->positionZ;')
+            code=code.replace('g_MapPoint.positionZ += offsetZ;', 'g_MapPoint.positionZ = (s32)((u32)g_MapPoint.positionZ + offsetZ);')
+            code=code.replace('g_SysWork.field_2349 = g_MapOverlayHdr.mapPoints[g_MapEventData->eventParam].field_4_5 - 1;', 'g_SysWork.field_2349 = (s8)(g_MapOverlayHdr.mapPoints[g_MapEventData->eventParam].field_4_5 - 1);')
+            code=code.replace('= g_MapEventData->sfxPairIdx_8_19;', '= (s8)g_MapEventData->sfxPairIdx_8_19;').replace('= g_MapEventData->transitionFlags;', '= (s8)g_MapEventData->transitionFlags;').replace('= g_MapEventData->mapIdx;', '= (u8)g_MapEventData->mapIdx;')
+            code=code.replace('SyncMode_Immediate','1 /* SyncMode_Immediate */')
+        if name=='AreaLoad_TransitionSound':
+            code=code.replace('{','{\n    if(g_SysWork.sfxPairIdx<0 || g_SysWork.sfxPairIdx>=25)port_unimplemented("area transition SFX index");',1)
+        code=code.replace('g_SysWork.sfxPairIdx','port_transit_sfx_pair')
         code=code.replace('g_SysWork.field_2388.', 'g_SysWork.gameplayEnvironment.')
         code=code.replace('g_SysWork.gameplayEnvironment.isFlashlightOn','g_SysWork.field_2388.isFlashlightOn')
         code=code.replace('Player_Update(player, FS_BUFFER_0,','Player_Update(player, (s_AnmHeader*)FS_BUFFER_0,')
@@ -486,7 +563,7 @@ def prepare_player_loop(decomp,out):
             source.append('static '+inner)
             # PORT: Iterate from element zero rather than forming events[-1].
             code=code.replace('mapEvent = &g_MapOverlayHdr.mapEvents[-1];','mapEvent = g_MapOverlayHdr.mapEvents;')
-            code=code.replace('while (true)','for (;; mapEvent++)').replace('        mapEvent++;','        if(mapEvent >= g_MapOverlayHdr.mapEvents+72)port_unimplemented("MAP0_S00 event terminator");')
+            code=code.replace('while (true)','for (;; mapEvent++)').replace('        mapEvent++;','        if(mapEvent >= g_MapOverlayHdr.mapEvents+port_maps_event_count())port_unimplemented("map event terminator outside source bounds");')
             code=code.replace('completeEventFlag_temp = mapEvent->completeEventFlag;', 'completeEventFlag_temp = mapEvent->completeEventFlag;')
             code=code.replace('completeEventFlag      = completeEventFlag_temp;', 'completeEventFlag      = (s16)completeEventFlag_temp;')
             # PORT: Preserve the five-entry inventory trigger contract with bounds.
@@ -1272,6 +1349,71 @@ def extend_event_maps(decomp,out):
     print('events: 17 additional original descriptor callbacks, 4 Cheryl companion helpers, 15 reset objects')
     prepare_events_combat(decomp,out)
     prepare_events_npcs(decomp,out)
+    prepare_transit_opening(decomp,out)
+
+
+def prepare_transit_opening(decomp,out):
+    """Original post-gate environment ramp and its bounded numeric waypoints."""
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    path=out/'map0_s00.c'
+    code=path.read_text(encoding='utf-8')
+    names=['func_800DCC54','func_800DCDA8','func_800DCF38']
+    source=read('src/maps/map0_s00/map0_s00_2.c')
+    bodies={name:function(source,name) for name in names}
+    # PORT: func_174 is unused and has different prototypes between overlays.
+    # Keep its descriptor guard; direct calls use the original typed provider.
+    bodies['port_transit_particle_select']=function(read('src/maps/particle.c'),'sharedFunc_800D0B18_0_s00').replace('sharedFunc_800D0B18_0_s00','port_transit_particle_select').replace('g_SysWork.field_2348','port_transit_particle_previous')
+    bodies['func_800DCC54']=bodies['func_800DCC54'].replace('sharedFunc_800D0B18_0_s00','port_transit_particle_select')
+    code=code.replace(function(code,'func_800DCC54'), 'static void func_800DCC54(void);\n')
+    records={
+        'D_800DFADC':'q19_12 D_800DFADC',
+        'D_800DFAE0':'VECTOR3 D_800DFAE0[6]',
+        'D_800DFB28':'VECTOR3 D_800DFB28[3]',
+        'port_transit_particle_previous':'s8 port_transit_particle_previous',
+        'g_Particle_PrevPosition':'VECTOR3 g_Particle_PrevPosition',
+        'sharedData_800E0CA8_0_s00':'s32 sharedData_800E0CA8_0_s00',
+        'sharedData_800E0CAC_0_s00':'s32 sharedData_800E0CAC_0_s00',
+        'sharedData_800E0CB4_0_s00':'u16 sharedData_800E0CB4_0_s00',
+        'sharedData_800E0CB6_0_s00':'u16 sharedData_800E0CB6_0_s00',
+        'sharedData_800E0CB8_0_s00':'u16 sharedData_800E0CB8_0_s00',
+        'sharedData_800E32D0_0_s00':'s32 sharedData_800E32D0_0_s00',
+    }
+    added={name:decl for name,decl in records.items() if '#define '+name+' ' not in code}
+    prefix='sh_map0_s00_'
+    extra='// PORT: Native numeric imports; no map code or pointer is relocated.\n'
+    extra+=''.join(f'#define {name} {prefix}{name}\n' for name in added)
+    extra+=''.join('static '+decl+';\n' for decl in added.values())
+    extra+='u32 func_8005C478(s16*,q19_12,q19_12,q19_12,q19_12,q19_12,q19_12);\n'
+    extra+='\n'.join('static '+re.sub(r'//[^\n]*','',body.split('{',1)[0]).strip()+';' for body in bodies.values())+'\n'
+    extra+='#define MAP_PARTICLE_HAS_RAIN 1\n#define MAP_USE_PARTICLES 1\n'
+    for name,body in bodies.items():
+        body=narrow(body,read('include/maps/particle.h'))
+        body=body.replace('g_SysWork.field_2349 = arg0;', 'g_SysWork.field_2349 = (s8)arg0;')
+        body=body.replace('port_transit_particle_previous = arg0;', 'port_transit_particle_previous = (s8)arg0;')
+        body=re.sub(r'(sharedData_800E0CB[48]_0_s00)\s*\+=\s*([^;]+);',r'\1 = (u16)(\1 + (\2));',body)
+        body=re.sub(r'(temp\s*=(?!=))\s*([^;]+);',r'\1 (u16)(\2);',body) if name=='port_transit_particle_select' else body
+        body=body.replace('var_s4 = temp_v1_3;', 'var_s4 = (s32)temp_v1_3;')
+        body=body.replace('temp_v1_3 = func_8005C478(', 'temp_v1_3 = (s32)func_8005C478(')
+        extra+='static '+body+'\n'
+    reset=function(code,'sh_map0_s00_reset')
+    code=code.replace(reset,reset[:-2]+''.join(f'memset(&{name},0,sizeof({name}));' for name in added)+'}\n')
+    code=code.replace('int sh_map0_s00_load_data(void)', 'static int port_transit_prior_load(void)')
+    probe=function(code,'sh_map0_s00_reset_probe')
+    revised=probe.replace('{','{'+''.join(f'memset(&{name},0xa5,sizeof({name}));' for name in added),1)
+    revised=revised.replace('return ', 'return '+''.join(f'port_map_zero(&{name},sizeof({name})) && ' for name in added),1)
+    code=code.replace(probe,revised)
+    # The complete original table spans six + three 12-byte VECTOR3 records.
+    # Their named GPL declarations/address suffixes and YAML data range bound it.
+    declarations=read('include/maps/map0/map0_s00.h')
+    assert 'extern VECTOR3 D_800DFAE0[];' in declarations and 'extern VECTOR3 D_800DFB28[3];' in declarations
+    assert '[0x1653C, data]' in read('configs/USA/maps/map0_s00.yaml')
+    extra+='static int port_transit_alley_data(void){u8 wire[112];if(port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x16564,sizeof(wire),wire))return 1;D_800DFADC=(s32)move_word(wire);for(size_t i=0;i<6;i++){D_800DFAE0[i].vx=(s32)move_word(wire+4+i*12);D_800DFAE0[i].vy=(s32)move_word(wire+8+i*12);D_800DFAE0[i].vz=(s32)move_word(wire+12+i*12);}for(size_t i=0;i<3;i++){D_800DFB28[i].vx=(s32)move_word(wire+76+i*12);D_800DFB28[i].vy=(s32)move_word(wire+80+i*12);D_800DFB28[i].vz=(s32)move_word(wire+84+i*12);}return 0;}\n'
+    # Declarations precede reset/use; numeric decoder follows shared word helpers.
+    head='#include "npc_startup.h"\n'+''.join(f'#define {name} {prefix}{name}\nstatic {decl};\n' for name,decl in added.items())+'static int port_transit_alley_data(void);\n'
+    extra=extra[extra.index('u32 func_8005C478'):]
+    extra+='int sh_map0_s00_load_data(void){if(port_transit_prior_load())return 1;return port_transit_alley_data();}\n'
+    path.write_text(head+code+extra,encoding='utf-8')
 
 
 def prepare_events_combat(decomp,out):

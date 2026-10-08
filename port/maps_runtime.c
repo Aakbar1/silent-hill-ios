@@ -16,6 +16,30 @@ u8 g_EndingIdx;
 static const s_MapOverlayHdr* active;
 static bool debug_light;
 static bool debug_warp;
+static bool debug_walk,debug_walk_started;
+static u32 debug_walk_map,debug_walk_spawn;
+extern int sh_main(void);
+void port_maps_debug_walk_set(u32 enabled) {debug_walk=enabled!=0;debug_walk_started=false;}
+s32 port_maps_boot_map(s32 map) {
+    if(debug_walk && !debug_walk_started) {
+        g_SavegamePtr->mapIdx=(u8)debug_walk_map;
+        return (s32)debug_walk_map;
+    }
+    return map;
+}
+extern s_MapPoint2d g_MapPoint;
+void port_maps_boot_spawn(void) {
+    if(!debug_walk || debug_walk_started)return;
+    const PortMapEntry* entry=&port_maps[debug_walk_map];
+    if(port_map_active()!=entry->descriptor() || debug_walk_spawn>=entry->point_count())
+        port_unimplemented("walking replay initial map/point identity");
+    // PORT: One explicit diagnostic warp before first gameplay; original
+    // Chara_PositionSet establishes pose/room/camera. Nothing is injected later.
+    g_MapPoint=entry->descriptor()->mapPoints[debug_walk_spawn];
+    AreaLoad_UpdatePlayerPosition();debug_walk_started=true;
+    printf("TRANSIT_WALK_START tick=%d map=%s spawn=%u\n",VSync(-1),entry->name,debug_walk_spawn);
+    fflush(stdout);
+}
 void port_maps_init_note(const char* stage) {if(debug_warp){printf("MAP_INIT %s\n",stage);fflush(stdout);}}
 void port_maps_object_sfx(s32 task) {
     // PORT: Original init SFX requires a published VAB header. Never treat
@@ -52,11 +76,33 @@ const s_MapOverlayHdr* port_map_active(void) {
     if(!active)port_unimplemented("map descriptor not active");
     return active;
 }
+static const PortMapEntry* active_entry(void) {
+    for(u32 i=0;i<43;i++)if(active==port_maps[i].descriptor())return &port_maps[i];
+    port_unimplemented("active map registry identity");return NULL;
+}
+u32 port_maps_event_count(void) {return active_entry()->event_count();}
+void port_maps_callback_validate(u32 index) {
+    if(index>=active_entry()->callback_count() || !active->mapEventFuncs[index])
+        port_unimplemented("map event callback index outside source bounds");
+}
+void port_maps_transition_validate(const s_EventData* event) {
+    const PortMapEntry* entry=active_entry();
+    bool found=false;
+    for(u32 i=0;i<entry->event_count();i++)if(event==&active->mapEvents[i])found=true;
+    if(!found || event->eventParam>=entry->point_count() || event->mapPointIdx>=entry->point_count() || event->sfxPairIdx_8_19>=25)
+        port_unimplemented("area transition source event/point/SFX bounds");
+    if(g_SysWork.sysState==SysState_LoadOverlay && event->mapIdx>=43)
+        port_unimplemented("area transition destination map bounds");
+    printf("AREA_TRANSITION tick=%d map=%s room=%d sys=%d destination=%u point=%u trigger=%u flags=%u\n",
+        VSync(-1),entry->name,g_SavegamePtr->mapRoomIdx,g_SysWork.sysState,event->mapIdx,event->eventParam,event->mapPointIdx,event->transitionFlags);
+    fflush(stdout);
+}
 int port_maps_reset_probe(void) {
     if(!port_maps_ground_reset_probe())return 200;
     for(u32 i=0;i<43;i++) {
-        if(!port_maps[i].reset_probe() || !port_maps[i].point_count())return (int)i+1;
+        if(!port_maps[i].reset_probe() || !port_maps[i].point_count() || !port_maps[i].event_count() || !port_maps[i].callback_count())return (int)i+1;
         const s_MapOverlayHdr* descriptor=port_maps[i].descriptor();
+        if(descriptor->mapEvents[port_maps[i].event_count()-1].triggerType!=TriggerType_EndOfArray)return 300+(int)i;
         for(u32 j=0;j<i;j++) {
             const s_MapOverlayHdr* previous=port_maps[j].descriptor();
             if(descriptor==previous || descriptor->mapPoints==previous->mapPoints ||
@@ -68,6 +114,13 @@ int port_maps_reset_probe(void) {
     return 0;
 }
 void port_maps_warp(u32 map,u32 spawn) {
+    if(debug_walk) {
+        if(map>=43 || spawn>255)port_unimplemented("walking replay initial arguments");
+        debug_walk_map=map;debug_walk_spawn=spawn;
+        // PORT: The original boot/main loop owns assets, banks, input and all
+        // startup services; the only test override is the initial map/point.
+        (void)sh_main();return;
+    }
     debug_warp=true;
     // PORT: Test-only warp exercises queued activation and the real map init.
     if(map>=43 || spawn>255)port_unimplemented("debug warp arguments");

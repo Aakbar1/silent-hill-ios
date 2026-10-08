@@ -112,7 +112,14 @@ void port_player_spawn_note(void);
 void Sd_SfxStop(u16 sound);
 void Screen_BackgroundMotionBlur(s32 mode);
 void GameBoot_LoadScreen_PlayerRun(void);
+void GameBoot_LoadScreen_BackgroundImg(void);
+// PORT: Explicit replay-only initial warp; subsequent transitions use original state.
+s32 port_maps_boot_map(s32 map);
+void port_maps_boot_spawn(void);
+bool Player_ItemRemove(u8 item,u8 count);
+extern u8 port_player_inv_item_selected;
 void AreaLoad_UpdatePlayerPosition(void);
+void AreaLoad_TransitionSound(void);
 void Gfx_LoadScreenMapEffectsUpdate(s32,s32);
 void Gfx_EffectsUpdate(void);
 void WorldGfx_CharaDraw(e_CharaId,GsCOORDINATE2*,s32,q3_12,s32);

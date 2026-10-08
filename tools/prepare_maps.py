@@ -77,6 +77,9 @@ def prepare(decomp, output):
     header = re.sub(r's32(\s+\(\*playerAnimStateSet\))',r'void\1',header)
     # PORT: The pinned Player_AnimStateSet provider returns void in every map.
     header = header.replace('s32 (*playerAnimStateSet)(s32)', 'void (*playerAnimStateSet)(s32)')
+    # PORT: Match the shared implementations; pointer-sized descriptor ABI stays fixed.
+    header = re.sub(r'void(\s+\(\*playerAnimIsLocked\))\(void\)',r's32\1(void)',header)
+    header = header.replace('(*charaAnimReset)()', '(*charaAnimReset)(s_SubCharacter*, bool)')
     header = header.replace('s32*                   func_88;', 'void*                  func_88;')
     # PORT: Replace the opaque numeric 5C view with its original named view.
     # Size and offsets are unchanged; init bodies now retain all original stores.
@@ -341,6 +344,8 @@ static int move_cheryl_table_load(void) {
 """
     source += f'const s_MapOverlayHdr* {prefix}descriptor(void) {{ return &g_MapOverlayHdr; }}\n'
     source += f'u32 {prefix}point_count(void) {{return (u32)ARRAY_SIZE(MAP_POINTS);}}\n'
+    source += f'u32 {prefix}event_count(void) {{return (u32)ARRAY_SIZE(MAP_EVENTS);}}\n'
+    source += f'u32 {prefix}callback_count(void) {{return (u32)ARRAY_SIZE(g_MapEventFuncs);}}\n'
     source += f'int {prefix}load_data(void) {{ return move_cheryl_table_load() || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15c84,224,MAP_ROOM_IDXS) || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15d64,25,sharedData_800DF2DC_0_s00); }}\n'
     (output / (lane + '.c')).write_text(source, encoding='utf-8')
     print(f'{lane}: {len(writable)+len(zeros)} writable data objects; {len(linked & callbacks.keys())} original callbacks; {len(no_draw)} no-draw; {len(callbacks)-len(linked & callbacks.keys())-len(no_draw)} guarded callbacks')
@@ -373,9 +378,7 @@ def prepare_all_maps(decomp, output, records):
     item_enum = enumeration((decomp / 'include/bodyprog/items.h').read_text(encoding='utf-8'), 'CommonPickupItemId')
     ending_enum = enumeration((decomp / 'include/game.h').read_text(encoding='utf-8'), 'GameEnding')
     services = '''
-// PORT: Item mutation belongs to events; preserve a precise leaf guard until linked.
-static inline bool port_maps_item_remove(u8 id,u8 count) {(void)id;(void)count;port_unimplemented("Player_ItemRemove/events integration");return false;}
-#define Player_ItemRemove port_maps_item_remove
+bool Player_ItemRemove(u8 id,u8 count);
 void func_8008D438(void);void func_8008D448(void);bool Chara_ProcessLoads(void);
 s32 port_maps_effect_alloc(s32);
 void port_maps_init_note(const char*);
@@ -696,6 +699,8 @@ static inline void SysWork_NpcFlagSet(s32 i) {g_SysWork.npcFlags|=(s32)(1u<<i);}
             source = NOTICE + '#include "maps_objects.h"\nextern s8 D_800C4414;\n#undef g_MapOverlayHdr\n#undef CHUNK_SIZE\n#define CHUNK_SIZE 40\n#define '+lane.upper()+'\n' + macros + '\n' + namespace + init_types+prototypes+init_prototypes+code+data+''.join(initials)+helpers+room+reset
             source += f'const s_MapOverlayHdr* {prefix}descriptor(void) {{return &g_MapOverlayHdr;}}\n'
             source += f'u32 {prefix}point_count(void) {{return (u32)ARRAY_SIZE(MAP_POINTS);}}\n'
+            source += f'u32 {prefix}event_count(void) {{return (u32)ARRAY_SIZE(MAP_EVENTS);}}\n'
+            source += f'u32 {prefix}callback_count(void) {{return (u32)ARRAY_SIZE(g_MapEventFuncs);}}\n'
             blocker = 'animation info decoder' if anim_missing else ('message pointer decoder' if messages_missing else None)
             source += '// PORT: Never publish a placeholder for an undecoded pointer-bearing table.\n' if blocker else ''
             source += f'int {prefix}load_data(void) {{' + (f'port_unimplemented("{lane}/{blocker}");' if blocker else '') + 'return ' + (' || '.join(raw_loads) or '0') + ';}\n'
@@ -735,10 +740,12 @@ static inline void SysWork_NpcFlagSet(s32 i) {g_SysWork.npcFlags|=(s32)(1u<<i);}
                 init_services=sorted(set(re.findall(r'\b((?:WorldObject_|Math_|Chara_|Savegame_|Gfx_|Rng_)\w+)\(',init_code)))))
         registry += f'extern const s_MapOverlayHdr* {prefix}descriptor(void);\nextern void {prefix}reset(void);\nextern int {prefix}reset_probe(void);\nextern int {prefix}load_data(void);\n'
         registry += f'extern u32 {prefix}point_count(void);\n'
+        registry += f'extern u32 {prefix}event_count(void);\n'
+        registry += f'extern u32 {prefix}callback_count(void);\n'
     registry += 'const PortMapEntry port_maps[43]={\n'
     for item in inventory:
         prefix = 'sh_' + item['name'].lower() + '_'
-        registry += '{"' + item['name'] + '",' + ','.join(prefix + name for name in ['descriptor','reset','reset_probe','load_data','point_count']) + '},\n'
+        registry += '{"' + item['name'] + '",' + ','.join(prefix + name for name in ['descriptor','reset','reset_probe','load_data','point_count','event_count','callback_count']) + '},\n'
     registry += '};\n'
     (output / 'maps_registry.c').write_text(registry, encoding='utf-8')
     player=(decomp/'src/bodyprog/player_control.c').read_text(encoding='utf-8')
@@ -786,7 +793,139 @@ int port_maps_spawn_probe(void) {
     # PORT: Keep the unowned base service file intact; replace only its old
     # single-map lifecycle exports at compilation, through the shared build seam.
     base = Path(__file__).resolve().parents[1] / 'port/map.c'
-    (output / 'maps_base.c').write_text(NOTICE + '#define port_map_activate port_maps_legacy_activate\n#define port_map_active port_maps_legacy_active\n' + base.read_text(encoding='utf-8'), encoding='utf-8')
+    (output / 'maps_base.c').write_text(NOTICE + '#define port_map_activate port_maps_legacy_activate\n#define port_map_active port_maps_legacy_active\n#define Map_EffectTexturesLoad port_maps_legacy_effect_load\n' + base.read_text(encoding='utf-8'), encoding='utf-8')
+    extend_transit_callbacks(decomp, output)
+
+
+def extend_transit_callbacks(decomp, output):
+    """Bind shared loading/control/BGM callbacks using each map's original source."""
+    import json
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    player=read('src/maps/characters/player.c')
+    declarations='\n'.join(p.read_text(encoding='utf-8') for p in (decomp/'include').rglob('*.h'))
+    player_names=['Player_ControlFreeze','Player_ControlUnfreeze','Player_AnimStateSet','Player_AnimReset',
+        'Player_AnimLock','Player_AnimIsLocked','Player_AnimUnlock','Player_AnimPlaybackStateGet',
+        'Player_MoveSpeedIsZero','Player_MoveSpeedClear','Player_CutsceneWeaponUnequip',
+        'Player_MatchArmAnimDisable','Player_EmptyWeaponHandSet','Player_WeaponAttackRestore',
+        'Player_PropertyField10DGet','Player_PathWaypointExecute']
+    inventory=json.loads((output/'maps_inventory.json').read_text(encoding='utf-8'))
+    for item in inventory[1:]:
+        lane=item['name'].lower();prefix='sh_'+lane+'_'
+        path=output/(lane+'.c');code=path.read_text(encoding='utf-8')
+        local='\n'.join(p.read_text(encoding='utf-8') for p in (decomp/'src/maps'/lane).glob('*.c'))
+        # Includes are GPL source providers, never original overlay code addresses.
+        for _ in range(4):
+            revised=re.sub(r'^#include "(maps/shared/[^"\n]+)"[^\n]*',lambda m:read('include/'+m[1]),local,flags=re.M)
+            if revised==local:break
+            local=revised
+        bodies={name:function(player,name) for name in player_names if name in item['guards']}
+        for name in ['Map_RoomBgmInit','Map_RoomBgmInit_CondTrue','Map_RoomBgmInit_CondFalse','GameBoot_LoadScreen_StageString']:
+            try:bodies[name]=function(local,name)
+            except ValueError:pass
+        text=''.join(bodies.values())
+        used=set(re.findall(r'\b(?:sharedData_\w+|D_800[CDEF]\w+)\b',re.sub(r'"[^"\n]*"','',text)))
+        used={name for name in used if not name.startswith('D_') or int(name[2:],16)>=0x800C9578}
+        used-={name for name in used if re.search(r'\b(?:const\s+static|static\s+const)\s+\w+\s+'+re.escape(name)+r'\s*=',text)}
+        used|=set(re.findall(r'\b(?:g_Player_PrevWeaponAttack|g_Player_MoveSpeed)\b',text))
+        limits=set(re.findall(r'Bgm_LayersUpdate\([^;{}]*?&(\w+)',text))
+        for pointer in re.findall(r'\bu8\s*\*\s*(\w+)\s*;',text):
+            limits.update(re.findall(r'\b'+pointer+r'\s*=\s*&(\w+)',text))
+        objects={};loads=[]
+        symbols=read(f'configs/USA/maps/sym.{lane}.txt')
+        addresses={m[1]:int(m[2],16) for m in re.finditer(r'^(\w+)\s*=\s*0x([0-9A-Fa-f]+);',symbols,re.M)}
+        base=int(re.search(r'\bvram:\s*0x([0-9A-Fa-f]+)',read(f'configs/USA/maps/{lane}.yaml'))[1],16)
+        for name in sorted(used):
+            if '#define '+name+' ' in code:continue
+            decl=re.search(r'\b(?:extern\s+)?(u8|s8|u16|s16|u32|s32|q3_12|q19_12|VECTOR3|s_BgmLayerLimits)\s+'+re.escape(name)+r'\s*(\[[^;\n]*\])?\s*;',declarations)
+            if not decl:raise ValueError(f'{lane}: transit numeric declaration missing: {name}')
+            typ,dims=decl[1],decl[2] or ''
+            if name in limits:
+                # PORT: The original scalar label begins eight byte channel limits.
+                typ,dims='u8','[8]'
+                bodies={key:body.replace('&'+name,name) for key,body in bodies.items()}
+            if name not in addresses and re.fullmatch(r'D_800[CDEF][0-9A-Fa-f]{4}',name):
+                # Named address-labelled data has an exact GPL header footprint.
+                addresses[name]=int(name[2:],16)
+            if '[]' in dims:
+                begin=addresses[name];end=min(value for value in addresses.values() if value>begin)
+                size={'u8':1,'s8':1,'u16':2,'s16':2,'q3_12':2,'u32':4,'s32':4,'q19_12':4,'VECTOR3':12,'s_BgmLayerLimits':8}[typ]
+                count,remainder=divmod(end-begin,size)
+                if remainder or not 0<count<=256:raise ValueError(f'{lane}: unbounded transit numeric array {name}')
+                dims=dims.replace('[]',f'[{count}]')
+            objects[name]=typ+' '+name+dims
+            # Player overlay work is BSS; BGM numeric tables retain pinned data.
+            if dims or typ=='VECTOR3':
+                if name not in addresses:raise ValueError(f'{lane}: transit table address missing: {name}')
+                loads.append(f'port_map_data_read(FILE_VIN_{lane.upper()}_BIN,{addresses[name]-base},sizeof({name}),(u8*)&{name})')
+        head='#include "audio_records.h"\n#include "native_player_events.h"\n'
+        head+=''.join(f'#define {name} {prefix}{name}\nstatic {decl};\n' for name,decl in objects.items())
+        # Native globals are shared with the bodyprog player, retaining their ABI.
+        for name in sorted(set(re.findall(r'\bg_Player_\w+',text))-objects.keys()):
+            if '#define '+name+' ' in code:continue
+            decl=re.search(r'\b(?:extern\s+)?(\w+)\s+'+re.escape(name)+r'\s*;',declarations)
+            if not decl:raise ValueError(f'{lane}: shared player declaration missing: {name}')
+            typ={'g_Player_CutsceneState':'s32','g_Player_DisableControl':'bool'}.get(name,decl[1])
+            head+=f'extern {typ} {name};\n'
+        head+=enumeration(read('include/bodyprog/player.h'),'PlayerCutsceneState').replace('PlayerCutsceneState_RunForward','PortTransit_RunForward')
+        head+='void func_8003D01C(void);\n#define DEFAULT_PLAYER_CYLINDER_FIELD_2 Q12(0.23f)\n'
+        head+=between(read('include/bodyprog/player.h'),'#define Player_AnimFlagsClear','/** @brief Resets the player character')
+        head+='q19_12 Math_Distance2dGet(const VECTOR3*,const VECTOR3*);\nu32 func_800364BC(void);\n'
+        for name in ['GameState_LoadStatusScreen','GameState_SaveScreen']:
+            value=re.search(r'\b'+name+r'\s*=\s*(\d+)',read('include/game.h'))[1]
+            head+=f'#define {name} {value}\n'
+        head+=enumeration(read('include/maps/characters/split_head.h'),'SplitHeadFlags')
+        # Remove the exact fatal wrappers, retaining descriptor namespace macros.
+        for name in bodies:
+            if name in item['guards']:
+                code=code.replace(function(code,name),'')
+        for name in ['GameBoot_LoadScreen_PlayerRun','GameBoot_LoadScreen_BackgroundImg']:
+            if name in item['guards']:
+                code=code.replace(function(code,name),'')
+                code=code.replace(f'#define {name} {prefix}{name}',f'// PORT: {name} uses the shared original loading service.')
+        prototypes=''.join('static '+re.sub(r'//[^\n]*','',body.split('{',1)[0]).strip()+';\n' for body in bodies.values())
+        # Prototypes must follow the existing macros, before descriptor initializers.
+        code=code.replace('static void Map_WorldObjectsInit(void);','static void Map_WorldObjectsInit(void);\n'+prototypes)
+        extra=''
+        for name,body in bodies.items():
+            body=narrow(body,(output/'native_gameplay_records.h').read_text(encoding='utf-8'))
+            # PORT: Global overlay/player halfwords retain their PS1 truncation.
+            scalar_types={key:decl.split()[0] for key,decl in objects.items()}
+            scalar_types.update({var:typ for typ,var in re.findall(r'extern\s+(u8|s8|u16|s16|q3_12)\s+(\w+)\s*;',head)})
+            for var in set(re.findall(r'\b(?:g_Player_\w+|sharedData_\w+)\b',body)):
+                actual=re.search(r'^(?:static\s+)?(u8|s8|u16|s16|q3_12)\s+'+re.escape(var)+r'\b',code,re.M)
+                if actual:scalar_types[var]=actual[1]
+            for scalar,typ in scalar_types.items():
+                if typ not in ('u8','s8','u16','s16','q3_12'):continue
+                body=re.sub(r'\b('+re.escape(scalar)+r'(?:\[[^]\n]+\])*)\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = ('+typ+')('+m[2]+');',body)
+            for pointer in re.findall(r's_BgmLayerLimits\s*\*\s*(\w+)\s*;',body):
+                body=re.sub(r'\b'+pointer+r'\s*=(?!=)\s*([^;{}]+);',lambda m:pointer+' = (s_BgmLayerLimits*)('+m[1]+');',body)
+                # PORT: Serialized byte limits copy into their actual native
+                # value instead of aliasing a byte array as a struct lvalue.
+                body=re.sub(r'\b(\w+)\s*=\s*\*'+pointer+r'\s*;',lambda m:'memcpy(&'+m[1]+','+pointer+',sizeof('+m[1]+'));',body)
+            if len(re.findall(r'\bdist0\b',body))==1:body=re.sub(r'\s*q19_12\s+dist0;','',body)
+            body=body.replace('g_SysWork.field_2388.', 'g_SysWork.gameplayEnvironment.').replace('g_SysWork.gameplayEnvironment.isFlashlightOn','g_SysWork.field_2388.isFlashlightOn')
+            body=re.sub(r'(Bgm_LayersUpdate\([^;{}]*,\s*)([^,()]+)(\);)',r'\1(s_BgmLayerLimits*)(\2)\3',body)
+            body=body.replace('g_Player_AnimResetRequest++;','g_Player_AnimResetRequest=(u8)(g_Player_AnimResetRequest+1);')
+            signature=body.split('{',1)[0]
+            params=signature.split('(',1)[1].rsplit(')',1)[0].split(',')
+            unused=''.join('(void)'+re.findall(r'\b\w+',param)[-1]+';' for param in params if param.strip()!='void')
+            body=body.replace('{','{\n    '+unused,1)
+            extra+='static '+body+'\n'
+        reset=function(code,prefix+'reset')
+        code=code.replace(reset,reset[:-2]+''.join(f'memset(&{name},0,sizeof({name}));' for name in objects)+'}\n')
+        probe=function(code,prefix+'reset_probe')
+        revised=probe.replace('{','{'+''.join(f'memset(&{name},0xa5,sizeof({name}));' for name in objects),1)
+        revised=revised.replace('return ', 'return '+''.join(f'port_map_zero(&{name},sizeof({name})) && ' for name in objects),1)
+        code=code.replace(probe,revised)
+        load=function(code,prefix+'load_data')
+        if loads:code=code.replace(load,load.replace('return ', 'return '+' || '.join(loads)+' || ',1))
+        path.write_text(head+code+extra,encoding='utf-8')
+        linked=set(bodies)&set(item['guards'])|{'GameBoot_LoadScreen_PlayerRun','GameBoot_LoadScreen_BackgroundImg'}
+        item['transit_callbacks']=sorted(linked)
+        item['guards']=sorted(set(item['guards'])-linked)
+        item['objects']+=list(objects)
+    (output/'maps_inventory.json').write_text(json.dumps(inventory,indent=2),encoding='utf-8')
 
 
 def smoke(args):
@@ -803,7 +942,9 @@ def smoke(args):
     if args.capture and (not args.warp or args.smoke_all):
         raise ValueError('private capture requires one explicit --warp')
     private=Path(__file__).resolve().parents[3]/'private'
-    evidence=private/'work/objects'
+    lane=os.environ.get('SH_MILESTONE_LANE','objects')
+    if lane not in ('objects','transit'):raise ValueError('unsupported private map smoke lane')
+    evidence=private/'work'/lane
     evidence.mkdir(parents=True,exist_ok=True)
     executable=args.test_executable
     if executable is None:
@@ -874,7 +1015,10 @@ def transition_candidate():
     """Keep a source-checked, explicitly unverified replay for the events handoff."""
     import json
     root=Path(__file__).resolve().parents[1]
-    out=root.parents[1]/'private/work/objects'
+    import os
+    lane=os.environ.get('SH_MILESTONE_LANE','objects')
+    if lane not in ('objects','transit'):raise ValueError('unsupported private transition lane')
+    out=root.parents[1]/('private/work/'+lane)
     out.mkdir(parents=True,exist_ok=True)
     route=[]
     for lane,index,trigger,target,destination in [('map2_s04',15,4,'MAP2_S02',9),('map2_s02',16,21,'MAP2_S04',23)]:
@@ -909,7 +1053,7 @@ def transition_candidate():
     (out/'police-return.candidate.txt').write_text(replay,encoding='utf-8')
     (out/'police-return.candidate.json').write_text(json.dumps(dict(status='BLOCKED: not a passing milestone',
         start='MAP2_S04:4',required_maps=['MAP2_S04','MAP2_S02','MAP2_S04'],route=route,
-        blocker='SysState_LoadArea_Update is guarded in tools/prepare_gameplay.py; destination loading, BGM and map player/update callbacks also need events integration',
+        blocker='Host native.rs currently accepts only HB_M0S00.ANM; police_return.txt fails before gameplay at the map animation identity gate. Later map event/enemy services remain guarded.',
         timing='unverified; validate pad-driven position, original trigger selection, both queued activations and return before marking pass'),indent=2),encoding='utf-8')
     print('Source-checked reversible route; candidate replay BLOCKED/unrun: '+str(out/'police-return.candidate.json'))
     return 0
