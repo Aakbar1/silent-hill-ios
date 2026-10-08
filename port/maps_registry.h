@@ -9,9 +9,14 @@ typedef struct {
     int (*reset_probe)(void);
     int (*load_data)(void);
     u32 (*point_count)(void);
+    u32 (*event_count)(void);
+    u32 (*callback_count)(void);
 } PortMapEntry;
 extern const PortMapEntry port_maps[43];
 int port_maps_reset_probe(void);
 void port_maps_ground_reset(void);
 int port_maps_ground_reset_probe(void);
+u32 port_maps_event_count(void);
+void port_maps_transition_validate(const s_EventData* event);
+void port_maps_callback_validate(u32 index);
 #endif

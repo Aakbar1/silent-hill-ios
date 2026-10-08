@@ -82,7 +82,6 @@ void func_8008B398(void) {
 void Sd_SfxStop(u16 sound) { printf("SFX_STOP %u (native SFX voice linkage pending)\n",sound); }
 // PORT: Keep public player callers on the shared original rendering services.
 void Screen_BackgroundMotionBlur(s32 mode) {port_render_motion_blur(mode);}
-void AreaLoad_UpdatePlayerPosition(void) {port_unimplemented("AreaLoad_UpdatePlayerPosition");}
 void Gfx_LoadScreenMapEffectsUpdate(s32 first,s32 second) {
     port_render_load_effects(first,second);
 }

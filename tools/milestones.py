@@ -38,7 +38,7 @@ def main():
     import os
     lane = os.environ.get("SH_MILESTONE_LANE")
     if lane:
-        if lane not in ("player","move","events"):
+        if lane not in ("player","move","events","transit"):
             raise SystemExit("unsupported private milestone lane")
         private = root.parent.parent / ("private/work/"+lane)
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -170,7 +170,7 @@ def first_map_main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     lane=os.environ.get('SH_MILESTONE_LANE','move')
-    if lane not in ('player','move','events'):raise SystemExit('unsupported private milestone lane')
+    if lane not in ('player','move','events','transit'):raise SystemExit('unsupported private milestone lane')
     output = root.parent.parent / f"private/work/{lane}/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     command = [str(root/"target/release/silent-hill-boot.exe"),"--headless","--audio","off","--frames","3720","--input",str(root/"docs/core/replays/first_map.txt"),"--expect-state","11"]
@@ -217,9 +217,9 @@ def first_map_main():
     return 0 if result["pass"] else 1
 
 
-def check_opening_trace(log):
+def check_opening_trace(log, frames=4600):
     """Require the real full movie, gradual timed dialogue and restored control."""
-    if "BLOCKED native service:" in log or "CHECK code=0 frames=4600 state=11 step=2" not in log:
+    if "BLOCKED native service:" in log or f"CHECK code=0 frames={frames} state=11 step=2" not in log:
         raise ValueError("unskipped opening did not finish in gameplay")
     if "MOVIE end id=2055 decoded=338" not in log or not re.search(r"MOVIE end id=2055 .* skipped=false completed=true",log):
         raise ValueError("opening movie was skipped or incomplete")
@@ -238,6 +238,24 @@ def check_opening_trace(log):
     if not restored or any(row["health"]!=409600 for row in restored):
         raise ValueError("opening did not restore gameplay/Cheryl without injected damage")
     return {"opening_movie_frames":338,"opening_steps":len(steps),"messages":5,"restored_control_tick":restored[0]["tick"]}
+
+
+def check_alley_trace(log):
+    """Require original gate selection, load startup and restored play past it."""
+    result=check_opening_trace(log,11000)
+    if not re.search(r'^MOVIE end id=2056 decoded=119 .* skipped=false completed=true$',log,re.M):
+        raise ValueError('Cheryl spotted movie was skipped or incomplete')
+    if 'AREA_TRANSITION tick=9552 map=MAP0_S00 room=26 sys=6 destination=0 point=19 trigger=18 flags=0' not in log:
+        raise ValueError('first gate did not select its original source event/point')
+    if 'PLAYER_SPAWN map=0 xyz=(-394854,0,1011712) heading=1024 camera_heading=1024 loading=0' not in log:
+        raise ValueError('alley destination differs from original Chara_PositionSet')
+    transit=[{key:int(value) for key,value in re.findall(r'(\w+)=(-?\d+)',line)} for line in log.splitlines() if line.startswith('TRANSIT_FRAME ')]
+    loading=[row for row in transit if row['tick']>9552 and row['game']==10]
+    restored=[row for row in transit if row['tick']>9612 and row['game']==11 and row['step']==2 and row['sys']==0 and row['flags']==0 and row['control']==0]
+    if not loading or not any(row['step']==11 for row in loading) or len(restored)<120:
+        raise ValueError('load startup did not finish with sustained controllable gameplay')
+    result.update(cheryl_movie_frames=119,gate_tick=9552,alley_control_tick=restored[0]['tick'],alley_control_samples=len(restored),alley_room=restored[0]['room'])
+    return result
 
 
 def check_combat_trace(log):
@@ -278,8 +296,10 @@ def events_main():
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
     name='opening_noskip' if args.opening_noskip else 'first_area_combat'
-    frames=4600 if args.opening_noskip else 11000
-    output=root.parent.parent/'private/work/events/milestones'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    frames=11000
+    lane=os.environ.get('SH_MILESTONE_LANE','transit' if args.opening_noskip else 'events')
+    if lane not in ('events','transit'):raise SystemExit('unsupported private events milestone lane')
+    output=root.parent.parent/f'private/work/{lane}/milestones'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     output.mkdir(parents=True)
     command=[str(root/'target/release/silent-hill-boot.exe'),'--headless','--audio','off','--scale',str(args.scale),'--frames',str(frames),'--input',str(root/'docs/core/replays'/f'{name}.txt'),'--expect-state','11']
     if args.disc:command+=['--disc',str(args.disc.resolve())]
@@ -291,7 +311,7 @@ def events_main():
     result={'exit':run.returncode,'pass':False,'boundary':[line for line in log.splitlines() if line.startswith(('CHECK ','BLOCKED '))]}
     try:
         if run.returncode:raise ValueError('native progression stopped before milestone completion')
-        if args.opening_noskip:result.update(check_opening_trace(log))
+        if args.opening_noskip:result.update(check_alley_trace(log))
         else:result.update(check_combat_trace(log))
         result['pass']=True
     except ValueError as error:result['reason']=str(error)

@@ -547,6 +547,15 @@ impl DebugWarp {
     }
 }
 
+/// PORT: Exact map-family identity for the existing bounded HB_BASE frame patch.
+/// The native host can use this before reading a fragment; names alone do not
+/// bypass the decoder's stride, capacity or arena ownership checks.
+pub fn is_player_map_fragment(name: &str) -> bool {
+    MAP_NAMES
+        .iter()
+        .any(|map| name == format!("HB_M{}S{}.ANM", &map[3..4], &map[6..8]))
+}
+
 #[cfg(test)]
 mod warp_tests {
     use super::*;
@@ -578,6 +587,27 @@ mod warp_tests {
             "MAP0_S00:1:2",
         ] {
             assert!(DebugWarp::parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn player_fragment_identity_is_bounded_by_the_overlay_catalog() {
+        for map in MAP_NAMES {
+            assert!(is_player_map_fragment(&format!(
+                "HB_M{}S{}.ANM",
+                &map[3..4],
+                &map[6..8]
+            )));
+        }
+        for invalid in [
+            "HB_BASE.ANM",
+            "HB_M8S00.ANM",
+            "HB_M0S99.ANM",
+            "HB_M0S00.TIM",
+            "hb_m0s00.anm",
+            "../HB_M0S00.ANM",
+        ] {
+            assert!(!is_player_map_fragment(invalid), "{invalid}");
         }
     }
     #[test]
@@ -621,5 +651,60 @@ mod warp_tests {
             },
         );
         assert!(result.is_ok(), "warp failed: {result:?}");
+    }
+
+    #[test]
+    #[ignore = "owned disc, isolated original boot and pad-driven walking replay"]
+    fn transit_walking_replay() {
+        unsafe extern "C" {
+            fn port_maps_debug_walk_set(enabled: u32);
+        }
+        // SAFETY: Run alone in a fresh process, before native boot begins.
+        unsafe { port_maps_debug_walk_set(1) };
+        let warp =
+            DebugWarp::parse(&std::env::var("SH_MAP_WARP").expect("initial map/point")).unwrap();
+        let disc =
+            crate::disc::GameDisc::open(std::env::var_os("SH_MAP_DISC").expect("owned disc"))
+                .unwrap();
+        let replay =
+            std::fs::read_to_string(std::env::var_os("SH_TRANSIT_REPLAY").expect("pad replay"))
+                .unwrap();
+        let frames = std::env::var("SH_TRANSIT_FRAMES")
+            .expect("replay length")
+            .parse()
+            .unwrap();
+        crate::spu_cpal::configure(crate::spu_cpal::AudioMode::parse("off").unwrap()).unwrap();
+        let options = crate::gpu_wgpu::Options {
+            scale: 1,
+            ..Default::default()
+        };
+        crate::gpu_wgpu::configure(options).unwrap();
+        let result = crate::native::run_headless(
+            disc,
+            frames,
+            None,
+            crate::pad::ReplayPad::parse(&replay).unwrap(),
+            crate::native::ReplayCheck {
+                warp: Some(warp),
+                state: Some(11),
+                step: Some(2),
+                ..Default::default()
+            },
+        );
+        assert!(result.is_ok(), "walking replay stopped: {result:?}");
+    }
+
+    #[test]
+    #[ignore = "isolated native inventory fixture; restores touched globals"]
+    fn original_item_removal_semantics() {
+        unsafe extern "C" {
+            fn port_player_item_remove_probe() -> u32;
+        }
+        // SAFETY: Run alone; the C fixture restores the save pointer, selection and combat work.
+        assert_eq!(
+            unsafe { port_player_item_remove_probe() },
+            63,
+            "six original inventory cases"
+        );
     }
 }

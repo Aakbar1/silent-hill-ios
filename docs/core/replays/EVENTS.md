@@ -1,7 +1,16 @@
+# Transit follow-on
+
+The first alley load-area guard below is superseded. The no-skip replay now
+reaches room 22 with enabled control, then the second alley door. Its next guard
+is wheel positional SFX at VBlank 12961. See [TRANSIT.md](TRANSIT.md) for the
+current passing checkpoint and exact continuation boundary.
+
+---
+
 # Events replay handoff
 
 - `opening_noskip.txt`: skip the title attract movie only, select New Game, then
-  send no input. The 338-frame opening movie and messages 15-19 play normally;
+  send no input until 4600, then follow the recorded alley path. The 338-frame opening movie and messages 15-19 play normally;
   the original opening callback finishes at 4296 and its border/control state
   finishes settling at 4359. `python tools/milestones.py --opening-noskip` checks
   the movie, every callback step, gradual text/page completion and restored play.

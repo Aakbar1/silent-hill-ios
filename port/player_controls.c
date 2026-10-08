@@ -5,6 +5,30 @@
 s32 Inventory_HyperBlasterFunctionalTest(void) {
     port_unimplemented("Inventory_HyperBlasterFunctionalTest/original inventory service");return 0;
 }
+
+// PORT: Isolated original inventory semantics; restore every touched global.
+u32 port_player_item_remove_probe(void) {
+    s_Savegame saved=*g_SavegamePtr;s_Savegame* fixture=g_SavegamePtr;
+    memset(fixture,0,sizeof(*fixture));
+    s_PlayerCombat combat=g_SysWork.playerCombat;
+    u8 selection=port_player_inv_item_selected;u32 result=0;
+    for(s32 i=0;i<INV_ITEM_COUNT_MAX;i++)fixture->items[i]=(s_InventoryItem){255,0,0,255};
+    fixture->invSlotCount=8;fixture->items[0]=(s_InventoryItem){InvItemId_HealthDrink,2,0,0};
+    fixture->items[1]=(s_InventoryItem){InvItemId_HouseKey,1,1,0};
+    s_Savegame before=*fixture;
+    if(Player_ItemRemove(InvItemId_HouseKey,0) && !memcmp(&before,fixture,sizeof(*fixture)))result|=1;
+    if(!Player_ItemRemove(InvItemId_LobbyKey,1) && !memcmp(&before,fixture,sizeof(*fixture)))result|=2;
+    if(Player_ItemRemove(InvItemId_HealthDrink,1) && fixture->items[0].count==1)result|=4;
+    port_player_inv_item_selected=20;
+    if(Player_ItemRemove(InvItemId_HealthDrink,1) && fixture->items[0].id==InvItemId_HouseKey && fixture->invSlotCount==8 && port_player_inv_item_selected==7)result|=8;
+    before=*fixture;
+    if(Player_ItemRemove(InvItemId_HouseKey,2) && !memcmp(&before,fixture,sizeof(*fixture)))result|=16;
+    port_player_inv_item_selected=20;
+    // Original all-empty inventory returns eight before clamping selection.
+    if(Player_ItemRemove(InvItemId_HouseKey,1) && fixture->items[0].id==255 && fixture->invSlotCount==8 && port_player_inv_item_selected==20)result|=32;
+    *g_SavegamePtr=saved;g_SysWork.playerCombat=combat;port_player_inv_item_selected=selection;
+    return result;
+}
 // PORT: Isolated original-controller fixture. It restores all touched globals;
 // this checks input interpretation and turn arithmetic, not map movement.
 u32 port_player_controls_probe(void) {

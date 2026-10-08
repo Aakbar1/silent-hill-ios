@@ -20,6 +20,10 @@ void port_player_trace(u32 frame) {
     fflush(stdout);
     const char* events=getenv("SH_EVENTS_TRACE");
     if(events && !strcmp(events,"1")) {
+        printf("TRANSIT_FRAME tick=%u map=%d room=%d game=%d step=%d sys=%d flags=%d fade=%d control=%d speed=%d lower=%d upper=%d\n",
+            frame,g_SavegamePtr->mapIdx,g_SavegamePtr->mapRoomIdx,g_GameWork.gameState,g_GameWork.gameStateSteps[0],
+            g_SysWork.sysState,g_SysWork.sysFlags,g_ScreenFade_Status,(int)g_Player_DisableControl,
+            player->properties.player.moveSpeed,g_SysWork.playerWork.extra.lowerBodyState,g_SysWork.playerWork.extra.upperBodyState);
         printf("EVENTS_FRAME tick=%u map=%d room=%d sys=%d event=%u step0=%d step1=%d step2=%d flags=%d health=%d npc0=%d npc0_health=%d\n",
             frame,g_SavegamePtr->mapIdx,g_SavegamePtr->mapRoomIdx,g_SysWork.sysState,g_MapEventParam,
             g_SysWork.sysStateSteps[0],g_SysWork.sysStateSteps[1],g_SysWork.sysStateSteps[2],g_SysWork.sysFlags,
