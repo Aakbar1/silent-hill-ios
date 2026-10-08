@@ -1,0 +1,11 @@
+# Candidate only: warp must load Harry and execute gameplay before this can pass.
+# Allow a nearby enemy to attack, then aim and attack using original pad input.
+0 0000
+400 0000
+600 0200
+660 4200
+720 0200
+780 4200
+900 0200
+960 4200
+1200 0000

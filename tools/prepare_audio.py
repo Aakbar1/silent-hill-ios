@@ -535,3 +535,42 @@ if __name__=='__main__':
         raise SystemExit(bool(failed))
     if not args.out: parser.error('--out is required when generating')
     prepare(args.decomp,args.out)
+
+
+def prepare_fight_audio(decomp, out):
+    """Fight's appended cold-bank seam; original libsd still loads VH and VB."""
+    original = (decomp/'src/bodyprog/game_boot/background_sound_init.c').read_text(encoding='utf-8')
+    table = initializer(original, 'g_AmbientVabTaskLoad').replace('g_AmbientVabTaskLoad', 'fight_ambient_tasks')
+    driver = out/'audio_driver.c'
+    text = driver.read_text(encoding='utf-8')
+    marker = '\n// PORT: Fight cold-area SFX bank publication.\n'
+    text = text.split(marker)[0]
+    text += marker + '#include <stdio.h>\n' + table + '''
+void port_fight_audio_bank_ensure(u16 sound) {
+    if(sound<=1280 || sound>1791)return;
+    s32 bank=g_Vab_InfoTable[sound-1280].vabProgIdx>>8;
+    if(bank<0 || bank>=SD_VAB_SLOTS)port_unimplemented("combat SFX bank identity");
+    if(vab_h[bank].vh_addr_4)return;
+    // PORT: Cold debug warps lack the previous area's resident bank. The early
+    // ambient-zero areas inherit FIRST.VAB in normal play. Use that original
+    // load task, or the current area's original ambient task, never fake VH.
+    u32 ambient=g_MapOverlayHdr.ambientAudioIdx;
+    if(bank==0)SD_Call(160);
+    else if(bank==2 && ambient<40)SD_Call(ambient==0?162: fight_ambient_tasks[ambient]);
+    else port_unimplemented("combat SFX bank has no cold-area load task");
+    for(s32 i=0;i<256 && !vab_h[bank].vh_addr_4;i++)Sd_TaskPoolExecute();
+    // Header publication happens before body transfer finishes. Wait for the
+    // original full loader, retaining its state machine and SPU allocation.
+    for(s32 i=0;i<256 && Sd_AudioStreamingCheck()!=0;i++)Sd_TaskPoolExecute();
+    if(!vab_h[bank].vh_addr_4 || Sd_AudioStreamingCheck()!=0)port_unimplemented("combat VAB load did not complete");
+    printf("FIGHT_SFX sound=%u bank=%d header=loaded body=loaded\\n",sound,bank);
+}
+void port_maps_object_sfx(s32);
+void port_fight_object_sfx(s32 task) {port_fight_audio_bank_ensure((u16)task);port_maps_object_sfx(task);}
+'''
+    driver.write_text(text, encoding='utf-8')
+    # Bind generated map calls only; transit's runtime and source stay intact.
+    for caller in [out/'maps_objects.h', *out.glob('map?_s??.c')]:
+        text = caller.read_text(encoding='utf-8')
+        text = re.sub(r'\bport_maps_object_sfx\b', 'port_fight_object_sfx', text)
+        caller.write_text(text, encoding='utf-8')

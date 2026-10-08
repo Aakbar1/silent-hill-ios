@@ -6,6 +6,13 @@ use sys_combat::{
     gameplay::{NativeAnimation, NativeLm},
 };
 unsafe extern "C" {
+    fn sh_fight_anm_decode(
+        bytes: *const u8,
+        size: usize,
+        output: *mut std::ffi::c_void,
+        poses: *mut u8,
+        capacity: usize,
+    ) -> bool;
     fn sh_combat_attack_compare(bytes: *const u8, size: usize) -> i32;
     fn sh_combat_model_probe(lm: *const std::ffi::c_void, anm: *const std::ffi::c_void) -> i32;
     fn sh_combat_sqrt_disc_probe(bytes: *const u8, size: usize) -> i32;
@@ -81,6 +88,34 @@ fn real_enemy_models_and_animations_reach_native_c() {
             )
         };
         assert!(vertices > 0, "model={model_id}, animation={anim_id}");
+        let mut c_header = [0u64; 5];
+        let mut c_poses = [0u8; 64 * 6];
+        // SAFETY: Aligned descriptor and full pose arena remain live alongside
+        // the immutable owned-disc bytes throughout both native calls.
+        assert!(unsafe {
+            sh_fight_anm_decode(
+                animation.as_ptr(),
+                animation.len(),
+                c_header.as_mut_ptr().cast(),
+                c_poses.as_mut_ptr(),
+                64,
+            )
+        });
+        // SAFETY: Checked C-decoded pointers have the same lifetimes and ABI.
+        let c_vertices = unsafe {
+            sh_combat_model_probe(
+                std::ptr::from_ref(&*native_lm.header).cast(),
+                c_header.as_ptr().cast(),
+            )
+        };
+        assert_eq!(
+            c_vertices, vertices,
+            "C ANM model={model_id}, animation={anim_id}"
+        );
+        assert_eq!(
+            &c_poses[..usize::from(anm.bone_count) * 6],
+            &animation[20..20 + usize::from(anm.bone_count) * 6]
+        );
         assert_eq!(model, original_model);
         assert_eq!(animation, original_animation);
         count += 1;

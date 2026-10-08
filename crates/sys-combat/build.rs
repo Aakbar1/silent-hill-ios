@@ -39,6 +39,7 @@ fn main() {
         .file(out.join("combat_original.c"))
         .file(out.join("combat_helpers.c"))
         .file(root.join("port/sys/combat/combat.c"))
+        .file(root.join("port/sys/combat/anm_decode.c"))
         .file(root.join("crates/sys-combat/harness.c"))
         .file(out.join("combat_test_math.c"))
         .file(out.join("combat_assets.c"))
