@@ -19,6 +19,10 @@ use std::{
 };
 
 const BLOCK: usize = 512;
+
+// PORT: Apple lifecycle operations live in the iOS lane, preserving SPU state.
+#[cfg(target_os = "ios")]
+include!("../../ios/spu_lifecycle.rs");
 const CD_CAPACITY: usize = SAMPLE_RATE as usize * 2;
 const DEVICE_CAPACITY: usize = 4096;
 const PREFILL: usize = 1470;

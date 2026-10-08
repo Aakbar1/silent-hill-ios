@@ -11,6 +11,13 @@ use std::{
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
+// PORT: UIKit keeps a Raster mirror; after a logged fallback the old Metal
+// failure must not terminate the shared worker at its next frame boundary.
+pub fn reset_for_raster_fallback() {
+    FRAME.with(|frame| *frame.borrow_mut() = None);
+    ERROR.with(|error| *error.borrow_mut() = None);
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RendererKind {
     Soft,

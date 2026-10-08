@@ -25,3 +25,7 @@ pub mod spu_cpal;
 #[cfg(all(test, not(target_os = "ios")))]
 #[path = "../../ios/importer.rs"]
 mod ios_importer_tests;
+
+// PORT: UIKit's renderer policy is platform-neutral so Windows exercises it too.
+#[path = "../../ios/renderer.rs"]
+pub mod ios_renderer;
