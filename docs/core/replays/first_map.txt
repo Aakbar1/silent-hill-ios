@@ -1,5 +1,5 @@
-# Candidate first-map logic replay: opening movie skip, cutscene skip, walk, turn, run.
-# Passing requires --first-map numeric movement/camera assertions; rendering is separate.
+# Verified first-map logic replay: opening movie skip, cutscene skip, walk, turn, run.
+# --first-map checks numeric movement/camera evidence and captures VBlank 3380 privately.
 0 0000
 1400 0008
 1401 0000

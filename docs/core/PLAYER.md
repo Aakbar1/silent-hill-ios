@@ -1,26 +1,53 @@
-# Move lane - in progress
+# Move lane checkpoint - 8 October 2026
 
-Goal 1 is not passed. Own branch `lane/move`, pinned submodule initialized.
-The opt-in runner `python tools/milestones.py --first-map --sound-stub-bgm`
-sets a test-only BGM bypass at the generated gameplay call site; the public
-`Bgm_Update` and its default path remain unchanged.
+**Goal 1 passes.** `python tools/milestones.py --first-map` completes the original
+New Game/movie/cutscene-skip path through state 11 / step 2 / VBlank 3720 with
+real BGM logic, original player delegates, wall/ray queries and NPC scheduling.
+The BGM test bypass has been removed. No position or completion flag is injected.
 
-The original player delegate closure, wall response and production ray queries
-are generated from pinned GPL source. Original empty-group NPC scheduling,
-gameplay timer and unarmed combat setup/cleanup are linked. Damage reads the
-owned encrypted BODYPROG attack table through the combat lane's decoder.
-Current verification is provisional: the last completed release build passed
-before the added effect scheduler; its warning fixes are still being checked.
-First-map replays reached the original player loop at state 11 / step 2 /
-VBlank 2266, then the timer guard, then unarmed combat setup's dependency.
-Latest measured evidence: `private/work/move/milestones/20261007T190242941190Z/`.
-No walking, screenshot, opening DMS/Cheryl, attacks or transition pass is claimed.
-Provisional arm64 check was 31/33, with compile-only CRT declarations being fixed.
-Next: finish effect scheduling, remeasure the opening guard, link its native DMS
-and character publication prerequisites, then run the real movement gate.
-Generated game data stays in `private/work/move`; no merge/push/main changes.
+The 422 consecutive gameplay samples verify 9173 Q12 units of straight walking,
+1711 angle units of right turning, running at 2.86 times the sampled walking
+speed, and camera character/look/position follow. The numeric replay uses wgpu
+at 1x for efficiency; the application default remains wgpu at 4x. `mid-walk.png`
+is a real replay capture at VBlank 3380 and was visually reviewed.
+Evidence: `private/work/move/milestones/20261008T191556888153Z/`.
+
+The original opening callback, freeze/unfreeze, map animation states, DMS
+interpolation/owned graph publication and Cheryl update/draw are integrated.
+Cheryl's eight missing animation records are decoded from the owned map at
+runtime with checked function identities; no extracted bytes are in Git.
+MAP0_S00 now has 16 original callbacks, one existing no-draw particle bridge and
+56 guarded callbacks. Its 33 writable objects participate in the reset probe.
+Unskipped opening reaches the **map-message text-rollout guard**, state 11 /
+step 2 / VBlank 2443; see `private/work/move/opening-no-skip.log`. Goal 2 remains
+partial. Actual weapon attacks/enemy AI (Goal 3), MAP0_S01 and generic overlay
+transition/back (Goal 4) remain open. Unarmed setup/cleanup and the attack-table
+decoder are integrated; their presence does not certify attacks or damage play.
+
+Two runtime defects were repaired: retire frame-local OT tokens before building
+new OTs; reserve the complete bounded ray-cell tail rather than a two-cell stack
+buffer. The native fixture covers 32768 packet identities across four epochs and
+a ten-cell diagonal ray with surrounding canaries. Movie checks now require the
+measured start ticks/exact counts; see [replay notes](replays/MOVE.md).
+
+Verification: release MSVC /W4 /WX; fmt; workspace/all-target Clippy -D warnings;
+workspace tests 300 passed, zero failed, four opt-in tests ignored; static
+`first_map_view` separately 1/1 passed with default 4x wgpu (94 colors).
+Available boot/menu/movie suite 10/10 passed, without a repeat/hash claim.
+Captures retain distant geometry/texture artefacts; full render parity is not certified.
+Arm64 frontend 39/39 C units, MSVC x86/x64 layouts and arm64 layout positive/
+negative controls pass. Actual Apple SDK/device runtime remains untested.
+Logs: `private/work/move/{build,fmt,clippy,tests,clang,layouts,ios-layouts,
+first-map-view,milestones,trace-controls}.log`. Scratch is below 200 MB.
+
+Director: publish this checkpoint into the core-owned root state; add the new
+player/NPC/DMS/effect units to permanent arm64 CI; bind the native map-message
+rollout before claiming the unskipped opening/footsteps path. No main, merge,
+push, system install, disc copy or audio-owned source edit.
 
 ---
+
+The following player-lane checkpoint is historical and superseded by the move result above.
 
 # Player lane checkpoint
 

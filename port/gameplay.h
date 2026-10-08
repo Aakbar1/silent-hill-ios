@@ -117,3 +117,6 @@ void Gfx_LoadScreenMapEffectsUpdate(s32,s32);
 void Gfx_EffectsUpdate(void);
 void WorldGfx_CharaDraw(e_CharaId,GsCOORDINATE2*,s32,q3_12,s32);
 #endif
+
+// PORT: Opening NPC drawing uses the shared native skeleton renderer.
+void port_move_npc_draw(e_CharaId,GsCOORDINATE2*,s32,q3_12,s32);

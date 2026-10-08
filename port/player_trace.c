@@ -16,4 +16,12 @@ void port_player_trace(u32 frame) {
         vcWork.cam_tgt_pos.vx,vcWork.cam_tgt_pos.vz,
         vcWork.watch_tgt_pos.vx,vcWork.watch_tgt_pos.vz,
         vcWork.chara_pos.vx,vcWork.chara_pos.vz,g_Controller0->buttonFlags.held);
+    fflush(stdout);
+}
+
+// PORT: Optional native-stage diagnostics retain the original update order.
+void port_move_stage(const char* name) {
+    const char* enabled=getenv("SH_MOVE_STAGE_TRACE");
+    if(!enabled || strcmp(enabled,"1") || VSync(-1)<3478)return;
+    printf("MOVE_STAGE tick=%d name=%s\n",VSync(-1),name);fflush(stdout);
 }

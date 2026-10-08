@@ -338,7 +338,8 @@ unsafe extern "C" fn port_map_data_read(
 // The pinned overlay is encrypted; decode words in the original seed order.
 #[unsafe(no_mangle)]
 unsafe extern "C" fn port_move_bodyprog_read(offset: u32, size: u32, destination: *mut u8) -> i32 {
-    if destination.is_null() || offset % 4 != 0 || size % 4 != 0 || size > 4096 {
+    if destination.is_null() || !offset.is_multiple_of(4) || !size.is_multiple_of(4) || size > 4096
+    {
         return 1;
     }
     host(|h| {
@@ -353,7 +354,8 @@ unsafe extern "C" fn port_move_bodyprog_read(offset: u32, size: u32, destination
                         // SAFETY: C supplies exactly size writable bytes; the read
                         // and aligned word loop cover [offset, offset + size).
                         unsafe {
-                            destination.add(index * 4 - offset as usize)
+                            destination
+                                .add(index * 4 - offset as usize)
                                 .copy_from_nonoverlapping(decoded.as_ptr(), 4);
                         }
                     }
@@ -530,7 +532,11 @@ unsafe extern "C" fn port_asset_load_native(id: u32, destination: *mut u8, kind:
                 match kind {
                     3 => {
                         unsafe extern "C" {
-                            fn port_move_dms_publish(destination: *mut u8, bytes: *const u8, count: usize) -> i32;
+                            fn port_move_dms_publish(
+                                destination: *mut u8,
+                                bytes: *const u8,
+                                count: usize,
+                            ) -> i32;
                         }
                         let bytes = h.disc.read_entry(id).map_err(|error| error.to_string())?;
                         crate::assets::decode_dms(&bytes).map_err(|error| error.to_string())?;
@@ -1282,6 +1288,8 @@ mod tests {
             fn port_queue_image_probe() -> i32;
             fn port_player_controls_probe() -> u32;
             fn port_move_native_probe() -> u32;
+            fn port_move_gpu_epoch_probe() -> i32;
+            fn port_move_ray_bounds_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
@@ -1293,6 +1301,8 @@ mod tests {
             assert_eq!(port_queue_image_probe(), 1);
             assert_eq!(port_player_controls_probe(), 511);
             assert_eq!(port_move_native_probe(), 127);
+            assert_eq!(port_move_gpu_epoch_probe(), 1);
+            assert_eq!(port_move_ray_bounds_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }

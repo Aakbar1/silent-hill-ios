@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "native_player_loop.h"
 #include "native_player_movement.h"
+#include "native_player_rays.h"
 s32 Inventory_HyperBlasterFunctionalTest(void) {
     port_unimplemented("Inventory_HyperBlasterFunctionalTest/original inventory service");return 0;
 }
@@ -77,4 +78,20 @@ u32 port_move_native_probe(void) {
     if(g_SavegamePtr->gameplayTimer==1)checks|=64;
     *g_SavegamePtr=saved;g_DeltaTimeRaw=saved_raw;
     return checks;
+}
+
+// PORT: A diagonal ray can traverse more than the source's nominal two cells.
+// Check the original traversal, complete copy-back, and surrounding canaries.
+int port_move_ray_bounds_probe(void) {
+    struct {u32 before; s_RayState state; u32 after;} work={0};
+    work.before=0x12345678;work.after=0x87654321;
+    work.state.from=(VECTOR3){128,0,128};work.state.offset=(SVECTOR){1024,0,1024,0};
+    s_IpdCollisionData collision={0};
+    collision.subcellCountX=64;collision.subcellCountZ=64;collision.subcellSize=256;
+    func_8006E0AC(&work.state,&collision);
+    if(work.state.field_88!=10 || work.before!=0x12345678 || work.after!=0x87654321)return 0;
+    for(s32 i=0;i<10;i++) {
+        if(work.state.field_8C[i].field_0!=i/2 || work.state.field_8C[i].field_2!=(i+1)/2)return 0;
+    }
+    return 1;
 }

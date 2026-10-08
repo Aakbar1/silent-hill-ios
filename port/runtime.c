@@ -418,3 +418,37 @@ int port_audio_run_ambience_probe(void) {
     if(!result){audio_ambience_probe();fflush(stdout);return 0;}
     fflush(stdout);return result==1?stop_code:2;
 }
+
+// PORT: MainLoop consumes both OTs synchronously before starting the next frame.
+// Tokens name frame-local packet addresses, so retire them before fresh OT links
+// are built. Keeping every historical packet exhausts the bounded registry.
+void port_move_gpu_frame_begin(void) {
+    memset(token_hash,0,sizeof(token_hash));
+    token_count=0;
+}
+
+// PORT: Exercise more packet identities than the old process-lifetime capacity.
+// Each frame resolves its live links before the following frame retires them.
+int port_move_gpu_epoch_probe(void) {
+    static u32 packets[32768];
+    for(u32 frame=0;frame<4;frame++) {
+        port_move_gpu_frame_begin();
+        for(u32 i=0;i<8192;i++) {
+            u32* packet=&packets[frame*8192+i];
+            u32 token=port_gpu_token(packet);
+            if(port_gpu_pointer(token)!=packet)return 0;
+        }
+        if(token_count!=8192)return 0;
+    }
+    port_move_gpu_frame_begin();return 1;
+}
+
+// PORT: Static rendering capture after a real bounded opening run. This does
+// not step gameplay or bypass a missing gameplay consumer.
+int port_move_capture_render_boundary(void) {
+    if(g_GameWork.gameState!=11 || g_GameWork.gameStateSteps[0]!=2 ||
+       vblanks!=2300 || stop_code!=0 || blocked_service)return 4;
+    int result=setjmp(stop);
+    if(!result){port_render_first_map();fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
+}

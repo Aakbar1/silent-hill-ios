@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 
@@ -67,6 +68,15 @@ def main():
             checkpoint = [line for line in run.stdout.splitlines() if line.startswith("CHECK ")]
             digest = hashlib.sha256(screenshot.read_bytes()).hexdigest() if screenshot.exists() else None
             ok = run.returncode == 0 and len(checkpoint) == 1 and digest is not None
+            # Audio's original VAB reads delay the intro start to VBlank 1338.
+            # Retain cadence evidence alongside the measured frame threshold;
+            # a delayed start or fewer decoded frames must still fail the gate.
+            for movie_id, tick in case.get("movie_start_ticks", {}).items():
+                begin = re.findall(r"MOVIE begin id=" + movie_id + r" .* tick=(\d+)$", run.stdout, re.M)
+                ok &= begin == [str(tick)]
+            if "movie_frame_count" in case:
+                count = re.search(r"\bmovie_frames=(\d+)\b", checkpoint[0]) if checkpoint else None
+                ok &= count is not None and int(count[1]) == case["movie_frame_count"]
             if repeat and digest != first_hash:
                 ok = False
             first_hash = first_hash or digest
@@ -108,7 +118,9 @@ def check_player_trace(log):
         return math.hypot(b[x]-a[x], b[z]-a[z])
     def heading_delta(a, b):
         return (b["heading"]-a["heading"]+2048) % 4096 - 2048
-    phases = [(3301,3419,0x10),(3451,3509,0x20),(3541,3689,0x8010)]
+    # Input is read between the first and second presentation after each replay
+    # edge; the completed original run shows the new held mask at edge + 2.
+    phases = [(3302,3419,0x10),(3452,3509,0x20),(3542,3689,0x8010)]
     for start,end,pad in phases:
         if any(rows[tick]["pad"] & 0xffff != pad for tick in range(start,end+1)):
             raise ValueError("pad replay was not consumed as requested")
@@ -153,19 +165,18 @@ def first_map_main():
     import os
     parser = argparse.ArgumentParser(description="Original first-map player/camera milestone")
     parser.add_argument("--first-map", action="store_true")
-    parser.add_argument("--sound-stub-bgm", action="store_true", help="test only: return from BGM updates as if no music is due")
+    parser.add_argument("--scale", type=int, choices=range(1, 5), default=1, help="numeric replay render scale; game default is unchanged")
     parser.add_argument("--disc", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     output = root.parent.parent / "private/work/move/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     command = [str(root/"target/release/silent-hill-boot.exe"),"--headless","--audio","off","--frames","3720","--input",str(root/"docs/core/replays/first_map.txt"),"--expect-state","11"]
+    command += ["--scale",str(args.scale)]
     if args.disc:
         command += ["--disc",str(args.disc.resolve())]
     env = dict(os.environ,SH_PLAYER_TRACE="1")
     env.pop("SH_SOUND_STUB_BGM",None)
-    if args.sound_stub_bgm:
-        env["SH_SOUND_STUB_BGM"]="1"
     try:
         run = subprocess.run(command,cwd=root,env=env,capture_output=True,text=True,timeout=180)
     except subprocess.TimeoutExpired as error:
@@ -183,6 +194,21 @@ def first_map_main():
         result["pass"] = result.pop("pass_")
     except ValueError as error:
         result["reason"] = str(error)
+    if result["pass"]:
+        # PORT: Capture an actual forward-walking frame in a fresh replay;
+        # numeric movement remains independently checked by the complete run.
+        screenshot = output / "mid-walk.png"
+        capture_command = command.copy()
+        capture_command[capture_command.index("--frames")+1] = "3380"
+        capture_command += ["--screenshot",str(screenshot)]
+        capture = subprocess.run(capture_command,cwd=root,env=env,capture_output=True,text=True,timeout=180)
+        (output/"mid-walk.log").write_text(capture.stdout+capture.stderr,encoding="utf-8")
+        result["screenshot"] = str(screenshot)
+        expected_frame = [line for line in log.splitlines() if line.startswith("PLAYER_FRAME tick=3380 ")]
+        captured_frame = [line for line in capture.stdout.splitlines() if line.startswith("PLAYER_FRAME tick=3380 ")]
+        if capture.returncode or not screenshot.exists() or len(expected_frame)!=1 or captured_frame!=expected_frame:
+            result.update(pass_=False,reason="mid-walk capture failed")
+            result["pass"] = result.pop("pass_")
     (output/"results.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
     print(("PASS" if result["pass"] else "FAIL")+" first-map: "+json.dumps(result),flush=True)
     print("Evidence: "+str(output),flush=True)

@@ -10,6 +10,7 @@ void free(void* pointer);
 // PORT: One live cutscene graph owns typed numeric leaves. Serialized offsets
 // are bounds checked and decoded; no pointer ever refers into the file image.
 static s_DmsHeader owner;
+s_DmsHeader port_move_dms_header;
 static u16 half(const u8* bytes) {return (u16)((u16)bytes[0]|((u16)bytes[1]<<8));}
 static u32 word(const u8* bytes) {return (u32)half(bytes)|((u32)half(bytes+2)<<16);}
 static const u8* span(const u8* bytes,size_t size,u32 offset,size_t count) {

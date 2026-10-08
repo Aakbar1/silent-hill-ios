@@ -88,7 +88,8 @@ void Gfx_LoadScreenMapEffectsUpdate(s32 first,s32 second) {
 }
 void Gfx_EffectsUpdate(void) {port_render_effects();}
 void WorldGfx_CharaDraw(e_CharaId id,GsCOORDINATE2* coords,s32 shift,q3_12 timer,s32 palette) {
-    port_render_character(id,coords,shift,timer,palette);
+    if(id==Chara_Cheryl)port_move_npc_draw(id,coords,shift,timer,palette);
+    else port_render_character(id,coords,shift,timer,palette);
 }
 int port_animation_sample(s_AnmHeader* anm,s32 first,s32 second,q19_12 alpha,s32 bone,s32* out) {
     GsCOORDINATE2 coords[32]={0};

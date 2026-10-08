@@ -349,3 +349,9 @@ void Options_BrightnessMenu_LinesDraw(s32 brightness);
 extern s_FsImageDesc g_BrightnessScreenImg0,g_BrightnessScreenImg1,g_ControllerButtonAtlasImg;
 int port_run_game(void);
 #endif
+
+// PORT: Native animation queue completion publishes the NPC coordinate owner.
+void port_move_npc_animation_ready(s_AnmHeader* animation);
+
+// PORT: Called before MainLoop clears/builds the two new ordering tables.
+void port_move_gpu_frame_begin(void);

@@ -673,7 +673,7 @@ def prepare_player_movement(decomp, out):
         prototype = re.search(r'^(?:extern\s+)?(?:void|bool|s32|s16|s8|u32|u16|u8|q19_12|q3_12|s_\w+\s*\*)\s*'+name+r'\([^;{}]*\);',headers,re.M)
         if prototype and name not in ['Rng_Rand16','SD_Call','Player_CombatAnimUpdate']: prototypes += prototype[0]+'\n'
     prototypes += 'bool Player_CombatAnimUpdate(s_SubCharacter*,s_PlayerExtra*);\n'
-    header += prototypes+'void port_move_bgm_update(bool);\n#endif\n'
+    header += prototypes+'#endif\n'
     header=header.replace('#endif','void port_move_game_timer_update(void);\nvoid port_move_attack_tables_ensure(void);\n#endif')
     (out/'native_player_movement.h').write_text(header,encoding='utf-8')
     records = (out/'native_gameplay_records.h').read_text()
@@ -743,10 +743,8 @@ def prepare_player_movement(decomp, out):
             code=re.sub(r'\b'+re.escape(symbol)+r'\s*(\+=|-=|=(?!=))\s*([^;{}]+);',global_store,code)
         source += code
     (out/'player_movement.c').write_text(source,encoding='utf-8')
-    # PORT: Only the explicit test opt-in bypasses BGM. Audio's public entry remains intact.
     loop = out/'player_loop.c'
     code = loop.read_text().replace('#include "native_player_loop.h"','#include "native_player_movement.h"')
-    code = code.replace('Bgm_Update(false);','port_move_bgm_update(false);')
     loop.write_text(code)
     prepare_player_services(decomp,out)
     prepare_npc_loop(decomp,out)
@@ -755,6 +753,18 @@ def prepare_player_movement(decomp, out):
     prepare_player_dms(decomp,out)
     prepare_npc_models(decomp,out)
     prepare_player_events(decomp,out)
+    loop=out/'player_loop.c'
+    text=loop.read_text(encoding='utf-8')
+    watched={'Player_Update','Player_ReceiveDamage','Player_LogicUpdate','Player_PositionUpdate','Player_AnimUpdate','func_8007D090','Gfx_EffectsUpdate','WorldGfx_CharaDraw','Player_CombatUpdate','func_8008A3AC','Game_NpcRoomInitSpawn','Game_NpcUpdate','func_8005E89C','WorldGfx_CloseRangeChunksInit','WorldGfx_Draw','vcMoveAndSetCamera','World_NearbyPlayerCollisionTriggersGet'}
+    lines=[]
+    for line in text.splitlines():
+        match=re.match(r'^(\s*)(\w+)\(',line)
+        if match and match[2] in watched:
+            lines.append(match[1]+'port_move_stage("'+match[2]+'");')
+        lines.append(line)
+        if match and match[2] in watched:
+            lines.append(match[1]+'port_move_stage("'+match[2]+'/done");')
+    loop.write_text('#include "player_trace.h"\n'+'\n'.join(lines)+'\n',encoding='utf-8')
 
 
 def prepare_player_services(decomp,out):
@@ -822,24 +832,29 @@ void port_move_attack_tables_ensure(void) {
         params=signature.split('(',1)[1].rsplit(')',1)[0].split(',')
         unused=''.join('(void)'+re.findall(r'\b\w+',p)[-1]+';' for p in params if p.strip()!='void')
         source+=signature+' {'+unused+'port_unimplemented("'+name+'/native movement dependency");'+('return 0;' if not signature.startswith('void ') else '')+'}\n'
+    # PORT: NPC rendering enters through move's public character bridge. Use
+    # the original draw routine and the original field_6/field_8 metadata;
+    # the renderer's earlier Harry-only entry remains independently owned.
+    draw=function(read('src/bodyprog/world/world_draw.c'),'WorldGfx_CharaDraw')
+    draw=draw.replace('WorldGfx_CharaDraw(', 'port_move_npc_draw(')
+    draw=draw.replace('{','{\n    if(charaId!=Chara_Cheryl || !g_WorldGfxWork.registeredCharaModels[charaId])port_unimplemented("NPC rendering model publication");',1)
+    draw=draw.replace('Q8_TO_Q12(CHARA_FILE_INFOS[charaId].field_6)', '(q3_12)Q8_TO_Q12(CHARA_FILE_INFOS[charaId].field_6)')
+    draw=draw.replace('WorldGfx_HeldItemDraw();','port_render_held_item();')
+    draw=draw.replace('clutY = WorldGfx_CharaClutYGet(charaId, paletteIdx);','clutY = (s16)WorldGfx_CharaClutYGet(charaId,paletteIdx);')
+    source=source.replace('#include "native_player_movement.h"', '#include "native_player_movement.h"\n#include "render_generated.h"\n#include "render_services.h"')+draw
     (out/'player_services.c').write_text(source,encoding='utf-8')
     sfx=read('src/bodyprog/sound/sfx.c')
     sound_source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n#include <stdio.h>\n'
     sound_source+=initializer(sfx,'g_Pow2NegFracTable')
     sound_source+='static VECTOR3 g_Sfx_CameraPosition;static VECTOR3* g_Sfx_PlayerPosition;\n'
     sound_source+='void Sfx_WithFlagsAndPitchPlay(e_SfxId,const VECTOR3*,q23_8,s32,s32);\n'
-    sound_source+='''// PORT: Positional helpers retain original balance/attenuation/pitch.
-// The existing native task sink is silent; real voice linkage belongs to audio.
-void Sd_SfxWithPitchPlay(u16 sound,s8 balance,u8 volume,s8 pitch) {
-    printf("SFX_REQUEST id=%u balance=%d volume=%u pitch=%d\\n",sound,balance,volume,pitch);
-    SD_Call(sound);
-}
-void Sd_SfxPlay(u16 sound,s8 balance,u8 volume) {Sd_SfxWithPitchPlay(sound,balance,volume,0);}
-'''
+    # PORT: Positional callers use audio's real driver.
+    sound_source+='void Sd_SfxWithPitchPlay(u16,s8,u8,s8);\nvoid Sd_SfxAttributesUpdate(u16,s8,u8,s8);\n'
     for name in ['Math_Pow2Neg','Math_Pow2NegClamped','Sfx_DistanceAttenuatedVolumeGet','Sfx_WithFlagsPlay','Sfx_WithFlagsAndPitchPlay','Sfx_WithPitchPlay']:
         code=function(sfx,name)
         code=code.replace('Sd_SfxWithPitchPlay(sfxId, balance, ~adjVol, pitch);','Sd_SfxWithPitchPlay((u16)sfxId,(s8)balance,(u8)~adjVol,(s8)pitch);')
         code=code.replace('Sd_SfxWithPitchPlay(sfxId, balance, ~volCpy, pitch);','Sd_SfxWithPitchPlay((u16)sfxId,(s8)balance,(u8)~volCpy,pitch);')
+        code=code.replace('Sd_SfxAttributesUpdate(sfxId, balance, ~adjVol, pitch);','Sd_SfxAttributesUpdate((u16)sfxId,(s8)balance,(u8)~adjVol,(s8)pitch);')
         sound_source+=code
     (out/'player_sfx.c').write_text(sound_source,encoding='utf-8')
 
@@ -890,7 +905,6 @@ def prepare_npc_loop(decomp,out):
     source+=initializer(read('src/bodyprog/game_boot/fs_chara_anim.c'),'g_CharaAnimDataIdxs').replace('0xFF','-1')
     source+='void Collision_FlagsLocationUpdate(const s_SubCharacter*);void Collision_FlagsUpdate(void);\nvoid func_80037E78(s_SubCharacter*);\n'
     source+='void Sd_SfxAttributesUpdate(u16,s8,u8,s8);\n#define CLEAR_FLAG(p,n) (((u32*)(p))[(n)>>5]&=~(1u<<((n)&31)))\n'
-    source+='void Sd_SfxAttributesUpdate(u16 sound,s8 balance,u8 volume,s8 pitch) {(void)sound;(void)balance;(void)volume;(void)pitch;port_unimplemented("NPC radio/native SFX attributes");}\n'
     source+=function(read('include/game.h'),'SysWork_NpcFlagClear')
     source+=records+helpers+function(original,'Camera_Distance2dGet').replace('q25_6','s32')+code
     for name in ['Collision_FlagsLocationUpdate','Collision_FlagsUpdate']:
@@ -909,13 +923,14 @@ def prepare_player_rays(decomp,out):
     records=between(ray_header,'typedef struct\n','/** @brief Ray trace line')
     # PORT: PS1 used trailing scratch memory after this nominal one-entry array.
     # Reserve a bounded native range arena rather than writing past a C object.
-    records=records.replace('field_8C[1]','field_8C[128]')
+    records=records.replace('field_8C[1]','field_8C[128]').replace('field_20[2]','field_20[128]')
     names=re.findall(r'^\w+\s+(\w+)\([^;{}]*\)[^{;]*\{',original,re.M)
     header='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#ifndef SH_PLAYER_RAYS_H\n#define SH_PLAYER_RAYS_H\n#include "native_player_movement.h"\n'+records
     header+=enumeration(read('include/bodyprog/bodyprog.h'),'OrientationFlags')
     header+='''// PORT: Numeric work aliases preserve the reference's contiguous ray bounds.
 _Static_assert(offsetof(s_RayState,field_8C)-offsetof(s_RayState,field_6C)==32,"native ray numeric bounds");
-_Static_assert(sizeof(s_func_8006E490)==40,"native ray bounds work");
+_Static_assert(sizeof(s_func_8006E490)==544,"native ray bounds work");
+_Static_assert(offsetof(s_RayState,field_8C)+sizeof(((s_RayState*)0)->field_8C)-offsetof(s_RayState,field_6C)==sizeof(s_func_8006E490),"native complete ray tail");
 #define gte_stMAC0() ((s32)port_gte_read_data(24))
 #define gte_ldsv3_(x,y,z) do {port_gte_write_data(9,(u32)(x));port_gte_write_data(10,(u32)(y));port_gte_write_data(11,(u32)(z));} while(0)
 '''
@@ -936,6 +951,8 @@ _Static_assert(sizeof(s_func_8006E490)==40,"native ray bounds work");
         code=narrow(code,view)
         code=code.replace('curUnk = &state->field_8C;', 'curUnk = state->field_8C;')
         code=code.replace('idx < collData->subcellCount','(u32)idx < collData->subcellCount')
+        if name=='func_8006E490':
+            code=code.replace('arg0->field_20[arg0->field_1C].vx =', 'if(arg0->field_1C<0 || arg0->field_1C>=128)port_unimplemented("ray bounds capacity");\n        arg0->field_20[arg0->field_1C].vx =')
         code=code.replace('func_8006E150(&state->field_6C, ((DVECTOR*)&state->offset)[0], ((DVECTOR*)&state->offset)[1]);','// PORT: Copy the asserted numeric alias into correctly typed local work.\n    s_func_8006E490 nativeBounds; DVECTOR packedOffsets[2];\n    memcpy(&nativeBounds,&state->field_6C,sizeof(nativeBounds));\n    memcpy(packedOffsets,&state->offset,sizeof(packedOffsets));\n    func_8006E150(&nativeBounds,packedOffsets[0],packedOffsets[1]);\n    memcpy(&state->field_6C,&nativeBounds,sizeof(nativeBounds));')
         for target,typ in [(r'state->offset.v[xyz]','s16'),(r'trace->headingAngle','q3_12'),(r'trace->groundType','u8'),(r'state->field_6C.groundHeight','q7_8'),(r'subroutine_arg4.vy','s16'),(r'arg2.vx','s16'),(r'state->hitDistance','q7_8'),(r'arg0->groundHeight','q7_8')]:
             code=re.sub(r'('+target+r')\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = ('+typ+')('+m[2]+');',code)
@@ -1067,7 +1084,7 @@ def prepare_player_events(decomp,out):
         if name=='SysWork_StateSetNext':code=code.replace(name,'port_move_state_next')
         header+=code
     events_header=read('include/bodyprog/events/events_util.h')
-    for tag in ['CharaAnimCmd','ScreenFadeCmd','ScreenFadeType','AnimPlaybackState']:
+    for tag in ['CharaAnimCmd','ScreenFadeCmd','ScreenFadeType']:
         files=events_header+read('include/bodyprog/screen/screen_fade.h')+read('include/bodyprog/anim.h')+read('include/maps/shared.h')
         header+=enumeration(files,tag)
     original=read('src/bodyprog/events/events_util.c')
@@ -1078,11 +1095,10 @@ def prepare_player_events(decomp,out):
         source+=code
     source+='q19_12 g_Cutscene_Timer=NO_VALUE;\nVECTOR3 g_CameraPositionTarget,g_CameraLookAtTarget;\n'
     header+='extern q19_12 g_Cutscene_Timer;extern VECTOR3 g_CameraPositionTarget,g_CameraLookAtTarget;\n'
-    header+='bool Chara_Load(s32,s8,GsCOORDINATE2*,s8,s_LmHeader*,s_FsImageDesc*);bool Chara_ProcessLoads(void);void Chara_BonesInit(s32);\nvoid Sd_SfxPlay(u16,s8,u8);\n'
+    header+='bool Chara_Load(s32,s8,GsCOORDINATE2*,s8,s_LmHeader*,s_FsImageDesc*);bool Chara_ProcessLoads(void);void Chara_BonesInit(s32);\n'
     border=read('include/bodyprog/screen/cutscene_border.h')
-    header+=function(border,'CutsceneBorder_ForceShow')
-    header+='void ScreenFade_ResetTimestep(void);\nvoid Event_DisplayMapMsg(bool,s32,bool,bool,s32,bool);\n#endif\n'
-    source+='void ScreenFade_ResetTimestep(void) {g_ScreenFadeTimestep=Q12(0.0f);}\n'
+    header+=between(border,'#define CutsceneBorder_ForceShow()', 'void Screen_CutsceneCameraStateUpdate')
+    header+='void Event_DisplayMapMsg(bool,s32,bool,bool,s32,bool);\n#endif\n'
     source+='void Event_DisplayMapMsg(bool a,s32 b,bool c,bool d,s32 e,bool f) {(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;port_unimplemented("opening map message/native text rollout");}\n'
     (out/'native_player_events.h').write_text(header,encoding='utf-8')
     (out/'player_events.c').write_text(source,encoding='utf-8')
