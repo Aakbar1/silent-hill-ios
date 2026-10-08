@@ -334,6 +334,10 @@ mod tests {
         // SAFETY: The probe dirties/resets only this map's private namespace.
         unsafe {
             assert_eq!(sh_map0_s00_reset_probe(), 1);
+            unsafe extern "C" {
+                fn port_maps_reset_probe() -> i32;
+            }
+            assert_eq!(port_maps_reset_probe(), 0, "all 43 map data images restore");
         }
         let mut layout = [0; 5];
         // SAFETY: C writes exactly five u32 layout results.
@@ -435,5 +439,92 @@ mod tests {
         }
         assert!(native.patch_map_frames(&vec![0; capacity + 1]).is_err());
         assert!(native.patch_map_frames(&[]).is_err());
+    }
+}
+
+include!(concat!(env!("OUT_DIR"), "/native-source/maps_catalog.rs"));
+
+/// PORT: Explicit test-only spawn selection; the production loader is unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DebugWarp {
+    pub map: u32,
+    pub spawn: u32,
+}
+impl DebugWarp {
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let (name, spawn) = text.split_once(':').unwrap_or((text, "0"));
+        let map = MAP_NAMES
+            .iter()
+            .position(|candidate| *candidate == name)
+            .ok_or_else(|| format!("unknown map {name}"))?;
+        let spawn = spawn
+            .parse::<u32>()
+            .map_err(|_| "invalid warp spawn".to_owned())?;
+        if spawn > 255 {
+            return Err("warp spawn exceeds descriptor index range".into());
+        }
+        Ok(Self {
+            map: map as u32,
+            spawn,
+        })
+    }
+}
+
+#[cfg(test)]
+mod warp_tests {
+    use super::*;
+    #[test]
+    fn warp_catalog_and_arguments() {
+        assert_eq!(MAP_NAMES.len(), 43);
+        for (index, name) in MAP_NAMES.iter().enumerate() {
+            assert_eq!(
+                DebugWarp::parse(name).unwrap(),
+                DebugWarp {
+                    map: index as u32,
+                    spawn: 0
+                }
+            );
+        }
+        assert_eq!(
+            DebugWarp::parse("MAP7_S03:255").unwrap(),
+            DebugWarp {
+                map: 42,
+                spawn: 255
+            }
+        );
+        for bad in [
+            "map0_s00",
+            "MAP9_S00",
+            "MAP0_S00:",
+            "MAP0_S00:-1",
+            "MAP0_S00:256",
+            "MAP0_S00:1:2",
+        ] {
+            assert!(DebugWarp::parse(bad).is_err(), "{bad}");
+        }
+    }
+    #[test]
+    #[ignore = "requires owned disc; run through tools/prepare_maps.py --warp"]
+    fn debug_map_warp() {
+        let warp = DebugWarp::parse(&std::env::var("SH_MAP_WARP").expect("SH_MAP_WARP")).unwrap();
+        let disc =
+            crate::disc::GameDisc::open(std::env::var_os("SH_MAP_DISC").expect("SH_MAP_DISC"))
+                .unwrap();
+        crate::spu_cpal::configure(crate::spu_cpal::AudioMode::parse("off").unwrap()).unwrap();
+        crate::gpu_wgpu::configure(crate::gpu_wgpu::Options::default()).unwrap();
+        let result = crate::native::run_headless(
+            disc,
+            16,
+            None,
+            crate::pad::ReplayPad::parse("0 0000").unwrap(),
+            crate::native::ReplayCheck {
+                warp: Some(warp),
+                state: Some(11),
+                step: Some(0),
+                min_lit_pixels: 1,
+                ..Default::default()
+            },
+        );
+        assert!(result.is_ok(), "warp failed: {result:?}");
     }
 }

@@ -452,3 +452,12 @@ int port_move_capture_render_boundary(void) {
     if(!result){port_render_first_map();fflush(stdout);return 0;}
     fflush(stdout);return result==1?stop_code:2;
 }
+
+// PORT: Test-only entry retains boot's native stop/error handling.
+extern void port_maps_warp(u32 map,u32 spawn);
+int port_run_maps_warp(u32 map,u32 spawn) {
+    blocked_service=NULL;
+    int result=setjmp(stop);
+    if(!result){port_maps_warp(map,spawn);fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
+}
