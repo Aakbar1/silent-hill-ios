@@ -291,6 +291,7 @@ fn main() {
         .status()
         .expect("generate original native audio driver");
     assert!(audio.success(), "audio preparation failed");
+    move_render_milestone(&generated);
     for path in [
         "port/audio_services.c",
         "port/audio_services.h",
@@ -491,6 +492,14 @@ fn main() {
                     "offsetY              = 256 - (fbNext * 224)",
                     "offsetY              = (s16)(256 - (fbNext * 224))",
                 );
+        }
+        // PORT: Completed OTs no longer retain packet tokens in the synchronous
+        // native backend. Retire the previous frame before constructing new links.
+        if name == "game_main" {
+            native = native.replace(
+                "        GsClearOt(0, 0, &g_OrderingTable0[g_ActiveBufferIdx]);",
+                "        port_move_gpu_frame_begin();\n        GsClearOt(0, 0, &g_OrderingTable0[g_ActiveBufferIdx]);",
+            );
         }
         // PORT: Remove an upstream unused local so the native compile stays warning-free.
         if name == "game_main" {
@@ -760,6 +769,23 @@ fn main() {
     ] {
         println!("cargo:rerun-if-changed={}", repo.join(file).display());
     }
+    // PORT: Original movement delegate closure owned by the move lane.
+    build.file(generated.join("player_movement.c"));
+    build.file(generated.join("player_collision.c"));
+    build.file(generated.join("player_services.c"));
+    build.file(generated.join("player_sfx.c"));
+    build.file(generated.join("npc_loop.c"));
+    build.file(generated.join("npc_models.c"));
+    build.file(generated.join("player_events.c"));
+    build.file(generated.join("player_rays.c"));
+    build.file(generated.join("player_effects.c"));
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("port/player_dms.c").display()
+    );
+    build
+        .file(generated.join("player_dms.c"))
+        .file(repo.join("port/player_dms.c"));
     build
         .file(repo.join("port/runtime.c"))
         .file(repo.join("port/layout_check.c"))
@@ -856,4 +882,35 @@ fn audio_ios_worker(out: &Path) {
             .expect("iOS audio finish seam");
     text.insert_str(offset, "        h.spu.finish()?;\n");
     fs::write(path, text).expect("iOS audio worker adaptation");
+}
+
+// PORT: The static rendering test now reaches its frame limit through actual
+// opening gameplay instead of relying on a removed production guard.
+fn move_render_milestone(out: &Path) {
+    let path = out.join("render_milestone.rs");
+    let mut text = fs::read_to_string(&path).expect("render milestone source");
+    for (before, after) in [
+        (
+            "port_audio_capture_render_boundary",
+            "port_move_capture_render_boundary",
+        ),
+        ("assert_eq!(stopped, 3,", "assert_eq!(stopped, 0,"),
+        ("(2274, 11, 0)", "(2300, 11, 2)"),
+        ("work/audio", "work/move"),
+        (
+            "assert_eq!(unsafe { port_move_capture_render_boundary() }, 0);",
+            "host(|h| h.limit += 2);\n        assert_eq!(unsafe { port_move_capture_render_boundary() }, 0);",
+        ),
+        (
+            "retain the next original player-collision guard after BGM",
+            "complete the bounded original opening run",
+        ),
+    ] {
+        assert!(
+            text.contains(before),
+            "review move rendering milestone seam: {before}"
+        );
+        text = text.replace(before, after);
+    }
+    fs::write(path, text).expect("move static rendering milestone");
 }

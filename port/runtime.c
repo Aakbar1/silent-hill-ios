@@ -152,9 +152,13 @@ void Fs_QueueUpdate(void) {
     } else if (type==FileType_Ipd) {
         if(job.has_image || port_asset_load_ipd((u32)job.file,(s_IpdHeader*)job.destination,g_MapOverlayHdr.mapInfo->plmFileIdx)) longjmp(stop,2);
         ((s_IpdHeader*)job.destination)->isLoaded=false; // PORT: Decoded graph readiness precedes original material/texture initialization.
+    } else if (type==3) { // PORT: DMS publishes a separately decoded native graph.
+        if(job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
     } else if (type==FileType_Anm || type==FileType_Plm || type==FileType_Ilm) {
         if (job.has_image || port_asset_load_native((u32)job.file,(u8*)job.destination,type)) longjmp(stop,2);
         if(type==FileType_Plm && job.destination==GLOBAL_LM_BUFFER)((s_LmHeader*)job.destination)->isLoaded=false;
+        // PORT: NPC animation publication initializes its separately owned coordinates.
+        if(type==FileType_Anm)port_move_npc_animation_ready((s_AnmHeader*)job.destination);
     } else if(job.file>=FILE_VIN_MAP0_S00_BIN && job.file<=FILE_VIN_MAP7_S03_BIN) {
         // PORT: Native map descriptors contain only compiled GPL C data.
         // Reading an overlay's machine code cannot initialize native objects.
@@ -412,5 +416,39 @@ int port_audio_run_ambience_probe(void) {
        strcmp(blocked_service,"World_NearbyPlayerCollisionTriggersGet/native nearby trigger classification")!=0)return 4;
     int result=setjmp(stop);
     if(!result){audio_ambience_probe();fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
+}
+
+// PORT: MainLoop consumes both OTs synchronously before starting the next frame.
+// Tokens name frame-local packet addresses, so retire them before fresh OT links
+// are built. Keeping every historical packet exhausts the bounded registry.
+void port_move_gpu_frame_begin(void) {
+    memset(token_hash,0,sizeof(token_hash));
+    token_count=0;
+}
+
+// PORT: Exercise more packet identities than the old process-lifetime capacity.
+// Each frame resolves its live links before the following frame retires them.
+int port_move_gpu_epoch_probe(void) {
+    static u32 packets[32768];
+    for(u32 frame=0;frame<4;frame++) {
+        port_move_gpu_frame_begin();
+        for(u32 i=0;i<8192;i++) {
+            u32* packet=&packets[frame*8192+i];
+            u32 token=port_gpu_token(packet);
+            if(port_gpu_pointer(token)!=packet)return 0;
+        }
+        if(token_count!=8192)return 0;
+    }
+    port_move_gpu_frame_begin();return 1;
+}
+
+// PORT: Static rendering capture after a real bounded opening run. This does
+// not step gameplay or bypass a missing gameplay consumer.
+int port_move_capture_render_boundary(void) {
+    if(g_GameWork.gameState!=11 || g_GameWork.gameStateSteps[0]!=2 ||
+       vblanks!=2300 || stop_code!=0 || blocked_service)return 4;
+    int result=setjmp(stop);
+    if(!result){port_render_first_map();fflush(stdout);return 0;}
     fflush(stdout);return result==1?stop_code:2;
 }

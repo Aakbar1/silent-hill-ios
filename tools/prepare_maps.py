@@ -71,6 +71,9 @@ def prepare(decomp, output):
     # these named records consume C initializers, never serialized map bytes.
     header = re.sub(r'(\b\w+)\s*:\s*\d+;', r'\1;', header)
     header = header.replace('s_MapInfo*             mapInfo;', 'const s_MapInfo*       mapInfo;')
+    header = re.sub(r's32(\s+\(\*playerAnimStateSet\))',r'void\1',header)
+    # PORT: The pinned Player_AnimStateSet provider returns void in every map.
+    header = header.replace('s32 (*playerAnimStateSet)(s32)', 'void (*playerAnimStateSet)(s32)')
     header = header.replace('s32*                   func_88;', 'void*                  func_88;')
     for name, size in [('s_MapPoint2d',32), ('s_EventData',40), ('s_SpawnInfo',16), ('s_MapOverlayHdr', 0)]:
         original = re.search(r'STATIC_ASSERT_SIZEOF\(' + name + r', \d+\);', header)[0]
@@ -127,7 +130,10 @@ def prepare(decomp, output):
     # The original room callback is linked. All remaining unavailable callbacks
     # are guarded in this descriptor slice, and are listed in its inventory.
     callback_code = []
+    opening_names = {'MapEvent_CutsceneOpening','Player_ControlFreeze','Player_ControlUnfreeze','Player_AnimStateSet','Player_AnimReset','sharedFunc_800CDAA8_0_s02','sharedFunc_800D1C38_0_s00'}
     linked = {'Map_RoomIdxGet','Particle_EnvironmentSet','sharedFunc_800D0A60_0_s00','Map_WorldObjectsInit','Map_WorldObjectsUpdate','MapEvent_GreyChildrenSpawn'}
+    cheryl_names={'Cheryl_Update','Cheryl_AnimUpdate','Cheryl_MovementUpdate','Cheryl_ControlUpdate','Cheryl_FootstepSfxPlay','Cheryl_Init','Chara_CollisionReset','Npc_FootstepSoundPlay'}
+    linked |= opening_names | cheryl_names
     # PORT: The particle renderer is deliberately absent in the player lane.
     # Environment selection below is original logic, not this no-draw bridge.
     no_draw = {'Particle_SystemUpdate'}
@@ -159,6 +165,10 @@ def prepare(decomp, output):
             data = m[0] + '\n' + data
     data += 's_MapHdr_field_4C sharedData_800DFB7C_0_s00[MAP_FIELD_4C_COUNT];\ns_BloodSplat g_Effect_BloodSplats[MAP_BLOOD_SPLAT_COUNT_MAX];\ns32 g_Particle_SpeedX,g_Particle_SpeedZ,sharedData_800DFB6C_0_s00,sharedData_800DFB70_0_s00;\n'
     data += 'u8 MAP_ROOM_IDXS[224],sharedData_800DF2DC_0_s00[25];\n'
+    data += 's_AnimInfo CHERYL_ANIM_INFOS[8];\n'
+    data += 's32 D_800DF1CC; q19_12 D_800E3A30;\n'
+    data += 's8 g_Player_PrevWeaponAttack;\n'
+    data += 's32 sharedData_800E39D8_0_s00; q19_12 g_Player_MoveSpeed; s_CollisionResult sharedData_800E39BC_0_s00;\n'
     data += 's_WorldObjectModel D_800E3A5C[2];\nVECTOR3 D_800E3A9C;\nSVECTOR3 D_800E3AAC;\n'
     # PORT: Namespaced original particle environment scalars also reset on load.
     particle_names = ['D_800C39A0','sharedData_800E0CA8_0_s00','sharedData_800E0CAC_0_s00','sharedData_800E0CB0_0_s00','sharedData_800E0CB8_0_s00','sharedData_800E0CBA_0_s00']
@@ -179,7 +189,8 @@ def prepare(decomp, output):
     # must add their writable objects before being linked.
     owned = list(callbacks) + ['g_LoadScreenFuncs', 'g_MapEventFuncs', 'MAP_POINTS', 'MAP_EVENTS', 'MAP_MESSAGES', 'HARRY_M0S00_ANIM_INFOS', 'g_MapHeaderTable_38', 'LOADABLE_INVENTORY_ITEMS', 'sharedData_800DFB7C_0_s00', 'g_Effect_BloodSplats', 'g_Particle_SpeedX', 'g_Particle_SpeedZ', 'sharedData_800DFB6C_0_s00', 'sharedData_800DFB70_0_s00', 'g_MapOverlayHdr', 'GetXIdx', 'GetYIdx', 'MAP_ROOM_IDXS', 'sharedData_800DF2DC_0_s00']
     object_names = ['D_800E3A5C','D_800E3A9C','D_800E3AAC']
-    owned += particle_names + object_names
+    opening_data=['CHERYL_ANIM_INFOS','D_800DF1CC','D_800E3A30','g_Player_PrevWeaponAttack','sharedData_800E39D8_0_s00','g_Player_MoveSpeed','sharedData_800E39BC_0_s00']
+    owned += particle_names + object_names + opening_data + sorted(cheryl_names-callbacks.keys())
     namespace = '\n'.join(f'#define {name} {prefix}{name}' for name in owned) + '\n'
     utility = read('src/maps/map_util.c')
     room = between(utility, '#ifdef MAP5_S01', 'u8 Map_RoomIdxGet') + function(utility, 'Map_RoomIdxGet')
@@ -200,7 +211,7 @@ def prepare(decomp, output):
             obj = 'const ' + obj
         initials.append('static ' + obj)
     zeros = ['sharedData_800DFB7C_0_s00', 'g_Effect_BloodSplats', 'g_Particle_SpeedX', 'g_Particle_SpeedZ', 'sharedData_800DFB6C_0_s00', 'sharedData_800DFB70_0_s00', 'MAP_ROOM_IDXS', 'sharedData_800DF2DC_0_s00']
-    zeros += particle_names + object_names
+    zeros += particle_names + object_names + opening_data
     resets = [f'memcpy(&{name},&{name}_initial,sizeof({name}));' for name in writable]
     resets += [f'memset(&{name},0,sizeof({name}));' for name in zeros]
     probes = [f'memset(&{name},0xa5,sizeof({name}));' for name in writable + zeros]
@@ -240,15 +251,84 @@ static void Sfx_WithFalloffAndPitchPlay(s32 id,VECTOR3* pos,s32 volume,s32 dista
     helpers += chunk_macros + '\n#define BgmStatusFlag_6 (1<<6)\n#define Sfx_Unk1358 1358\n#define Sfx_Unk1361 1361\n'
     # PORT: This port targets pinned USA/NTSC, selecting its first region branch.
     helpers += re.search(r'^\s*#define ENEMY_CHARA_ID.*$',read(path+'map0_s00_2.c'),re.M)[0]+'\n'
-    source = NOTICE + '#include "npc_startup.h"\n#define MAP0_S00\n#undef CHUNK_SIZE\n#define CHUNK_SIZE 40\n#undef g_MapOverlayHdr\n' + namespace + ''.join(callback_code) + 'static u8 Map_RoomIdxGet(q19_12,q19_12);\nvoid Particle_EnvironmentSet(s8,u32);\nvoid sharedFunc_800D0A60_0_s00(s32);\n' + helpers + data + ''.join(initials) + room + environment + objects + reset
+    opening = read('src/maps/characters/player.c')
+    opening_code = ''.join(function(opening,name) for name in sorted(opening_names) if name not in {'MapEvent_CutsceneOpening','sharedFunc_800CDAA8_0_s02'})
+    opening_code=opening_code.replace('void sharedFunc_800D1C38_0_s00(s_SubCharacter* player, s_PlayerExtra* extra, GsCOORDINATE2* boneCoords)\n{','void sharedFunc_800D1C38_0_s00(s_SubCharacter* player, s_PlayerExtra* extra, GsCOORDINATE2* boneCoords)\n{\n    (void)extra;')
+    opening_code += no_includes(read('include/maps/shared/sharedFunc_800CDAA8_0_s02.h'))
+    opening_code += function(read(path+lane+'_2.c'),'MapEvent_CutsceneOpening')
+    cheryl=read('src/maps/characters/cheryl.c')
+    chara=read('src/maps/chara_util.c')
+    cheryl_code=no_includes(cheryl)
+    cheryl_code+=function(chara,'Chara_CollisionReset')+function(chara,'Npc_FootstepSoundPlay')
+    cheryl_code=cheryl_code.replace('    pos          = cheryl->position;', '    pos          = cheryl->position; (void)pos;')
+    cheryl_code=cheryl_code.replace('Math_RotMatrixZxyNegGte(&cheryl->rotation, &boneCoords->coord);', '// PORT: Copy actor rotation to padded SDK input.\n    SVECTOR nativeRotation={cheryl->rotation.vx,cheryl->rotation.vy,cheryl->rotation.vz,0};\n    Math_RotMatrixZxyNegGte(&nativeRotation,&boneCoords->coord);')
+    cheryl_code=cheryl_code.replace('cheryl->rotation.vy  = Q12_ANGLE_ABS', 'cheryl->rotation.vy  = (s16)Q12_ANGLE_ABS')
+    cheryl_code=re.sub(r'(cherylProps.moveSpeed)\s*([+-])=\s*([^;{}]+);',r'\1 = (q3_12)(\1 \2 (\3));',cheryl_code)
+    cheryl_code=re.sub(r'(Sfx_WithPitchPlay\([^;]+,) pitch\);',r'\1 (s8)pitch);',cheryl_code)
+    opening_code += cheryl_code
+
+    opening_code = opening_code.replace('SysWork_StateSetNext(', 'port_move_state_next(')
+    from prepare_camera import narrow
+    records=(output/'native_gameplay_records.h').read_text()
+    records=re.sub(r'\b(?:s16|s32|q3_12|q4_12)\s+(?:vx|vy|vz|moveSpeed)\s*;', '',records)
+    records=re.sub(r'\b(q3_12|q7_8|q11_4|u8|s8|s16|u16)\s+(field_\w+)\s*;',r'\1 port_hidden_\2;',records)
+    opening_code=narrow(opening_code,records)
+    opening_code=re.sub(r'((?:playerProps|playerChara->properties.player)\.(?:moveSpeed|headingAngle))\s*=(?!=)\s*([^;{}]+);',r'\1 = (s16)(\2);',opening_code)
+    opening_code=opening_code.replace('headingAngle = playerProps.headingAngle =', 'headingAngle = playerProps.headingAngle = (s16)')
+    # PORT: Compound stores retain the original halfword wrap, explicitly.
+    opening_code=re.sub(r'(playerProps.moveSpeed)\s*([+-])=\s*([^;{}]+);',r'\1 = (q3_12)(\1 \2 (\3));',opening_code)
+    opening_code=opening_code.replace('player->rotationSpeed.vy = FP_TO(sharedData_800E39D8_0_s00, Q8_SHIFT) / g_DeltaTime;', 'player->rotationSpeed.vy = (s16)(FP_TO(sharedData_800E39D8_0_s00, Q8_SHIFT) / g_DeltaTime);')
+    opening_code=opening_code.replace('Math_RotMatrixZxyNegGte(&player->rotation, &boneCoords[HarryBone_Root].coord);', '// PORT: Copy six actor rotation bytes into the padded SDK argument.\n    SVECTOR nativeRotation={player->rotation.vx,player->rotation.vy,player->rotation.vz,0};\n    Math_RotMatrixZxyNegGte(&nativeRotation,&boneCoords[HarryBone_Root].coord);')
+    opening_code=opening_code.replace('vcChangeProjectionValue(Dms_CameraTargetsGet(', 'vcChangeProjectionValue((q3_12)Dms_CameraTargetsGet(')
+    opening_code=opening_code.replace('adjMoveOffsetX = Q12_MULT(', 'adjMoveOffsetX = (q3_12)Q12_MULT(').replace('adjMoveOffsetZ = Q12_MULT(', 'adjMoveOffsetZ = (q3_12)Q12_MULT(')
+    opening_prototypes=''.join(re.sub(r'//[^\n]*','',function(opening,name).split('{',1)[0]).strip()+';\n' for name in sorted(opening_names) if name not in {'MapEvent_CutsceneOpening','sharedFunc_800CDAA8_0_s02'})
+    opening_prototypes+=no_includes(read('include/maps/characters/cheryl.h'))
+    for name in ['Chara_CollisionReset','Npc_FootstepSoundPlay']:
+        opening_prototypes+=function(chara,name).split('{',1)[0].strip()+';\n'
+    chara_header=read('include/bodyprog/chara/chara.h')
+    opening_prototypes+=function(chara_header,'Chara_AnimStateReset')
+    opening_prototypes+=between(chara_header,'#define Chara_AnimUpdate(', '/** @brief Sets the animation of a character.')
+    opening_prototypes+='void sharedFunc_800CDAA8_0_s02(s_SubCharacter*,s_PlayerExtra*,GsCOORDINATE2*);void MapEvent_CutsceneOpening(void);\n'
+    player_defs=read('include/bodyprog/player.h')
+    opening_prototypes+=enumeration(player_defs,'PlayerCutsceneState').replace('PlayerCutsceneState_RunForward','PortUnused_PlayerCutsceneState_RunForward')
+    opening_prototypes+='extern s8 g_Player_PrevWeaponAttack;void func_8003D01C(void);void func_8003D03C(void);extern s_DmsHeader port_move_dms_header;\n#define FS_BUFFER_16 (&port_move_dms_header)\n#ifndef USHRT_MAX\n#define USHRT_MAX 65535\n#endif\n'
+    opening_prototypes+='\n#define DEFAULT_PLAYER_CYLINDER_FIELD_2 Q12(0.23f)\n'
+    map_defs=no_includes(read('include/maps/map0/map0_s00.h'))
+    opening_prototypes+='\n'.join(line for line in map_defs.splitlines() if line.startswith('#define HAS_PlayerState_'))+'\n'
+    source = NOTICE + '#include "npc_startup.h"\n#include "native_player_events.h"\n#include "camera.h"\n#define MAP0_S00\n#undef CHUNK_SIZE\n#define CHUNK_SIZE 40\n#undef g_MapOverlayHdr\n' + namespace + opening_prototypes + ''.join(callback_code) + 'static u8 Map_RoomIdxGet(q19_12,q19_12);\nvoid Particle_EnvironmentSet(s8,u32);\nvoid sharedFunc_800D0A60_0_s00(s32);\n' + helpers + data + ''.join(initials) + room + environment + objects + opening_code + reset
     # PORT: ISO C empty initializers retain zero values explicitly.
     source = re.sub(r'\{\s*}', '{0}', source)
     # PORT: Animation linkStatus is an unsigned PS1 byte; retain 0xff sentinel.
     source = source.replace('false, NO_VALUE,', 'false, (u8)NO_VALUE,')
+    # PORT: Missing map animation rodata is decoded on the owned disc at runtime.
+    # Function addresses are identities from pinned sym.bodyprog.txt, never casts.
+    source += r"""
+static u16 move_half(const u8* p) {return (u16)(p[0]|((u16)p[1]<<8));}
+static u32 move_word(const u8* p) {return (u32)move_half(p)|((u32)move_half(p+2)<<16);}
+static int move_cheryl_table_load(void) {
+    u8 bytes[8*16]; s_AnimInfo decoded[8]={0};
+    if(port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15bfc,sizeof(bytes),bytes))return 1;
+    for(size_t i=0;i<8;i++) {
+        const u8* row=bytes+i*16; s_AnimInfo* info=&decoded[i];
+        switch(move_word(row)) {
+            case 0x80044CA4: info->playbackFunc=Anim_BlendLinear;break;
+            case 0x80044B38: info->playbackFunc=Anim_PlaybackLoop;break;
+            case 0x800449F0: info->playbackFunc=Anim_PlaybackOnce;break;
+            default:return 1;
+        }
+        if(row[4]!=i || row[5] || (row[6]!=255 && row[6]>=8))return 1;
+        info->status=row[4];info->hasVariableDuration=0;info->linkStatus=row[6];
+        info->duration.constant=(s32)move_word(row+8);
+        info->startKeyframeIdx=(s16)move_half(row+12);info->endKeyframeIdx=(s16)move_half(row+14);
+        if(info->startKeyframeIdx<-1 || info->endKeyframeIdx<0 || info->startKeyframeIdx>info->endKeyframeIdx)return 1;
+    }
+    memcpy(CHERYL_ANIM_INFOS,decoded,sizeof(decoded));return 0;
+}
+"""
     source += f'const s_MapOverlayHdr* {prefix}descriptor(void) {{ return &g_MapOverlayHdr; }}\n'
-    source += f'int {prefix}load_data(void) {{ return port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15c84,224,MAP_ROOM_IDXS) || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15d64,25,sharedData_800DF2DC_0_s00); }}\n'
+    source += f'int {prefix}load_data(void) {{ return move_cheryl_table_load() || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15c84,224,MAP_ROOM_IDXS) || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x15d64,25,sharedData_800DF2DC_0_s00); }}\n'
     (output / (lane + '.c')).write_text(source, encoding='utf-8')
-    print(f'{lane}: {len(writable)+len(zeros)} writable data objects; {len(linked)} original callbacks; {len(no_draw)} no-draw; {len(callbacks)-len(linked)-len(no_draw)} guarded callbacks')
+    print(f'{lane}: {len(writable)+len(zeros)} writable data objects; {len(linked & callbacks.keys())} original callbacks; {len(no_draw)} no-draw; {len(callbacks)-len(linked & callbacks.keys())-len(no_draw)} guarded callbacks')
 
 
 if __name__ == '__main__':

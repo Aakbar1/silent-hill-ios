@@ -105,6 +105,10 @@ typedef struct {
     // PORT: Append the full native environment record without shifting earlier fields.
     s_SysWork_2388 gameplayEnvironment;
     s32 cutsceneBorderState;
+    // PORT: Original temporary system-state words, appended for movement/combat.
+    s32 sysStateStepData[2];
+    // PORT: Original hierarchical event steps; earlier FFI offsets stay fixed.
+    s32 sysStateSteps[3];
 } PortSysWork;
 typedef PortGameWork PortGameWorkConst;
 #define g_GameWorkPtr (&g_GameWork)
@@ -345,3 +349,9 @@ void Options_BrightnessMenu_LinesDraw(s32 brightness);
 extern s_FsImageDesc g_BrightnessScreenImg0,g_BrightnessScreenImg1,g_ControllerButtonAtlasImg;
 int port_run_game(void);
 #endif
+
+// PORT: Native animation queue completion publishes the NPC coordinate owner.
+void port_move_npc_animation_ready(s_AnmHeader* animation);
+
+// PORT: Called before MainLoop clears/builds the two new ordering tables.
+void port_move_gpu_frame_begin(void);

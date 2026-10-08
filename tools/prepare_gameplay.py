@@ -15,7 +15,7 @@ def between(text, start, end):
 
 
 def function(text, name):
-    match = re.search(r'^(?:static\s+)?(?:inline\s+)?\w+\s*\*?\s+' + re.escape(name) + r'\([^;{}]*\)[^{;]*\{', text, re.M)
+    match = re.search(r'^(?:static\s+)?(?:inline\s+)?\w+\s*\**\s+' + re.escape(name) + r'\([^;{}]*\)[^{;]*\{', text, re.M)
     if not match:
         raise ValueError(f'missing pinned function {name}')
     # Ignore braces in comments/literals while preserving their source positions.
@@ -273,6 +273,8 @@ def generate(decomp, out):
     prepare_player_startup(decomp, out)
     prepare_player_controls(decomp, out)
     prepare_player_loop(decomp, out)
+    prepare_player_collision(decomp, out)
+    prepare_player_movement(decomp, out)
 
 
 def prepare_player_startup(decomp, out):
@@ -511,6 +513,598 @@ def prepare_player_loop(decomp,out):
     for name in ['Chara_Flag8Clear','Chara_DamagedFlagUpdate']:
         combat_code=combat_code.replace(name+'(', 'sh_combat_'+name+'(')
     (out/'player_combat.c').write_text('/* Copyright (C) 2026 shdecompilations; SPDX-License-Identifier: GPL-3.0-only. */\n#include "native_player_loop.h"\n'+combat_code,encoding='utf-8')
+    combat=read('src/bodyprog/bodyprog_combat_8008A058.c')
+    # PORT: Link the original empty-attack cleanup path. Active attacks retain
+    # an explicit boundary until the entire migrated weapon slice has providers.
+    idle='s32 func_8008A3E0(s_SubCharacter* chara) {s32 sp10,sp14,sp30;\n'+between(function(combat,'func_8008A3E0'),'    sp30 = NO_VALUE;','    sp18 = 0;')
+    idle+='(void)sp14;port_unimplemented("func_8008A3E0/active combat providers");return 0;}\n'
+    combat_code+=function(combat,'Chara_Flag8Set')+idle+function(combat,'func_8008A3AC')
+    setup=function(combat,'func_8008A0E4').replace('D_800297B8','HARRY_BASE_ANIM_INFOS')
+    setup=setup.replace('{','{\n    (void)unused;',1).replace('chara->field_44.field_2 = weaponAttack;', 'chara->field_44.field_2 = (s8)weaponAttack;')
+    combat_code+=setup
+    (out/'player_combat.c').write_text('/* Copyright (C) 2026 shdecompilations; SPDX-License-Identifier: GPL-3.0-only. */\n#include "native_player_movement.h"\n'+combat_code,encoding='utf-8')
+
+
+def prepare_player_collision(decomp,out):
+    """Complete original wall-response closure over the existing native IPD graphs."""
+    from prepare_camera import narrow
+    from prepare_maps import enumeration
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    texts=[read('src/bodyprog/collision/collision.c'),read('src/bodyprog/collision/trigger.c')]
+    defs={name:function(text,name).removeprefix('static ') for text in texts for name in re.findall(r'^(?:static\s+)?(?:inline\s+)?\w+\s*\**\s+(\w+)\([^;{}]*\)[^{;]*\{',text,re.M)}
+    wanted={'Collision_WallDetect','Collision_NearbyTriggersGet','Collision_FlagsGet'}
+    while True:
+        expanded=wanted|{n for caller in wanted for n in re.findall(r'\b(\w+)\s*\(',defs[caller]) if n in defs}
+        if expanded==wanted:break
+        wanted=expanded
+    existing=(out/'collision_consumers.c').read_text(encoding='utf-8')
+    existing_names=set(re.findall(r'^\w+\s*\**\s+(\w+)\(',existing,re.M))
+    header=(out/'collision.h').read_text()
+    trigger=read('include/bodyprog/collision/trigger.h')
+    work=between(trigger,'typedef struct\n','/** @brief World-space collision trigger')
+    work+='STATIC_ASSERT_SIZEOF(s_func_8006F338,48);\n'
+    flags=enumeration(read('include/bodyprog/collision/collision.h'),'CollisionTriggerFlags').replace('CollisionTriggerFlag_Map','PortUnused_CollisionTriggerFlag_Map')
+    addition=flags+work+'#define INTERSECTION_BUFFER Q12(0.1f)\nextern s_WorldMapWork g_WorldMapWork;\ns_IpdCollisionData** WorldMap_ActiveChunksCollisionDataGet(s32*);\n'
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "collision.h"\n#define TRIGGER_HEIGHT_GET(steps) ((-Q12(steps)>>1)-Q12(1.5f))\n'
+    for name,code in defs.items():
+        if name not in wanted or name in existing_names:continue
+        # PORT: Native stack frames replace PS1 scratch-stack switching.
+        code=re.sub(r'^\s*s32\s+stackPtr;\n','\n',code,flags=re.M)
+        code=re.sub(r'^\s*stackPtr = SetSp\([^\n]+\n','\n    // PORT: Retain the native stack; never load a PS1 stack address.\n',code,flags=re.M)
+        code=re.sub(r'^\s*SetSp\(stackPtr\);\n','\n',code,flags=re.M)
+        code=code.replace('return &collCharas;','return collCharas;').replace('curCollChara    = &collCharas;','curCollChara    = collCharas;')
+        if name in ['Collision_CharaCollisionSetup','func_8006A42C']:
+            # PORT: Sequence original output-parameter providers before reading
+            # their counts; native C argument evaluation order is unspecified.
+            prefix='s_IpdCollisionData** activeData=WorldMap_ActiveChunksCollisionDataGet(&collDataIdx);\n    '
+            code=code.replace('WorldMap_ActiveChunksCollisionDataGet(&collDataIdx)', 'activeData')
+            if name=='Collision_CharaCollisionSetup':
+                prefix+='s_SubCharacter** activeCharas=Collision_CollidableCharasGet(&charaCount,chara,true);\n    '
+                code=code.replace('Collision_CollidableCharasGet(&charaCount, chara, true)', 'activeCharas')
+            code=code.replace('return func_8006A4A8',prefix+'return func_8006A4A8')
+        if name=='func_8006F250':code=code.replace('ptr = PSX_SCRATCH;','s_func_8006F338 nativeWork;\n    ptr = &nativeWork; // PORT: Typed native scratch, no overlap with other live work.')
+        if name=='Collision_NearbyTriggersGet':
+            code=code.replace('g_ActiveCollisionTriggers.collisionTriggers[g_ActiveCollisionTriggers.collisionTriggerCount] = curTrigger;', 'if(g_ActiveCollisionTriggers.collisionTriggerCount>=20)port_unimplemented("nearby collision trigger capacity");\n            g_ActiveCollisionTriggers.collisionTriggers[g_ActiveCollisionTriggers.collisionTriggerCount] = curTrigger;')
+        if name=='Collision_WallResponse':code=code.replace('{','{\n    (void)moveOffset;',1)
+        if name=='Collision_WallResponse':code=code.replace('q19_12             groundHeight;', 'q19_12             groundHeight=0; // PORT: Used only after its paired groundType is set.')
+        if name=='func_8006D2B4':code=code.replace('q3_12  rotY1;','q3_12  rotY1=0; // PORT: Only consumed when the matching range is populated.').replace('q3_12  rotX1;','q3_12  rotX1=0;')
+        view=re.sub(r'\b(?:s16|s32|q3_12|q7_8|s8|u8)\s+(?:v[xyz]|field_0|groundHeight|ceilingHeight)\s*;', '',header+work)
+        code=narrow(code,view)
+        code=code.replace('arg1->field_0 = (s8)(arg1->field_30);','arg1->field_0 = arg1->field_30;').replace('arg1->field_0 = (s8)(arg1->field_8);','arg1->field_0 = arg1->field_8;')
+        code=code.replace('chara->collision.state < (u32)state.charaState.collisionState','chara->collision.state < state.charaState.collisionState')
+        code=code.replace('curArg1->collisionState < (u32)state->charaState.collisionState','curArg1->collisionState < state->charaState.collisionState')
+        code=code.replace('state->field_A0.s_1.field_8','(s8*)state->field_A0.s_1.field_8')
+        code=re.sub(r'\(s8\*\)(state->field_A0.s_1.field_8\s*=)',r'\1',code)
+        code=code.replace('state->charaState.distance,','(q3_12)state->charaState.distance,')
+        code=code.replace('state->charaPositionFrom.vx - state->charaState.positionFromX,','(q3_12)(state->charaPositionFrom.vx - state->charaState.positionFromX),')
+        code=code.replace('state->charaPositionTo.vz   - state->charaState.positionFromZ,','(q7_8)(state->charaPositionTo.vz - state->charaState.positionFromZ),')
+        code=code.replace('2, deltaX, deltaZ, temp3)', '2, (q7_8)deltaX, (q7_8)deltaZ, (q7_8)temp3)')
+        code=code.replace('func_8006C1B8(1, temp_v0, state)', 'func_8006C1B8(1, (q3_12)temp_v0, state)')
+        for target,typ in [(r'collResult->surface.groundType','s8'),(r'collResult->surface.tiltAngle[ZX]','s16'),(r'charaState->direction.v[xz]','s16')]:
+            code=re.sub(r'('+target+r')\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = ('+typ+')('+m[2]+');',code)
+        addition+=re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n'
+        source+=code
+    # The original wrapper consumes the current descriptor's live trigger array.
+    source+='void World_NearbyPlayerCollisionTriggersGet(void) {Collision_NearbyTriggersGet(g_SysWork.playerWork.player.position.vx,g_SysWork.playerWork.player.position.vz,g_WorldGfxWork.collisionTriggers);}\n'
+    active=function(read('src/bodyprog/world/world_map.c'),'WorldMap_ActiveChunksCollisionDataGet')
+    active=active.replace('activeChunksCollData[(*collDataIdx)++] = collData;', 'if(*collDataIdx>=4)port_unimplemented("active collision chunk capacity");\n                    activeChunksCollData[(*collDataIdx)++] = collData;')
+    # PORT: Keep the world's original private workspace private; append this
+    # original accessor in its owning generated translation unit.
+    world=out/'world_consumers.c'
+    world.write_text(world.read_text(encoding='utf-8')+'\n'+active,encoding='utf-8')
+    # PORT: The same pinned SDK normalization table/kernel returns Q12 sqrt
+    # by keeping six more fractional result bits than SquareRoot0.
+    math=out/'native_math.c'
+    math_source=math.read_text(encoding='utf-8')
+    root12=function(math_source,'SquareRoot0').replace('SquareRoot0(','SquareRoot12(').replace(')>>12)',')>>6)')
+    math.write_text(math_source+'\n'+root12,encoding='utf-8')
+    (out/'collision.h').write_text(header.replace('#endif',addition+'#endif'))
+    (out/'player_collision.c').write_text(source)
+
+
+def prepare_player_movement(decomp, out):
+    """Original player delegate closure; no replacement movement algorithms."""
+    from prepare_maps import initializer, enumeration
+    from prepare_camera import narrow
+    def read(path): return (decomp/path).read_text(encoding='utf-8')
+    original = read('src/bodyprog/player_control.c')
+    player_header = read('include/bodyprog/player.h')
+    function_names = re.findall(r'^(?:static\s+)?(?:inline\s+)?\w+\s*\*?\s+(\w+)\([^;{}]*\)[^{;]*\{', original, re.M)
+    provided = {'Game_SavegameResetPlayer','func_8007E9C4'}
+    for source in list(out.glob('*.c')) + list((Path(__file__).resolve().parents[1]/'port').glob('*.c')):
+        # Existing delegate guards are replaced, never counted as providers.
+        if source.name == 'player_movement.c' or (source.name == 'player_loop.c' and source.parent.name == 'port'): continue
+        provided.update(re.findall(r'^(?:static\s+)?(?:inline\s+)?\w+\s*\*?\s+(\w+)\([^;{}]*\)[^{;]*\{',source.read_text(encoding='utf-8'),re.M))
+    cutoff = original.index('void Game_SavegameResetPlayer')
+    wanted = {name for name in function_names if original.index(function(original,name)) < cutoff and name not in provided}
+    wanted.add('func_8007FC48')
+    # Follow player-local helpers, but retain the already migrated world services.
+    while True:
+        expanded = wanted | {name for caller in wanted for name in re.findall(r'\b(\w+)\s*\(',function(original,caller)) if name in function_names and name not in provided}
+        if expanded == wanted: break
+        wanted = expanded
+    codes = {name:function(original,name).replace('static inline ', '') for name in function_names if name in wanted}
+    text = ''.join(codes.values())
+    notice = '/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n'
+    header = notice+'#ifndef SH_PLAYER_MOVEMENT_H\n#define SH_PLAYER_MOVEMENT_H\n#include "native_player_loop.h"\n#include "collision.h"\n'
+    header += enumeration(player_header,'PlayerFlags').replace('1 << 31','(s32)0x80000000u')
+    header += between(player_header,'// Used in player lower body state handling.', '// ========\n// GLOBALS')
+    body = read('include/bodyprog/bodyprog.h')
+    attacks = between(body,'/** Related to weapon attacks.','/** @brief Radio noise')
+    header += attacks.replace('STATIC_ASSERT_SIZEOF(s_800AD4C8, 24);','// PORT: Native auxiliary pointer; disk attacks remain 24 bytes.\nSTATIC_ASSERT_SIZEOF(s_800AD4C8, 32);')
+    header += between(read('include/bodyprog/collision/ray.h'),'/** @brief Ray trace line','bool Ray_TraceQuery')
+    sfx_enum = enumeration(read('include/bodyprog/sound/sfx_id_enum.h'),'SfxId')
+    for symbol in re.findall(r'\bSfx_Menu\w+\b',sfx_enum): sfx_enum=sfx_enum.replace(symbol,'PortUnused_'+symbol)
+    header += sfx_enum+enumeration(body,'SfxFlags')
+    type_start=body.rfind('typedef struct',0,body.index('} s_800C44F0;'))
+    header += body[type_start:body.index('} s_800C44F0;')+len('} s_800C44F0;')]+'\n'
+    header += '#define TIMESTEP_30_FPS Q12(1.0f/30.0f)\n#define BITMASK_RANGE(a,b) (((1u<<((b)-(a)+1))-1u)<<(a))\n'
+    header += '#define HARRY_UPPER_BODY_BONE_MASK BITMASK_RANGE(HarryBone_Root,HarryBone_RightHand)\n#define HARRY_LOWER_BODY_BONE_MASK BITMASK_RANGE(HarryBone_Hips,HarryBone_RightFoot)\n'
+    header += between(player_header,'#define Player_ExtraStateSet','/** @brief Sets the given animation flag')
+    header += 'extern u8 g_Player_AnimResetRequest;\n'
+    header += function(player_header,'Player_AnimFlagsSet')+function(player_header,'Player_AnimStateReset')
+    header += between(read('include/bodyprog/chara/chara.h'),'#define Chara_DamageClear','/** @brief Sets a character')
+    # All globals retain one native owner. Arrays with source initializers are GPL data.
+    globals_code = ''
+    existing = '\n'.join(source.read_text(encoding='utf-8') for source in list(out.glob('*.c'))+list((Path(__file__).resolve().parents[1]/'port').glob('*.c')) if source.name != 'player_movement.c')
+    reset_globals = set(re.findall(r'\bg_Player_\w+',function(original,'func_8007E9C4')))
+    for name in sorted(set(re.findall(r'\b(?:g_Player_\w+|D_800\w+)\b',text))):
+        declaration = re.search(r'(?:extern\s+)?(\w+)\s+'+name+r'\s*(\[[^;=]*\])?\s*(?:=[^;]*|);',player_header+'\n'+original+'\n'+body)
+        if not declaration: raise ValueError('missing movement global '+name)
+        typ, array = declaration[1], declaration[2] or ''
+        typ = {'g_Player_DisableControl':'bool','D_800C4588':'s16'}.get(name,typ)
+        header += f'extern {typ} {name}{array};\n'
+        if name in reset_globals or re.search(r'\b\w+\s+'+name+r'\s*(?:\[[^;]*?\])?\s*(?:=|;)',existing): continue
+        if array:
+            if re.search(r'^'+typ+r'\s+'+name+r'\s*\[[^;]*?=',original,re.M):
+                globals_code += initializer(original,name)
+            else:
+                globals_code += f'{typ} {name}{array};\n'
+        else:
+            match = re.search(r'^'+typ+r'\s+'+name+r'\s*=[^;]*;',original,re.M)
+            globals_code += (match[0] if match else f'{typ} {name};')+'\n'
+    prototypes = ''
+    for name,code in codes.items():
+        prototypes += re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n'
+    # Obtain exact declarations for services, including guarded leaves, from source.
+    headers = '\n'.join(path.read_text(encoding='utf-8') for path in (decomp/'include').rglob('*.h'))
+    for name in sorted(set(re.findall(r'\b(\w+)\s*\(',text))):
+        if name in codes: continue
+        prototype = re.search(r'^(?:extern\s+)?(?:void|bool|s32|s16|s8|u32|u16|u8|q19_12|q3_12|s_\w+\s*\*)\s*'+name+r'\([^;{}]*\);',headers,re.M)
+        if prototype and name not in ['Rng_Rand16','SD_Call','Player_CombatAnimUpdate']: prototypes += prototype[0]+'\n'
+    prototypes += 'bool Player_CombatAnimUpdate(s_SubCharacter*,s_PlayerExtra*);\n'
+    header += prototypes+'#endif\n'
+    header=header.replace('#endif','void port_move_game_timer_update(void);\nvoid port_move_attack_tables_ensure(void);\n#endif')
+    (out/'native_player_movement.h').write_text(header,encoding='utf-8')
+    records = (out/'native_gameplay_records.h').read_text()
+    source = notice+'#include "native_player_movement.h"\n'+globals_code
+    aliases = {'playerChara':'g_SysWork.playerWork.player','playerProps':'g_SysWork.playerWork.player.properties.player','playerExtra':'g_SysWork.playerWork.extra','playerCombat':'g_SysWork.playerCombat'}
+    for name,code in codes.items():
+        if name=='Player_UpperBodyMainUpdate':
+            # PORT: Lift the original GCC nested function with explicit captured inputs.
+            code=code.replace('    bool Player_CombatAnimUpdate(void)', 'bool Player_CombatAnimUpdate(void)')
+            inner=function(code,'Player_CombatAnimUpdate')
+            code=code.replace(inner.rstrip(),'').replace('    static s32 D_800C44D0;','').replace('    static s32 D_800C44D4;','')
+            inner=inner.replace('Player_CombatAnimUpdate(void)','Player_CombatAnimUpdate(s_SubCharacter* player,s_PlayerExtra* extra)')
+            inner=inner.replace('{','{\n    s32 enemyAttackedIdx;',1)
+            code=inner+'\n'+code.replace('Player_CombatAnimUpdate()', 'Player_CombatAnimUpdate(player,extra)')
+        code=code.replace('g_SysWork.field_2388.field_154','g_SysWork.gameplayEnvironment.field_154')
+        code=code.replace('Game_TimerUpdate();','port_move_game_timer_update();')
+        if name=='Player_ReceiveDamage':code=code.replace('{','{\n    port_move_attack_tables_ensure();',1)
+        if name=='Player_FootstepSfxGet':
+            # PORT: The reference inline assembly only reloads the live map index.
+            code=re.sub(r'asm volatile\(.*?: "memory"\);','mapIdx = g_SavegamePtr->mapIdx;',code,flags=re.S)
+        if name=='Player_LogicUpdate':
+            code=code.replace('q3_12         headingAngle0;', 'q3_12         headingAngle0=0; // PORT: The undefined reference grab branch below remains guarded.')
+            code=code.replace('q3_12         headingAngle1;', 'q3_12         headingAngle1=0; // PORT: The impossible pinned-grab state remains guarded below.')
+            code=code.replace('Math_RotMatrixZxyNegGte(&player->rotation, &coords->coord);','// PORT: Actor rotation is six bytes; the SDK argument is padded.\n    SVECTOR nativeRotation={player->rotation.vx,player->rotation.vy,player->rotation.vz,0};\n    Math_RotMatrixZxyNegGte(&nativeRotation, &coords->coord);')
+            code=code.replace('s_Model**     models;', '/* PORT: Remove a match-only uninitialized read whose body adds zero. */')
+            code=re.sub(r'if \(\(\*models\) != NULL\).*?\{\s*g_Player_HeadingAngle \+= Q12_ANGLE\(0.0f\);\s*}', '',code,flags=re.S)
+            code=code.replace('if (ABS(headingAngle0) <','// PORT: This reference grab branch reads an undefined angle before computing it.\n            port_unimplemented("Player_LogicUpdate/Romper grab undefined reference angle");\n            if (ABS(headingAngle0) <')
+            # The switch handles exactly these original states; reject any other state.
+            code=code.replace('                    break;\n            }\n\n            g_Player_HeadingAngle = headingAngle1;', '                    break;\n                default: port_unimplemented("Player_LogicUpdate/pinned grab state");\n            }\n\n            g_Player_HeadingAngle = headingAngle1;')
+        if name=='Player_PositionUpdate':code=code.replace('VECTOR3            sp30;', 'VECTOR3            sp30={0}; // PORT: Only the school boss branch consumes this copied offset.')
+        if name=='Player_CombatUpdate':
+            code=re.sub(r'VECTOR\*\s+(attackPos[012])',r'VECTOR3* \1',code)
+            code=re.sub(r'VECTOR\s+(blasterBeamFrom|partBeamFrom|partBeamTo);',r'VECTOR3 \1;',code)
+            code=code.replace('g_MapOverlayHdr.particleHyperBlasterBeamDraw(&blasterBeamFrom, &rotToAttackPos.vx, &rotToAttackPos.vy);','// PORT: Original callback takes word angles; copy SDK halfwords explicitly.\n                q19_12 beamY=rotToAttackPos.vx,beamX=rotToAttackPos.vy;\n                g_MapOverlayHdr.particleHyperBlasterBeamDraw(&blasterBeamFrom,&beamY,&beamX);')
+        if name=='func_8007F95C':code=code.replace('u16             sp30;','q3_12          sp30;')
+        if name=='func_8007D090':code=code.replace('{','{\n    (void)extra;',1)
+        code=code.replace('Math_ShortestAngleGet(player->rotation.vy, temp_s1_2,','Math_ShortestAngleGet(player->rotation.vy, (q3_12)temp_s1_2,').replace('Math_ShortestAngleGet(player->angleToTarget, temp_s1_2,','Math_ShortestAngleGet(player->angleToTarget, (q3_12)temp_s1_2,')
+        for alias,target in aliases.items(): code = re.sub(r'(?<!\.)\b'+alias+r'\b',target,code)
+        # Vector words and the character's word moveSpeed must not inherit the
+        # same-named halfword fields from SVECTOR/PropsPlayer declarations.
+        view=re.sub(r'\b(?:s16|s32|q3_12|q4_12)\s+(?:vx|vy|vz|moveSpeed)\s*;', '',records+player_header)
+        # PORT: Generic field_N names occur in unrelated records of different
+        # widths. Narrow their stores only through the actual player record.
+        view=re.sub(r'\b(q3_12|q7_8|q11_4|u8|s8|s16|u16)\s+(field_\w+)\s*;',r'\1 port_hidden_\2;',view)
+        code = narrow(code,view)
+        for record,prefix in [('s_PropsPlayer',r'(?:player->properties.player|g_SysWork.playerWork.player.properties.player)\.'),('s_SubCharacter',r'(?:player|chara)->'),('s_PlayerExtra',r'(?:extra->|g_SysWork.playerWork.extra\.)')]:
+            end=records.index('} '+record+';')
+            start=records.rfind('typedef struct',0,end)
+            for typ,field in re.findall(r'\b(q3_12|q7_8|q11_4|u8|s8|s16|u16)\s+(field_\w+)\s*;',records[start:end]):
+                def record_store(m):
+                    lhs,op,rhs=m[1],m[2],m[3]
+                    expr=rhs if op=='=' else lhs+' '+op[0]+' ('+rhs+')'
+                    return lhs+' = ('+typ+')('+expr+');'
+                code=re.sub(r'\b('+prefix+field+r')\s*(\+=|-=|=(?!=))\s*([^;{}]+);',record_store,code)
+        for target,typ in [(r'(?:player->properties.player|g_SysWork.playerWork.player.properties.player)\.moveSpeed','q3_12'),(r'player->collision.cylinder.field_2','q3_12'),(r'\w+(?:->|\.)(?:rotationSpeed|collision.shapeOffsets\.(?:box|cylinder))\.v[xyz]','s16'),(r'g_SysWork.playerWork.player.collision.shapeOffsets\.(?:box|cylinder)\.v[xyz]','s16'),(r'rotToAttackPos\.v[xy]','s16')]:
+            def target_store(m):
+                lhs,op,rhs=m[1],m[2],m[3]
+                expr=rhs if op=='=' else lhs+' '+op[0]+' ('+rhs+')'
+                return lhs+' = ('+typ+')('+expr+');'
+            code=re.sub(r'\b('+target+r')\s*(\+=|-=|=(?!=))\s*([^;{}]+);',target_store,code)
+        # PORT: Retain original global halfword/byte writes and signed angle stores.
+        for symbol,typ in [('g_Player_FlexRotationX','q3_12'),('g_Player_FlexRotationY','q3_12'),('g_SysWork.targetNpcIdx','s8'),('D_800AF220','u8'),('enemyRotY','q4_12')]:
+            def global_store(m):
+                op,rhs=m[1],m[2]
+                expr=rhs if op=='=' else symbol+' '+op[0]+' ('+rhs+')'
+                return symbol+' = ('+typ+')('+expr+');'
+            code=re.sub(r'\b'+re.escape(symbol)+r'\s*(\+=|-=|=(?!=))\s*([^;{}]+);',global_store,code)
+        source += code
+    (out/'player_movement.c').write_text(source,encoding='utf-8')
+    loop = out/'player_loop.c'
+    code = loop.read_text().replace('#include "native_player_loop.h"','#include "native_player_movement.h"')
+    loop.write_text(code)
+    prepare_player_services(decomp,out)
+    prepare_npc_loop(decomp,out)
+    prepare_player_rays(decomp,out)
+    prepare_player_effects(decomp,out)
+    prepare_player_dms(decomp,out)
+    prepare_npc_models(decomp,out)
+    prepare_player_events(decomp,out)
+    loop=out/'player_loop.c'
+    text=loop.read_text(encoding='utf-8')
+    watched={'Player_Update','Player_ReceiveDamage','Player_LogicUpdate','Player_PositionUpdate','Player_AnimUpdate','func_8007D090','Gfx_EffectsUpdate','WorldGfx_CharaDraw','Player_CombatUpdate','func_8008A3AC','Game_NpcRoomInitSpawn','Game_NpcUpdate','func_8005E89C','WorldGfx_CloseRangeChunksInit','WorldGfx_Draw','vcMoveAndSetCamera','World_NearbyPlayerCollisionTriggersGet'}
+    lines=[]
+    for line in text.splitlines():
+        match=re.match(r'^(\s*)(\w+)\(',line)
+        if match and match[2] in watched:
+            lines.append(match[1]+'port_move_stage("'+match[2]+'");')
+        lines.append(line)
+        if match and match[2] in watched:
+            lines.append(match[1]+'port_move_stage("'+match[2]+'/done");')
+    loop.write_text('#include "player_trace.h"\n'+'\n'.join(lines)+'\n',encoding='utf-8')
+
+
+def prepare_player_services(decomp,out):
+    """Original small providers and explicit guards at remaining production imports."""
+    from prepare_maps import initializer
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n#include <stdio.h>\n'
+    source+='u8 g_Player_AnimResetRequest;\n'
+    source+='void func_800892DC(s32 index,u8 strength) { // PORT: PS1 motor requests have no native motor backend.\n printf("HAPTIC index=%d strength=%u\\n",index,strength);}\n'
+    original=read('src/bodyprog/bodyprog_80089090.c')
+    for name in ['func_800893D0','func_8008944C','func_80089470','func_80089494']:
+        code=function(original,name).replace('func_800892DC(10, var);','func_800892DC(10, (u8)var);')
+        source+=code
+    original=read('src/bodyprog/world/world_draw.c')
+    source+=function(original,'Map_SpeedZoneTypeGet')
+    for name in ['func_8003D01C','func_8003D03C']:
+        source+=function(original,name).replace('1 << 31','1u << 31')
+    mesh=function(original,'WorldGfx_CharaMeshSwap')
+    for name in set(re.findall(r'\b(WorldGfx_\w+MeshSwap)\(',mesh))-{'WorldGfx_CharaMeshSwap','WorldGfx_HarryMeshSwap'}:
+        source+=f'static void {name}(s_Skeleton* skeleton,s32 status) {{(void)skeleton;(void)status;port_unimplemented("{name}/character mesh variant");}}\n'
+    source+=mesh
+    code=function(read('src/bodyprog/world/bodyprog_bone_80044F14.c'),'func_80044F14')
+    code=code.replace('rot    = PSX_SCRATCH;', 'SVECTOR nativeRotation; MATRIX nativeMatrix;\n    rot=&nativeRotation; // PORT: Typed SDK scratch, independent of PS1 arena addresses.')
+    code=code.replace('rotMat = PSX_SCRATCH_ADDR(sizeof(SVECTOR));','rotMat=&nativeMatrix;').replace('rot->vy = rotY;','rot->vy = (s16)rotY;')
+    source+=code
+    # PORT: Exact pinned libkmath.s RotMatrixZ_Apply: shift each signed product
+    # independently before the wrapping add/subtract, preserving row 2 and t.
+    source+='''MATRIX* Math_RotMatrixZ(s32 angle,MATRIX* matrix) {
+    s32 sine=Math_Sin(angle),cosine=Math_Cos(angle);
+    for(s32 i=0;i<3;i++) {
+        s32 a=matrix->m[0][i],b=matrix->m[1][i];
+        matrix->m[0][i]=(s16)((u32)(((s64)cosine*a)>>12)-(u32)(((s64)sine*b)>>12));
+        matrix->m[1][i]=(s16)((u32)(((s64)sine*a)>>12)+(u32)(((s64)cosine*b)>>12));
+    }
+    return matrix;
+}
+'''
+    items=read('src/bodyprog/items/item_screens_3.c')
+    source+=initializer(items,'g_Items_GunsMaxLoadAmmo').replace('NO_VALUE','(u8)NO_VALUE')
+    source+=function(items,'Items_AmmoReloadCompute')
+    timer=function(read('src/bodyprog/items/item_utils.c'),'Game_TimerUpdate').replace('Game_TimerUpdate(','port_move_game_timer_update(')
+    # PORT: The original 290-hour constant is an unsigned Q20.12 value, beyond
+    # the signed float-to-word range of the bootstrap Q12 macro.
+    timer=timer.replace('Q12((290.0f * 60.0f) * 60.0f)','4276224000u').replace('Q12((130.0f * 60.0f) * 60.0f)','1916928000u').replace('CLAMP(g_SavegamePtr->gameplayTimer, 1,','CLAMP(g_SavegamePtr->gameplayTimer, 1u,').replace('UINT_MAX','0xffffffffu')
+    source+=timer
+    # PORT: Reuse the combat lane's production decoder on decrypted owned data.
+    decoder=(Path(__file__).resolve().parents[1]/'port/sys/combat/combat.c').read_text()
+    source+=function(decoder,'half')+function(decoder,'word')+function(decoder,'sh_combat_attack_decode')
+    source+='''extern int port_move_bodyprog_read(u32,u32,u8*);
+static u32 nativeAttackAux;
+void port_move_attack_tables_ensure(void) {
+    static bool loaded;
+    if(loaded)return;
+    u8 bytes[70*24];s_800AD4C8 decoded[70];
+    if(port_move_bodyprog_read(0x800AD4C8u-0x80024B60u,sizeof(bytes),bytes))port_unimplemented("combat attack table read");
+    for(size_t i=0;i<70;i++)if(!sh_combat_attack_decode(bytes+i*24,24,0x800AD4C4u,&decoded[i],&nativeAttackAux))port_unimplemented("combat attack auxiliary identity");
+    memcpy(D_800AD4C8,decoded,sizeof(decoded));loaded=true;
+}
+'''
+    guards=['func_8005CD38','func_8005D50C','func_8006342C']
+    header=(out/'native_player_movement.h').read_text(encoding='utf-8')
+    for name in guards:
+        signature=re.search(r'^((?:void|bool|s32)\s+'+name+r'\([^;{}]*\));',header,re.M)[1]
+        params=signature.split('(',1)[1].rsplit(')',1)[0].split(',')
+        unused=''.join('(void)'+re.findall(r'\b\w+',p)[-1]+';' for p in params if p.strip()!='void')
+        source+=signature+' {'+unused+'port_unimplemented("'+name+'/native movement dependency");'+('return 0;' if not signature.startswith('void ') else '')+'}\n'
+    # PORT: NPC rendering enters through move's public character bridge. Use
+    # the original draw routine and the original field_6/field_8 metadata;
+    # the renderer's earlier Harry-only entry remains independently owned.
+    draw=function(read('src/bodyprog/world/world_draw.c'),'WorldGfx_CharaDraw')
+    draw=draw.replace('WorldGfx_CharaDraw(', 'port_move_npc_draw(')
+    draw=draw.replace('{','{\n    if(charaId!=Chara_Cheryl || !g_WorldGfxWork.registeredCharaModels[charaId])port_unimplemented("NPC rendering model publication");',1)
+    draw=draw.replace('Q8_TO_Q12(CHARA_FILE_INFOS[charaId].field_6)', '(q3_12)Q8_TO_Q12(CHARA_FILE_INFOS[charaId].field_6)')
+    draw=draw.replace('WorldGfx_HeldItemDraw();','port_render_held_item();')
+    draw=draw.replace('clutY = WorldGfx_CharaClutYGet(charaId, paletteIdx);','clutY = (s16)WorldGfx_CharaClutYGet(charaId,paletteIdx);')
+    source=source.replace('#include "native_player_movement.h"', '#include "native_player_movement.h"\n#include "render_generated.h"\n#include "render_services.h"')+draw
+    (out/'player_services.c').write_text(source,encoding='utf-8')
+    sfx=read('src/bodyprog/sound/sfx.c')
+    sound_source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n#include <stdio.h>\n'
+    sound_source+=initializer(sfx,'g_Pow2NegFracTable')
+    sound_source+='static VECTOR3 g_Sfx_CameraPosition;static VECTOR3* g_Sfx_PlayerPosition;\n'
+    sound_source+='void Sfx_WithFlagsAndPitchPlay(e_SfxId,const VECTOR3*,q23_8,s32,s32);\n'
+    # PORT: Positional callers use audio's real driver.
+    sound_source+='void Sd_SfxWithPitchPlay(u16,s8,u8,s8);\nvoid Sd_SfxAttributesUpdate(u16,s8,u8,s8);\n'
+    for name in ['Math_Pow2Neg','Math_Pow2NegClamped','Sfx_DistanceAttenuatedVolumeGet','Sfx_WithFlagsPlay','Sfx_WithFlagsAndPitchPlay','Sfx_WithPitchPlay']:
+        code=function(sfx,name)
+        code=code.replace('Sd_SfxWithPitchPlay(sfxId, balance, ~adjVol, pitch);','Sd_SfxWithPitchPlay((u16)sfxId,(s8)balance,(u8)~adjVol,(s8)pitch);')
+        code=code.replace('Sd_SfxWithPitchPlay(sfxId, balance, ~volCpy, pitch);','Sd_SfxWithPitchPlay((u16)sfxId,(s8)balance,(u8)~volCpy,pitch);')
+        code=code.replace('Sd_SfxAttributesUpdate(sfxId, balance, ~adjVol, pitch);','Sd_SfxAttributesUpdate((u16)sfxId,(s8)balance,(u8)~adjVol,(s8)pitch);')
+        sound_source+=code
+    (out/'player_sfx.c').write_text(sound_source,encoding='utf-8')
+
+
+def prepare_npc_loop(decomp,out):
+    """Preserve original NPC update order, including empty-group gameplay."""
+    from prepare_camera import narrow
+    from prepare_maps import initializer
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    original=read('src/bodyprog/events/npc_main.c')
+    code=function(original,'Game_NpcUpdate')
+    # PORT: Lift nested helpers with explicit access to their original frame-local work.
+    code=code.replace('    s32 func_800382B0(', 's32 func_800382B0(').replace('    static s32 func_800382EC()', 'static s32 func_800382EC()')
+    type_start=code.index('    typedef struct _CloseNpcInfo')
+    type_end=code.index('} s_CloseNpcInfo;',type_start)+len('} s_CloseNpcInfo;')
+    records=code[type_start:type_end]+'\n'
+    code=code[:type_start]+code[type_end:]
+    helpers=''
+    for name in ['func_800382B0','func_800382EC']:
+        inner=function(code,name)
+        code=code.replace(inner.rstrip(),'')
+        inner=inner.replace('ARRAY_SIZE(closestNpcInfos)','3')
+        if name=='func_800382B0':
+            inner=inner.replace('s32 bitIdx)', 's32 bitIdx,const s_CloseNpcInfo* closestNpcInfos)')
+            code=code.replace('func_800382B0(closeNpcInfoIdx1)','func_800382B0(closeNpcInfoIdx1,closestNpcInfos)')
+        else:
+            inner=inner.replace('func_800382EC()', 'func_800382EC(const s_CloseNpcInfo* closestNpcInfos,u32* idxBits)')
+            signature,body=inner.split('{',1)
+            inner=signature+'{'+re.sub(r'\bidxBits\b','(*idxBits)',body)
+            code=code.replace('func_800382EC()', 'func_800382EC(closestNpcInfos,&idxBits)')
+        helpers+=inner
+    code=code.replace('g_SysWork.field_2388.field_154','g_SysWork.gameplayEnvironment.field_154')
+    code=code.replace('Chara_Flag8Clear(', 'sh_combat_Chara_Flag8Clear(').replace('Chara_DamagedFlagUpdate(', 'sh_combat_Chara_DamagedFlagUpdate(')
+    code=code.replace('    s32             temp2;','')
+    code=code.replace('animDataIdx = g_CharaAnimDataIdxs[curNpc->model.charaId];','// PORT: Reject missing graph publication before indexing native slots.\n        if(curNpc->model.charaId<=0 || curNpc->model.charaId>=Chara_Count)port_unimplemented("NPC character identity");\n        animDataIdx = g_CharaAnimDataIdxs[curNpc->model.charaId];\n        if(animDataIdx<0 || animDataIdx>=CHARA_GROUP_COUNT || !g_CharaModelAnimsData[animDataIdx].activeAnmHdr || !g_CharaModelAnimsData[animDataIdx].boneCoords)port_unimplemented("NPC animation graph publication");')
+    view=re.sub(r'\b(?:s16|s32|q3_12)\s+v[xyz]\s*;', '',(out/'native_gameplay_records.h').read_text())
+    code=narrow(code,view)
+    for lhs,typ in [('closestNpcInfos[j].bitIdx','s8'),('g_RadioNoise[l].idx','s8'),('g_RadioNoise[l].closeNpcInfoIdx','s8'),('vol','u8')]:
+        code=re.sub(re.escape(lhs)+r'\s*=(?!=)\s*([^;{}]+);',lambda m:lhs+' = ('+typ+')('+m[1]+');',code)
+    code=code.replace('curDistToNpc >= closestNpcInfos[j].distanceToNpc','curDistToNpc >= (u32)closestNpcInfos[j].distanceToNpc')
+    code=code.replace('curDistToNpcCpy > ((', 'curDistToNpcCpy > (u32)((')
+    code=code.replace('k < ARRAY_SIZE(g_SysWork.npcs)', 'k < (s32)ARRAY_SIZE(g_SysWork.npcs)').replace('l < ARRAY_SIZE(g_RadioNoise)', 'l < (s32)ARRAY_SIZE(g_RadioNoise)')
+    code=code.replace('Sd_SfxAttributesUpdate(Sfx_RadioInterferenceLoop + l, balance, vol, 0);','Sd_SfxAttributesUpdate((u16)(Sfx_RadioInterferenceLoop+l),(s8)balance,vol,0);')
+    code=code.replace('Sd_SfxStop(Sfx_RadioInterferenceLoop + l);','Sd_SfxStop((u16)(Sfx_RadioInterferenceLoop+l));')
+    body=read('include/bodyprog/bodyprog.h')
+    radio=between(body,'typedef struct _RadioNoise','STATIC_ASSERT_SIZEOF(s_RadioNoise, 4);')+'STATIC_ASSERT_SIZEOF(s_RadioNoise,4);\n'
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n'+radio+'extern s_RadioNoise g_RadioNoise[2];\n#define ItemToggleFlag_RadioOn (1<<0)\ns32 g_RadioPitchState;\nu16 g_CollisionTriggerFlags;\n'
+    source+=initializer(read('src/bodyprog/game_boot/fs_chara_anim.c'),'g_CharaAnimDataIdxs').replace('0xFF','-1')
+    source+='void Collision_FlagsLocationUpdate(const s_SubCharacter*);void Collision_FlagsUpdate(void);\nvoid func_80037E78(s_SubCharacter*);\n'
+    source+='void Sd_SfxAttributesUpdate(u16,s8,u8,s8);\n#define CLEAR_FLAG(p,n) (((u32*)(p))[(n)>>5]&=~(1u<<((n)&31)))\n'
+    source+=function(read('include/game.h'),'SysWork_NpcFlagClear')
+    source+=records+helpers+function(original,'Camera_Distance2dGet').replace('q25_6','s32')+code
+    for name in ['Collision_FlagsLocationUpdate','Collision_FlagsUpdate']:
+        source+=narrow(function(read('src/bodyprog/world/world_draw.c'),name),'')
+    source+='void func_80037E78(s_SubCharacter* chara) {if(chara->health<=0 && (chara->flags&(CharaFlag_Damaged|CharaFlag_Dead))==CharaFlag_Damaged)port_unimplemented("NPC death statistics integration");}\n'
+    (out/'npc_loop.c').write_text(source,encoding='utf-8')
+
+
+def prepare_player_rays(decomp,out):
+    """Original production ray queries over the same active collision graphs."""
+    from prepare_camera import narrow
+    from prepare_maps import enumeration
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    original=read('src/bodyprog/collision/ray.c')
+    ray_header=read('include/bodyprog/collision/ray.h')
+    records=between(ray_header,'typedef struct\n','/** @brief Ray trace line')
+    # PORT: PS1 used trailing scratch memory after this nominal one-entry array.
+    # Reserve a bounded native range arena rather than writing past a C object.
+    records=records.replace('field_8C[1]','field_8C[128]').replace('field_20[2]','field_20[128]')
+    names=re.findall(r'^\w+\s+(\w+)\([^;{}]*\)[^{;]*\{',original,re.M)
+    header='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#ifndef SH_PLAYER_RAYS_H\n#define SH_PLAYER_RAYS_H\n#include "native_player_movement.h"\n'+records
+    header+=enumeration(read('include/bodyprog/bodyprog.h'),'OrientationFlags')
+    header+='''// PORT: Numeric work aliases preserve the reference's contiguous ray bounds.
+_Static_assert(offsetof(s_RayState,field_8C)-offsetof(s_RayState,field_6C)==32,"native ray numeric bounds");
+_Static_assert(sizeof(s_func_8006E490)==544,"native ray bounds work");
+_Static_assert(offsetof(s_RayState,field_8C)+sizeof(((s_RayState*)0)->field_8C)-offsetof(s_RayState,field_6C)==sizeof(s_func_8006E490),"native complete ray tail");
+#define gte_stMAC0() ((s32)port_gte_read_data(24))
+#define gte_ldsv3_(x,y,z) do {port_gte_write_data(9,(u32)(x));port_gte_write_data(10,(u32)(y));port_gte_write_data(11,(u32)(z));} while(0)
+'''
+    sources=[]
+    for name in names:
+        code=function(original,name)
+        if name in ['Ray_TraceQuery','Ray_CharaTraceQuery','Ray_LosHitCheck','func_8006DC18']:
+            code=re.sub(r'^\s*s32\s+prevScratch(?:Addr)?;\n','\n',code,flags=re.M)
+            code=re.sub(r'^\s*s_RayState\*\s+state;','\n    s_RayState nativeState={0}; // PORT: Native scratch remains live for the entire query.\n    s_RayState* state=&nativeState;',code,flags=re.M)
+            code=code.replace('(s_RayState*)PSX_SCRATCH','state')
+            code=code.replace('(s32)PSX_SCRATCH','state')
+            code=re.sub(r'^\s*prevScratch(?:Addr)?\s*= SetSp[^\n]*\n','\n',code,flags=re.M)
+            code=re.sub(r'^\s*SetSp\(prevScratch(?:Addr)?\);\n','\n',code,flags=re.M)
+        code=code.replace('state->field_8C[state->field_88]', 'state->field_8C[state->field_88]')
+        # Range producers must fit the explicitly owned native trailing arena.
+        code=code.replace('state->field_88++;','if(state->field_88>=128)port_unimplemented("ray range capacity");\n        state->field_88++;')
+        view=re.sub(r'\b(?:s16|s32|q3_12|q7_8|s8|u8)\s+(?:v[xyz]|field_0|groundHeight|hitDistance)\s*;', '',records)
+        code=narrow(code,view)
+        code=code.replace('curUnk = &state->field_8C;', 'curUnk = state->field_8C;')
+        code=code.replace('idx < collData->subcellCount','(u32)idx < collData->subcellCount')
+        if name=='func_8006E490':
+            code=code.replace('arg0->field_20[arg0->field_1C].vx =', 'if(arg0->field_1C<0 || arg0->field_1C>=128)port_unimplemented("ray bounds capacity");\n        arg0->field_20[arg0->field_1C].vx =')
+        code=code.replace('func_8006E150(&state->field_6C, ((DVECTOR*)&state->offset)[0], ((DVECTOR*)&state->offset)[1]);','// PORT: Copy the asserted numeric alias into correctly typed local work.\n    s_func_8006E490 nativeBounds; DVECTOR packedOffsets[2];\n    memcpy(&nativeBounds,&state->field_6C,sizeof(nativeBounds));\n    memcpy(packedOffsets,&state->offset,sizeof(packedOffsets));\n    func_8006E150(&nativeBounds,packedOffsets[0],packedOffsets[1]);\n    memcpy(&state->field_6C,&nativeBounds,sizeof(nativeBounds));')
+        for target,typ in [(r'state->offset.v[xyz]','s16'),(r'trace->headingAngle','q3_12'),(r'trace->groundType','u8'),(r'state->field_6C.groundHeight','q7_8'),(r'subroutine_arg4.vy','s16'),(r'arg2.vx','s16'),(r'state->hitDistance','q7_8'),(r'arg0->groundHeight','q7_8')]:
+            code=re.sub(r'('+target+r')\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = ('+typ+')('+m[2]+');',code)
+        code=code.replace('state->field_6C.positionX - state->from.vx,', '(q3_12)(state->field_6C.positionX - state->from.vx),')
+        code=code.replace('state->field_6C.positionZ - state->from.vz,', '(q7_8)(state->field_6C.positionZ - state->from.vz),')
+        code=code.replace('bound));','(q7_8)bound));')
+        header+=re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n'
+        sources.append(code)
+    header+='#endif\n'
+    (out/'native_player_rays.h').write_text(header)
+    (out/'player_rays.c').write_text('/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_rays.h"\n'+''.join(sources))
+
+
+def prepare_player_effects(decomp,out):
+    """Original shared effect scheduling; active missing renderers stay guarded."""
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    body=read('include/bodyprog/bodyprog.h')
+    records=''
+    for name in ['s_800C42E8','s_func_8005E89C']:
+        end=body.index('} '+name+';')+len('} '+name+';')
+        start=body.rfind('typedef struct',0,end)
+        records+=body[start:end]+'\n'
+    original=read('src/bodyprog/gfx/bodyprog_effects_8005E0DC.c')
+    code=function(original,'func_8005E89C')
+    code=code.replace('ptr = PSX_SCRATCH;', 's_func_8005E89C nativeWork;\n    ptr = &nativeWork; // PORT: Typed native scratch has the original numeric fields.')
+    code=code.replace('g_SysWork.field_2388.isFlashlightUnavailable','g_SysWork.gameplayEnvironment.isFlashlightUnavailable')
+    code=narrow(code,records)
+    code=re.sub(r'(g_MapOverlayHdr.field_(?:5C|7C)->field_10)\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = (q3_12)('+m[2]+');',code)
+    # Arrays of original halfwords have explicit PS1 narrowing at each write.
+    code=re.sub(r'(\bptr->(?:field_34|field_64|field_94|field_DC|field_E4)\[[^]]+\])\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = (s16)('+m[2]+');',code)
+    code=re.sub(r'(\bptr->u_field_(?:EC|FC).field_0\[[^]]+\].v[xy])\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = (s16)('+m[2]+');',code)
+    code=re.sub(r'(D_800C42E8\[i\].field_2)\s*\+=\s*([^;{}]+);',lambda m:m[1]+' = (s16)('+m[1]+' + ('+m[2]+'));',code)
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n'+records+'extern s8 D_800C4414;\ns_800C42E8 D_800C42E8[24];\n'
+    for name in ['func_80060044','func_800611C0','func_80062708','func_80063A50','func_80064334','func_80064FC0']:
+        signature=re.sub(r'//[^\n]*','',function(original,name).split('{',1)[0]).strip()
+        params=signature.split('(',1)[1].rsplit(')',1)[0].split(',')
+        unused=''.join('(void)'+re.findall(r'\b\w+',p)[-1]+';' for p in params)
+        source+=signature+' {'+unused+'port_unimplemented("'+name+'/active effect renderer");'+('return false;' if signature.startswith('bool ') else '')+'}\n'
+    source+=code
+    (out/'player_effects.c').write_text(source,encoding='utf-8')
+
+
+def prepare_player_dms(decomp,out):
+    """Original cutscene interpolation over explicitly decoded native DMS owners."""
+    from prepare_camera import narrow
+    original=(decomp/'src/bodyprog/dms.c').read_text(encoding='utf-8')
+    header=(decomp/'include/bodyprog/dms.h').read_text(encoding='utf-8')
+    header=header.replace('STATIC_ASSERT_SIZEOF(s_DmsEntry, 16);','// PORT: Two native pointers; the wire entry stays 16 bytes.\nSTATIC_ASSERT_SIZEOF(s_DmsEntry,24);')
+    header=header.replace('STATIC_ASSERT_SIZEOF(s_DmsHeader, 44);','// PORT: Native segments/entries and embedded native camera entry.\nSTATIC_ASSERT_SIZEOF(s_DmsHeader,64);')
+    header=header.replace('#define _BODYPROG_DMS_H','#define _BODYPROG_DMS_H\n#include "native_player_movement.h"')
+    header+='_Static_assert(offsetof(s_DmsHeader,characterEntries)==32,"native DMS entries");\n'
+    (out/'native_player_dms.h').write_text('/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n'+header)
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_dms.h"\n'
+    names=re.findall(r'^\w+\s*\*?\s+(\w+)\([^;{}]*\)[^{;]*\{',original,re.M)
+    for name in names:
+        if name in ['Dms_HeaderFixOffsets','Dms_EntryFixOffsets']:continue
+        code=function(original,name)
+        if name=='Dms_CharacterTransformGet':code=code.replace('Dms_CharacterGetIdxByName(charaName,','Dms_CharacterGetIdxByName((char*)charaName,')
+        if name=='Dms_CharacterTransformGetByIdx':
+            code=code.replace('charaEntry = &dmsHdr->characterEntries[charaIdx];','if(charaIdx<0 || charaIdx>=dmsHdr->characterEntryCount)port_unimplemented("DMS character index");\n    charaEntry = &dmsHdr->characterEntries[charaIdx];')
+        # Only rotation/keyframe halfwords narrow; world outputs remain words.
+        code=narrow(code,re.sub(r'\b(?:s16|q3_12)\s+v[xyz]\s*;', '',header))
+        for target in [r'result->(?:position|rotation|positionTarget|lookAtTarget).v[xyz]',r'rot->v[xyz]']:
+            code=re.sub(r'('+target+r')\s*=(?!=)\s*([^;{}]+);',lambda m:m[1]+' = (s16)('+m[2]+');',code)
+        source+=code
+    # PORT: Relocation is complete at publication; never add a host address to
+    # a serialized offset or rebase the already owned pointers.
+    source+='void Dms_HeaderFixOffsets(s_DmsHeader* header) {if(!header || !header->isLoaded)port_unimplemented("DMS native graph readiness");}\n'
+    (out/'player_dms.c').write_text(source,encoding='utf-8')
+
+
+def prepare_npc_models(decomp,out):
+    """Original character/model services with stable native descriptor slots."""
+    from prepare_maps import initializer
+    from prepare_camera import narrow
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    info=read('src/bodyprog/sys/chara_data_info.c')
+    table=initializer(info,'CHARA_FILE_INFOS')
+    table=re.sub(r'/\*.*?\*/|//[^\n]*','',table,flags=re.S)
+    rows=re.findall(r'\{([^{}]+)\}',table)
+    if len(rows)!=45:raise ValueError('character file table inventory drift')
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_movement.h"\n'
+    for name in ['D_800A90A4','D_800A90B4']:source+=initializer(read('src/bodyprog/screen/screen_data.c'),name)
+    source+='const PortCharaFileInfo CHARA_FILE_INFOS[Chara_Count]={\n'
+    for row in rows:
+        fields=[part.strip() for part in row.split(',')]
+        if len(fields)!=8:raise ValueError('character info initializer field drift')
+        fields=[fields[i] for i in [0,1,2,4,6,7,3,5]]
+        entry=','.join(fields)
+        entry=entry.replace('BlendMode_Average','0').replace('BlendMode_Additive','1').replace('BlendMode_Subtractive','2')
+        source+='{'+entry+'},\n'
+    source+='};\n'
+    world=read('src/bodyprog/world/world_draw.c')
+    source+='void WorldGfx_CharaFree(s_CharaModel*);void WorldGfx_CharaLoad(e_CharaId,s32,s_LmHeader*,s_FsImageDesc*);void WorldGfx_CharaLmBufferAssign(s8);\n'
+    for name in ['WorldGfx_CharaFree','WorldGfx_CharaLoad','WorldGfx_CharaModelLoad']:
+        code=function(world,name)
+        if name=='WorldGfx_CharaModelLoad':code=code.replace('e_CharaId charaId','s32 charaId')
+        code=narrow(code,(out/'native_asset_records.h').read_text())
+        code=code.replace('model->charaId  = charaId;', 'model->charaId  = (s8)charaId;')
+        source+=code
+    source+='''void WorldGfx_CharaLmBufferAssign(s8 forceFree) {
+    // PORT: Original forced-free selection is retained. Native headers use
+    // descriptor slots rather than overlapping packed PS1 LM byte arenas.
+    s32 next=0;
+    for(s32 i=0;i<CHARA_GROUP_COUNT;i++) {
+        s_CharaModel* model=&g_WorldGfxWork.charaModels[i];
+        if((forceFree>>i)&1)WorldGfx_CharaFree(model);
+        if(model->charaId!=Chara_None) {
+            for(s32 slot=0;slot<CHARA_GROUP_COUNT;slot++)if(model->lmHdr==&port_npc_models[slot] && next<slot+1)next=slot+1;
+        }
+    }
+    g_WorldGfxWork.charaLmBuffer=(u8*)&port_npc_models[next];
+}
+'''
+    spawn=read('src/bodyprog/events/chara_spawn.c')
+    for name in ['Chara_Load','Chara_ProcessLoads','Chara_BonesInit']:
+        source+=function(spawn,name)
+    (out/'npc_models.c').write_text(source,encoding='utf-8')
+
+
+def prepare_player_events(decomp,out):
+    from prepare_maps import enumeration
+    def read(path):return (decomp/path).read_text(encoding='utf-8')
+    game=read('include/game.h')
+    header='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#ifndef SH_PLAYER_EVENTS_H\n#define SH_PLAYER_EVENTS_H\n#include "native_player_dms.h"\n'
+    for name in ['SysWork_StateSetNext','SysWork_StateStepIncrement','SysWork_StateStepSet','SysWork_StateStepReset']:
+        code=function(game,name)
+        if name=='SysWork_StateSetNext':code=code.replace(name,'port_move_state_next')
+        header+=code
+    events_header=read('include/bodyprog/events/events_util.h')
+    for tag in ['CharaAnimCmd','ScreenFadeCmd','ScreenFadeType']:
+        files=events_header+read('include/bodyprog/screen/screen_fade.h')+read('include/bodyprog/anim.h')+read('include/maps/shared.h')
+        header+=enumeration(files,tag)
+    original=read('src/bodyprog/events/events_util.c')
+    source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_events.h"\n'
+    for name in ['Event_SysStateStepIncrement','Event_SysStateStepSet','Event_WaitTimer','Event_CharaAnimCmdExecute','Event_ScreenFadeCmd']:
+        code=function(original,name)
+        header+=re.sub(r'//[^\n]*','',code.split('{',1)[0]).strip()+';\n'
+        source+=code
+    source+='q19_12 g_Cutscene_Timer=NO_VALUE;\nVECTOR3 g_CameraPositionTarget,g_CameraLookAtTarget;\n'
+    header+='extern q19_12 g_Cutscene_Timer;extern VECTOR3 g_CameraPositionTarget,g_CameraLookAtTarget;\n'
+    header+='bool Chara_Load(s32,s8,GsCOORDINATE2*,s8,s_LmHeader*,s_FsImageDesc*);bool Chara_ProcessLoads(void);void Chara_BonesInit(s32);\n'
+    border=read('include/bodyprog/screen/cutscene_border.h')
+    header+=between(border,'#define CutsceneBorder_ForceShow()', 'void Screen_CutsceneCameraStateUpdate')
+    header+='void Event_DisplayMapMsg(bool,s32,bool,bool,s32,bool);\n#endif\n'
+    source+='void Event_DisplayMapMsg(bool a,s32 b,bool c,bool d,s32 e,bool f) {(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;port_unimplemented("opening map message/native text rollout");}\n'
+    (out/'native_player_events.h').write_text(header,encoding='utf-8')
+    (out/'player_events.c').write_text(source,encoding='utf-8')
+    for file in ['player_loop.c','player_movement.c']:
+        p=out/file;code=p.read_text(encoding='utf-8').replace('#include "native_player_movement.h"','#include "native_player_events.h"').replace('SysWork_StateSetNext(', 'port_move_state_next(')
+        p.write_text(code,encoding='utf-8')
 
 
 if __name__ == '__main__':

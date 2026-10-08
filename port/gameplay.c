@@ -21,10 +21,6 @@ void SetDrawTPage(DR_TPAGE* packet,int dfe,int dtd,int page) {
 s32 Lzc(s32 value) {u32 result;gte_ldlzc(value);gte_stlzc(&result);return (s32)result;}
 static struct {u8 field_0,field_1,field_2,field_3;s16 field_A;} water_work;
 void func_8008D41C(void) {water_work.field_0=0;water_work.field_1=0;water_work.field_2=0;water_work.field_A=0;}
-// PORT: The boot slice consumes Harry only. Other identities remain unlinked.
-const PortCharaFileInfo CHARA_FILE_INFOS[Chara_Count] = {
-    [Chara_Harry]={FILE_ANIM_HB_BASE_ANM,FILE_CHARA_HERO_ILM,FILE_CHARA_HERO_TIM,1,0,Q8(-0.7f)}
-};
 void GsInitCoordinate2(GsCOORDINATE2* parent,GsCOORDINATE2* coord) {
     memset(coord,0,sizeof(*coord));coord->super=parent;
     for(s32 i=0;i<3;i++) coord->coord.m[i][i]=4096;
@@ -92,7 +88,8 @@ void Gfx_LoadScreenMapEffectsUpdate(s32 first,s32 second) {
 }
 void Gfx_EffectsUpdate(void) {port_render_effects();}
 void WorldGfx_CharaDraw(e_CharaId id,GsCOORDINATE2* coords,s32 shift,q3_12 timer,s32 palette) {
-    port_render_character(id,coords,shift,timer,palette);
+    if(id==Chara_Cheryl)port_move_npc_draw(id,coords,shift,timer,palette);
+    else port_render_character(id,coords,shift,timer,palette);
 }
 int port_animation_sample(s_AnmHeader* anm,s32 first,s32 second,q19_12 alpha,s32 bone,s32* out) {
     GsCOORDINATE2 coords[32]={0};

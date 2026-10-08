@@ -333,6 +333,42 @@ unsafe extern "C" fn port_map_data_read(
         }
     })
 }
+
+// PORT: Read bounded numeric BODYPROG data for native movement/combat records.
+// The pinned overlay is encrypted; decode words in the original seed order.
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_move_bodyprog_read(offset: u32, size: u32, destination: *mut u8) -> i32 {
+    if destination.is_null() || !offset.is_multiple_of(4) || !size.is_multiple_of(4) || size > 4096
+    {
+        return 1;
+    }
+    host(|h| {
+        let end = u64::from(offset) + u64::from(size);
+        match h.disc.read_entry_range(3, 0, end) {
+            Ok(bytes) => {
+                let mut seed = 0u32;
+                for (index, word) in bytes.as_chunks::<4>().0.iter().enumerate() {
+                    seed = seed.wrapping_add(0x0130_9125).wrapping_mul(0x03a4_52f7);
+                    if index * 4 >= offset as usize {
+                        let decoded = (u32::from_le_bytes(*word) ^ seed).to_le_bytes();
+                        // SAFETY: C supplies exactly size writable bytes; the read
+                        // and aligned word loop cover [offset, offset + size).
+                        unsafe {
+                            destination
+                                .add(index * 4 - offset as usize)
+                                .copy_from_nonoverlapping(decoded.as_ptr(), 4);
+                        }
+                    }
+                }
+                0
+            }
+            Err(error) => {
+                h.error = Some(error.to_string());
+                1
+            }
+        }
+    })
+}
 #[unsafe(no_mangle)]
 unsafe extern "C" fn port_player_map_anim_load(
     id: u32,
@@ -494,6 +530,20 @@ unsafe extern "C" fn port_asset_load_native(id: u32, destination: *mut u8, kind:
             // The descriptor points into separate stable AssetStore allocations.
             unsafe {
                 match kind {
+                    3 => {
+                        unsafe extern "C" {
+                            fn port_move_dms_publish(
+                                destination: *mut u8,
+                                bytes: *const u8,
+                                count: usize,
+                            ) -> i32;
+                        }
+                        let bytes = h.disc.read_entry(id).map_err(|error| error.to_string())?;
+                        crate::assets::decode_dms(&bytes).map_err(|error| error.to_string())?;
+                        if port_move_dms_publish(destination, bytes.as_ptr(), bytes.len()) != 0 {
+                            return Err("native DMS graph publication failed".into());
+                        }
+                    }
                     4 => destination
                         .cast::<crate::gameplay::NativeAnmHeader>()
                         .copy_from_nonoverlapping(h.assets.native_animation(handle)?, 1),
@@ -1237,6 +1287,9 @@ mod tests {
             fn sh_option_reset_probe() -> i32;
             fn port_queue_image_probe() -> i32;
             fn port_player_controls_probe() -> u32;
+            fn port_move_native_probe() -> u32;
+            fn port_move_gpu_epoch_probe() -> i32;
+            fn port_move_ray_bounds_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
@@ -1247,6 +1300,9 @@ mod tests {
             assert_eq!(sh_option_reset_probe(), 1);
             assert_eq!(port_queue_image_probe(), 1);
             assert_eq!(port_player_controls_probe(), 511);
+            assert_eq!(port_move_native_probe(), 127);
+            assert_eq!(port_move_gpu_epoch_probe(), 1);
+            assert_eq!(port_move_ray_bounds_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }
