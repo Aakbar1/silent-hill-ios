@@ -1,3 +1,81 @@
+# Street checkpoint - 8 October 2026
+
+`first_street_full` passes on `lane/street`. The 1280x896 private capture is
+`private/work/street/first_street_full.png`: Harry is mid-walk, building fronts
+are visible on the left, with roadside trees/canopy, pavement, lamp poles,
+textured road and the original grey-purple fog. The white diamond patch is gone.
+PNG SHA-256: `e63aa99e6cd031cab94dfa025ad38903826595410c40d97eccc7ba143772ec84`.
+The scene is produced by the original New Game/movie/skip/gameplay path, with
+no injected positions or completion flags. At VBlank 3650 it has 162 native
+colours, 17 world-model draw calls, move speed 5724 and held walking input 0x10.
+This capture uses the existing `first_map.txt` replay with the final run input
+changed to walking (`3540 8010` -> `3540 0010`) to show the building fronts.
+The independent movement gate still uses the unchanged walk/turn/run replay.
+
+## Fixes and services
+
+- The distant white diamonds came from reversed `SetPriority` arguments:
+  PsyQ takes **check mask, force mask**. The fog background must carry bit 15;
+  transparent billboard texels then retain that background during the fog pass.
+  A native packet regression checks both software and wgpu against the expected
+  masked-background/textured-pixel/fog result. Before and after captures at
+  VBlank 3380 match between backends at 1x, pixel for pixel. The TIM palette,
+  billboard texture page/CLUT and original OT linkage were inspected; the shared
+  mask shim was the fault. Evidence: `before-wgpu.png`, `after-soft.png`,
+  `after-wgpu.png`, `parity.json`, `test-mask.log` and `sdk-mask.txt` in the street private tree.
+- World projection now uses bounded native triples, retaining unsigned SZ for
+  fog lookup and original signed mesh culling/far limits. The regression checks
+  a nonzero offset, final two vertices, behind/far depths and untouched tails.
+  The static view uses framebuffer y=32, preserving the original CLUT rows.
+- Original model lookup, common-item material setup, object registration,
+  deduplication, 29-slot limit, transforms and drawing are linked. Native
+  sidecars preserve preceding shared workspace offsets. MAP0_S00's local no-draw
+  registration helpers are rebound to `port_world_object_name_set` and
+  `port_world_object_add`. The existing sole native-global fixture checks a
+  nonempty list, duplicate rejection, geometry/rotation packing, capacity and reset.
+- Character rendering uses the original `field_6` and optional `field_8` metadata
+  for all registered character IDs. The Harry-only renderer guard is removed.
+- Original held-item selection/loading, hand attachment/mesh swap and model draw,
+  lighter texture load/flame draw, overlap light/tint and lens-flare occlusion,
+  smoothing and drawing are linked. Generated gameplay calls use these services;
+  shared compatibility stubs remain untouched. Lighting shares the player environment.
+
+## Verification and reproduction
+
+Release MSVC `/W4 /WX`, fmt, workspace/all-target Clippy with `precise-vertices`
+/ `-D warnings`, and workspace tests pass: 302 passed, zero failed, five opt-in
+tests ignored. Available milestones pass 10/10; `first_map`, `first_map_view`
+and `first_street_full` pass separately. The movement gate retains 422 samples,
+9173 Q12 units walked, right turn 1711, and running at 2.86 times walking speed.
+`first_map_view` has 170 native colours. Arm64 clang frontend: 39/39 C units,
+with warnings denied; this is not an Apple SDK/device runtime result.
+Logs and milestone results are under `private/work/street/`. The private
+`run-milestones.py` changes only evidence destinations in the unchanged evaluator.
+The all-game manifest still has unrelated pending requirements and is unchanged.
+
+```text
+tools/dev-cargo.cmd test --release -p silent-hill-boot first_street_full -- --ignored --nocapture --test-threads=1
+python tools/prepare_render.py --check-clang "C:/BuildTools2022/VC/Tools/Llvm/x64/bin/clang-tidy.exe"
+```
+
+`SH_RENDER_TEST_BACKEND=soft|wgpu` and `SH_RENDER_TEST_SCALE=1..8` select
+independent diagnostics. `SH_RENDER_TEST_LANE=street` keeps `first_map_view`
+evidence in this lane. Cargo and the extended arm64 checker bind map callers
+**after** map generation. Standalone SDK generation should do the same before
+runtime use; its independent compile check retains the map-local compatibility helpers.
+
+Open coverage: the daytime street has empty hands and no active flashlight.
+Equipped weapons, visible flame/overlap/flare in a real night scene, NPC variants,
+water reflections, PS1 golden imagery and actual iOS/device execution are not
+certified by this capture. Water-reflection rendering remains a named guard.
+Opening events/messages and transitions remain the other lanes' work.
+Director: register this opt-in milestone in the shared manifest/state and use the
+39-unit arm64 checker in CI. No main/merge/push, system installs or assets in Git.
+
+---
+
+## Historical world checkpoint (superseded by the street result above)
+
 # World rendering checkpoint
 
 `first_map_view` draws MAP0_S00 after the real New Game/opening/skip path, with

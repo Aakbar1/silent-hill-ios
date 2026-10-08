@@ -1290,6 +1290,7 @@ mod tests {
             fn port_move_native_probe() -> u32;
             fn port_move_gpu_epoch_probe() -> i32;
             fn port_move_ray_bounds_probe() -> i32;
+            fn port_world_registration_probe() -> i32;
         }
         // SAFETY: No game worker runs in tests. Only one test accesses these
         // native overlay globals; layout/reader tests have no shared state.
@@ -1303,6 +1304,7 @@ mod tests {
             assert_eq!(port_move_native_probe(), 127);
             assert_eq!(port_move_gpu_epoch_probe(), 1);
             assert_eq!(port_move_ray_bounds_probe(), 1);
+            assert_eq!(port_world_registration_probe(), 1);
             assert_eq!(port_overlay_activate(u32::MAX), 1);
             assert_eq!(port_overlay_activate(4), 0);
         }
