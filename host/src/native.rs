@@ -2,6 +2,75 @@
 unsafe extern "C" {
     fn port_run_maps_warp(map: u32, spawn: u32) -> i32;
 }
+
+// PORT: Owned overlay text becomes map-owned native strings, with no PS1 pointer casts.
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_maps_messages_read(
+    id: u32,
+    base: u32,
+    offset: u32,
+    count: u32,
+    pointers: *mut *const std::ffi::c_char,
+    arena: *mut u8,
+    capacity: u32,
+) -> i32 {
+    if pointers.is_null() || arena.is_null() || count == 0 || count > 64 || capacity > 262144 {
+        return 1;
+    }
+    host(|h| {
+        let decoded = h
+            .disc
+            .read_entry(id)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| {
+                crate::maps::decode_messages(&bytes, base, offset as usize, count as usize)
+            });
+        match decoded {
+            Ok(messages) => {
+                let required: usize = messages.iter().flatten().map(|s| s.len()).sum();
+                if required > capacity as usize {
+                    h.error = Some("map message native arena too small".into());
+                    return 1;
+                }
+                let mut next = 0;
+                for (index, message) in messages.iter().enumerate() {
+                    // SAFETY: Generated map storage provides count pointer slots and
+                    // capacity arena bytes. All decoded lengths were checked above.
+                    unsafe {
+                        let pointer = if let Some(message) = message {
+                            let destination = arena.add(next);
+                            destination.copy_from_nonoverlapping(message.as_ptr(), message.len());
+                            next += message.len();
+                            destination.cast()
+                        } else {
+                            std::ptr::null()
+                        };
+                        pointers.add(index).write(pointer);
+                    }
+                }
+                0
+            }
+            Err(error) => {
+                h.error = Some(error);
+                1
+            }
+        }
+    })
+}
+
+// PORT: A brightness/fog rectangle or a lone flare pixel cannot certify a map.
+#[unsafe(no_mangle)]
+extern "C" fn port_maps_frame_detail() -> u32 {
+    host(|h| {
+        h.last_frame.as_ref().map_or(0, |(_, _, pixels)| {
+            let mut counts = std::collections::HashMap::<u32, usize>::new();
+            for pixel in pixels {
+                *counts.entry(*pixel).or_default() += 1;
+            }
+            (pixels.len() - counts.values().copied().max().unwrap_or(0)) as u32
+        })
+    })
+}
 use crate::{
     asset_store::{AssetInfo, AssetKind, AssetStore, NativeSpan},
     backend::{GpuBackend, SpuBackend},

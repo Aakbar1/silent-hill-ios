@@ -355,3 +355,12 @@ void port_move_npc_animation_ready(s_AnmHeader* animation);
 
 // PORT: Called before MainLoop clears/builds the two new ordering tables.
 void port_move_gpu_frame_begin(void);
+
+// PORT: Original pointer-free shared boss parameters, used by map object inits.
+// SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations.
+#ifndef SH_MAPS_BOSS_RECORD
+#define SH_MAPS_BOSS_RECORD
+typedef struct {s16 field_0,field_2,field_4,field_6;u16 field_8,field_A;u8 field_C;} s_800C4418;
+STATIC_ASSERT_SIZEOF(s_800C4418,14);
+extern s_800C4418 D_800C4418;
+#endif

@@ -175,3 +175,12 @@ void port_world_probe(void) {
     # declarations and bindings as Cargo, without editing the player generator.
     from prepare_render import generate as prepare_render
     prepare_render(decomp,out)
+    # PORT: Fixed-position map objects/lights have no bone coordinate. Complete
+    # the original identity branch instead of dereferencing the null parent.
+    view_path=out/'vw_calc.c'
+    view_code=view_path.read_text(encoding='utf-8')
+    identity='if (rootCoord == NULL)\n    {\n        *transformMat = GsIDMATRIX;\n    }'
+    assert view_code.count(identity)==1,'review fixed-position object coordinate service'
+    view_code=view_code.replace(identity,identity.replace('*transformMat = GsIDMATRIX;',
+        '*transformMat = GsIDMATRIX;\n        // PORT: Null bone coordinates are world-space identity.\n        return;'))
+    view_path.write_text(view_code,encoding='utf-8')
