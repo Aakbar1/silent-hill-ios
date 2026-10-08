@@ -78,6 +78,17 @@ def prepare(decomp, output):
     # PORT: The pinned Player_AnimStateSet provider returns void in every map.
     header = header.replace('s32 (*playerAnimStateSet)(s32)', 'void (*playerAnimStateSet)(s32)')
     header = header.replace('s32*                   func_88;', 'void*                  func_88;')
+    # PORT: Replace the opaque numeric 5C view with its original named view.
+    # Size and offsets are unchanged; init bodies now retain all original stores.
+    field_end = header.index('} s_MapOverlayHdr_5C;') + len('} s_MapOverlayHdr_5C;')
+    field_start = header.rfind('typedef struct', 0, field_end)
+    old_field_view = header[field_start:field_end]
+    field_view = old_field_view
+    for old,new in [('u8    unk_0;', 'u8    flags;'), ('u8    unk_3;', 'u8    field_3;'), ('u8    unk_8[2];', 'u16   field_8;'), ('u8    unk_C[2];', 'u16   field_C;'), ('u8    unk_12[4];', 's16   field_12; s16 field_14;'), ('u8    unk_18[8];', 's16   field_18; s16 field_1A; u16 field_1C; s16 field_1E;')]:
+        assert field_view.count(old) == 1
+        field_view = field_view.replace(old,new)
+    field_view += '\nSTATIC_ASSERT_SIZEOF(s_MapOverlayHdr_5C,40);\n_Static_assert(offsetof(s_MapOverlayHdr_5C,field_12)==18 && offsetof(s_MapOverlayHdr_5C,field_1C)==28,"named 5C numeric offsets");\n'
+    header = header.replace(old_field_view, field_view)
     for name, size in [('s_MapPoint2d',32), ('s_EventData',40), ('s_SpawnInfo',16), ('s_MapOverlayHdr', 0)]:
         original = re.search(r'STATIC_ASSERT_SIZEOF\(' + name + r', \d+\);', header)[0]
         header = header.replace(original, f'STATIC_ASSERT_SIZEOF({name}, {size});' if size else '// PORT: Native descriptor size asserted in port/map.h.')
@@ -349,6 +360,40 @@ def prepare_all_maps(decomp, output, records):
     signatures = {m[2]: (m[1], m[3]) for m in re.finditer(r'(\w+)\s+\(\*(\w+)\)\(([^;]*)\);', records)}
     inventory = []
     registry = NOTICE + '#include "maps_registry.h"\n'
+    shared = (decomp / 'include/maps/shared.h').read_text(encoding='utf-8')
+    object_macros = between(shared, '#define WorldObject_PoseInit', '#define APPROACH(')
+    common_names = initializer((decomp / 'src/bodyprog/events/bodyprog_data_800A99B4.c').read_text(encoding='utf-8'), 'g_CommonWorldObjectNames')
+    poses = between(shared, 'typedef struct _WorldObjectPose', '#define WorldObject_PoseInit')
+    poses = re.sub(r'STATIC_ASSERT_SIZEOF\([^;]+;', '', poses)
+    poses += 'STATIC_ASSERT_SIZEOF(s_WorldObjectPose,72);\nSTATIC_ASSERT_SIZEOF(s_WorldObjectPlacement,64);\n_Static_assert(offsetof(s_WorldObjectPose,rotation)==60,"native object pose rotation");\n'
+    gpu_types = (decomp/'include/gpu.h').read_text(encoding='utf-8')
+    color_start = gpu_types.index('typedef struct _PrimColor')
+    color_end = gpu_types.index('} s_PrimColor;',color_start) + len('} s_PrimColor;')
+    poses += gpu_types[color_start:color_end] + '\n'
+    item_enum = enumeration((decomp / 'include/bodyprog/items.h').read_text(encoding='utf-8'), 'CommonPickupItemId')
+    ending_enum = enumeration((decomp / 'include/game.h').read_text(encoding='utf-8'), 'GameEnding')
+    services = '''
+// PORT: Item mutation belongs to events; preserve a precise leaf guard until linked.
+static inline bool port_maps_item_remove(u8 id,u8 count) {(void)id;(void)count;port_unimplemented("Player_ItemRemove/events integration");return false;}
+#define Player_ItemRemove port_maps_item_remove
+void func_8008D438(void);void func_8008D448(void);bool Chara_ProcessLoads(void);
+s32 port_maps_effect_alloc(s32);
+void port_maps_init_note(const char*);
+void port_maps_object_sfx(s32);
+int port_maps_spawn_read(u32,u32,u32,s_SpawnInfo*);
+bool Chara_Load(s32,s8,GsCOORDINATE2*,s8,s_LmHeader*,s_FsImageDesc*);
+void Dms_HeaderFixOffsets(s_DmsHeader*);
+// PORT: Cafe DMS publication is still unavailable; guard before exposing any buffer.
+static inline void* port_maps_cafe_dms(void) {port_unimplemented("map0_s01/cafe DMS native publication");return NULL;}
+#define FS_BUFFER_11 port_maps_cafe_dms()
+// PORT: Guard missing shared records at their first actual use, retaining init logic.
+extern u8 g_EndingIdx;
+extern s_FsImageDesc g_LoadingScreenImg;
+// PORT: The existing bounded native TIM scratch replaces the PS1 image address.
+#define IMAGE_BUFFER_4 port_fs_buffers[2]
+static inline void SysWork_NpcFlagSet(s32 i) {g_SysWork.npcFlags|=(s32)(1u<<i);}
+'''
+    (output / 'maps_objects.h').write_text(NOTICE + '#include "npc_startup.h"\n#include "native_player_controls.h"\n#include "native_player_dms.h"\n#define WorldObject_ModelNameSet port_world_object_name_set\n#undef Math_SetSVectorFast\n#define Math_SetSVectorFast(p,x,y,z) Math_SVectorSet(p,x,y,z)\n' + poses + item_enum + ending_enum + '\n' + object_macros + services + 'static ' + common_names + '\n', encoding='utf-8')
     for index, path in enumerate(paths):
         lane = path.parent.name
         prefix = 'sh_' + lane + '_'
@@ -364,6 +409,19 @@ def prepare_all_maps(decomp, output, records):
                 init_code = 'void Map_WorldObjectsInit(void) {port_unimplemented("unresolved map init provider");}'
             init_body = re.sub(r'//[^\n]*', '', init_code.split('{',1)[1].rsplit('}',1)[0]).strip()
             empty_init = not init_body
+            # These bounded init closures contain original state setup only.
+            init_extra = {}
+            if lane == 'map1_s05':
+                draw = (decomp/'src/maps/unk_draw.c').read_text(encoding='utf-8')
+                init_extra = {name:function(draw,name) for name in ['sharedFunc_800CAAD0_1_s05','sharedFunc_800CABF8_1_s05']}
+            elif lane == 'map6_s04':
+                init_extra = {name:function(local,name) for name in ['func_800DE26C','func_800DF64C','func_800E02E0','func_800E10F8']}
+            elif lane == 'map2_s00':
+                init_extra = {name:function(local,name) for name in ['func_800EE518','func_800EE5D0']}
+            elif lane == 'map4_s03':
+                init_extra = {name:function(local,name) for name in ['func_800D7408','func_800D7450','func_800D7548','func_800D761C']}
+            elif lane == 'map7_s03':
+                init_extra = {name:function(local,name) for name in ['func_800D5D24','func_800E16FC','func_800E1788']}
             macros = '\n'.join(line for line in (decomp / f'include/maps/map{lane[3]}/{lane}.h').read_text(encoding='utf-8').splitlines() if line.startswith('#define MAP_'))
             callbacks = {}
             for field, name in re.findall(r'\.(\w+)\s*=\s*(\w+)\s*,', original):
@@ -378,8 +436,11 @@ def prepare_all_maps(decomp, output, records):
                 callbacks[name] = ('void', 's_SubCharacter*, s_AnmHeader*, GsCOORDINATE2*')
             callbacks.pop('GameBoot_LoadScreen_PlayerRun', None)
             callbacks.pop('Map_RoomIdxGet', None)
-            if empty_init:
-                callbacks.pop('Map_WorldObjectsInit', None)
+            callbacks.pop('Map_WorldObjectsInit', None)
+            for name in init_extra:
+                callbacks.pop(name, None)
+            for name in re.findall(r'charaUpdateFuncs\[[^]]+\]\s*=\s*(func_\w+)', init_code):
+                callbacks[name] = ('void', 's_SubCharacter*, s_AnmHeader*, GsCOORDINATE2*')
             animation_source=(path.parent / f'{lane}_anim_info.c').read_text(encoding='utf-8')
             duration_names=set(re.findall(r'\{\s*((?:sharedFunc|Player_)\w+)\s*}',animation_source))
             for name in duration_names:
@@ -425,6 +486,119 @@ def prepare_all_maps(decomp, output, records):
             addresses = {m[1]: int(m[2],16) for m in re.finditer(r'^(\w+)\s*=\s*0x([0-9A-Fa-f]+);',symbols,re.M)}
             yaml = (decomp / f'configs/USA/maps/{lane}.yaml').read_text(encoding='utf-8')
             base_address = int(re.search(r'\bvram:\s*0x([0-9A-Fa-f]+)',yaml)[1],16)
+            if messages_missing:
+                # PORT: The next pinned symbol bounds the PS1 pointer table.
+                # Rust reads/decodes owned bytes at runtime into these reset arenas.
+                begin = addresses['MAP_MESSAGES']
+                end = min(address for address in addresses.values() if address > begin)
+                count, remainder = divmod(end-begin, 4)
+                assert not remainder and 0 < count <= 64, (lane, count)
+                data = data.replace('const char* MAP_MESSAGES[1]={NULL};', f'const char* MAP_MESSAGES[{count}]={{NULL}};\nu8 port_maps_message_arena[{count * 4096}];')
+                zeros.append('port_maps_message_arena')
+                raw_loads.append(f'port_maps_messages_read(FILE_VIN_{lane.upper()}_BIN,{base_address}u,{begin-base_address},{count},MAP_MESSAGES,port_maps_message_arena,sizeof(port_maps_message_arena))')
+                messages_missing = False
+            # PORT: Link the original init body and inventory its complete writable
+            # closure. Declarations come from this map before shared headers.
+            map_decls = (decomp / f'include/maps/map{lane[3]}/{lane}.h').read_text(encoding='utf-8')
+            init_decls = re.sub(r'/\*.*?\*/|//[^\n]*', '', map_decls + '\n' + local + '\n' + declarations, flags=re.S)
+            init_globals = sorted(set(re.findall(r'\b(?:D_\w+|g_WorldObject\w*|WorldObject_D_\w+|g_GeneratorMakeNoise|g_Obj\w+|g_CommonWorldObjects|g_Cutscene\w*|sharedData_\w+)\b', re.sub(r'"[^"\n]*"', '', init_code + ''.join(init_extra.values())))))
+            init_types = ''
+            emitted_types = set()
+            def add_init_type(typ):
+                nonlocal init_types
+                if typ in emitted_types:
+                    return
+                end = init_decls.find('} ' + typ + ';')
+                if end < 0:
+                    return
+                emitted_types.add(typ)
+                start = init_decls.rfind('typedef struct', 0, end)
+                definition = init_decls[start:end + len('} ' + typ + ';')]
+                for dependency in sorted(set(re.findall(r'\bs_\w+\b',definition)) - {typ}):
+                    if '} ' + dependency + ';' in map_decls:
+                        add_init_type(dependency)
+                if typ == 's_800ED848':
+                    definition = definition.replace('typedef struct', 'typedef struct s_800ED848',1)
+                init_types += definition + '\n'
+            for name in init_globals:
+                if name in ['D_800C4418','D_800C4414']:
+                    continue  # Guarded shared boss workspace, not map-owned BSS.
+                if name in defined or re.search(r'\.' + r'(?:' + '|'.join(fields) + r')\s*=\s*&?' + re.escape(name) + r'\b', original):
+                    continue
+                decl = re.search(r'(?:extern\s+)?(\w+\s+' + re.escape(name) + r'\s*(?:\[[^;\n]*\])?)\s*;', init_decls)
+                if not decl:
+                    raise ValueError(f'{lane}: init global declaration absent: {name}')
+                declaration = decl[1]
+                typ = declaration.split()[0]
+                if name == 'D_800F1CAC':
+                    # PORT: Upstream memcpy uses a misnamed point table as 32
+                    # serialized spawn records. Native strides differ: decode
+                    # each 12-byte spawn before the original table selection.
+                    assert declaration.split() == ['s_MapPoint2d', 'D_800F1CAC[3][32]']
+                    declaration = declaration.replace('s_MapPoint2d', 's_SpawnInfo')
+                    raw_loads.append(f'port_maps_spawn_read(FILE_VIN_MAP2_S00_BIN,{0x800F1CAC-base_address},96,&D_800F1CAC[0][0])')
+                if typ.startswith('s_') and typ not in ['s_WorldObjectModel','s_WorldObjectPose','s_WorldObjectPlacement','s_Pose']:
+                    add_init_type(typ)
+                if '[]' in declaration:
+                    # PORT: These original model-only BSS arrays have six common
+                    # pickup slots; other unknown arrays stay explicitly bounded.
+                    if name == 'g_CommonWorldObjects':
+                        declaration = declaration.replace('[]', '[6]')
+                    elif name == 'D_800F2418':
+                        # PORT: Only the original six-element init footprint is
+                        # linked; the broader finale effect consumers stay guarded.
+                        declaration = declaration.replace('[]', '[6]')
+                    else:
+                        raise ValueError(f'{lane}: unbounded init array {name}')
+                data += declaration + ';\n'
+                zeros.append(name)
+                if name in ['D_800DB7D4','D_800DB7E4']:
+                    # Original source declares exactly ten pointer-free SVECTOR
+                    # pairs at these named PS1 addresses. Read only that footprint.
+                    raw_loads.append(f'port_map_data_read(FILE_VIN_MAP4_S03_BIN,{int(name[2:],16)-base_address},sizeof({name}),(u8*)&{name})')
+            data = init_types + data
+            init_helpers = ''
+            init_prototypes = ''
+            for name,provider in sorted(init_extra.items()):
+                init_prototypes += 'static ' + re.sub(r'//[^\n]*','',provider.split('{',1)[0]).strip()+';\n'
+                if lane == 'map1_s05':
+                    effect_fields = dict((field,typ) for typ,field in re.findall(r'\b(u8|u16|s16|q3_12)\s+(\w+)\s*;', shared[shared.index('typedef struct _MapHeader_field_5C'):shared.index('} s_MapHeader_field_5C;')]))
+                    for field,typ in effect_fields.items():
+                        provider = re.sub(r'(sharedData_800D8568_1_s05\.'+field+r'\s*=) ([^;]+);',r'\1 ('+typ+r')(\2);',provider)
+                    provider = re.sub(r'(randAngle\s*=) ([^;]+);',r'\1 (q3_12)(\2);',provider)
+                    provider = re.sub(r'(sharedData_800DFB7C_0_s00\[idx\]\.(?:field_C\.s_0\.field_[02]|field_10\.s_0\.field_2|vy_8)\s*=) ([^;]+);',r'\1 (s16)(\2);',provider)
+                    provider = re.sub(r'(sharedData_800DFB7C_0_s00\[idx\]\.field_B\s*=) ([^;]+);',r'\1 (u8)(\2);',provider)
+                if name == 'func_800D761C':
+                    provider=provider.replace('{','{\n    (void)arg3;',1).replace('field_20 = arg2;', 'field_20 = (u8)arg2;')
+                init_helpers += 'static ' + provider + '\n'
+            for name in sorted(set(re.findall(r'\b(?:func_\w+|sharedFunc_\w+)(?=\()', init_code))):
+                if name in ['func_8008D438','func_8008D448'] or name in init_extra:
+                    continue
+                try:
+                    provider = function(local, name)
+                except ValueError:
+                    signature_match = re.search(r'\b(void|s32|q19_12)\s+' + re.escape(name) + r'\([^;]*\);', declarations)
+                    if not signature_match:
+                        raise
+                    provider = signature_match[0].rstrip(';') + '{}'
+                signature = re.sub(r'//[^\n]*', '', provider.split('{',1)[0]).strip()
+                if name == 'func_800CB0D8':
+                    provider = provider.replace('func_8005E7E0(', 'port_maps_effect_alloc(')
+                    provider = provider.replace('field_C.s_1.field_2 = Rng_GenerateInt(0, 2)', 'field_C.s_1.field_2 = (s16)Rng_GenerateInt(0, 2)')
+                    provider = provider.replace('field_C.s_2.field_0 = Rng_GenerateUInt(0, Q12_CLAMPED(1.0f))', 'field_C.s_2.field_0 = (s16)Rng_GenerateUInt(0, Q12_CLAMPED(1.0f))')
+                elif name == 'func_800DD348':
+                    provider = provider.replace('{', '{\n    (void)unused;',1)
+                    provider = provider.replace('u8* curSpawnFlags;', 's8* curSpawnFlags;').replace('*curSpawnFlags = spawnFlags;', '*curSpawnFlags = (s8)spawnFlags;')
+                    init_code = init_code.replace('func_800DD348(16,', 'func_800DD348(NULL,')
+                else:
+                    params = signature.split('(',1)[1].rsplit(')',1)[0].split(',')
+                    unused = ''.join('(void)'+re.findall(r'\b\w+', p)[-1]+';' for p in params if p.strip()!='void')
+                    provider = signature + '{' + unused + f'port_unimplemented("{lane}/{name}");' + ('return 0;' if not signature.startswith('void') else '') + '}\n'
+                init_helpers += 'static ' + provider + '\n'
+            if 'Chara_SpawnFlagsSet' in init_code:
+                spawn_helper = function((decomp / 'src/bodyprog/events/chara_spawn.c').read_text(encoding='utf-8'), 'Chara_SpawnFlagsSet')
+                spawn_helper = spawn_helper.replace('spawnInfo->flags = spawnFlags;', 'spawnInfo->flags = (u8)spawnFlags;')
+                init_helpers += 'static ' + spawn_helper
             room_sizes = {}
             for name in ['MAP_ROOM_IDXS','sharedData_800DF2DC_0_s00','sharedData_800ED430_2_s02']:
                 if name not in addresses:
@@ -499,7 +673,7 @@ def prepare_all_maps(decomp, output, records):
                 else:
                     obj = 'const ' + obj
                 initials.append('static ' + obj)
-            owned = sorted(set(writable + zeros + list(callbacks)+['Map_RoomIdxGet','GetXIdx','GetYIdx']+(['Map_WorldObjectsInit'] if empty_init else [])))
+            owned = sorted(set(writable + zeros + list(callbacks)+['Map_RoomIdxGet','GetXIdx','GetYIdx','Map_WorldObjectsInit']))
             namespace = '\n'.join(f'#define {name} {prefix}{name}' for name in owned) + '\n'
             reset = f'void {prefix}reset(void) {{' + ''.join(f'memcpy(&{name},&{name}_initial,sizeof({name}));' for name in writable) + ''.join(f'memset(&{name},0,sizeof({name}));' for name in zeros) + '}\n'
             reset += f'int {prefix}reset_probe(void) {{' + ''.join(f'memset(&{name},0xa5,sizeof({name}));' for name in writable + zeros) + f'{prefix}reset();return ' + ' && '.join([f'memcmp(&{name},&{name}_initial,sizeof({name}))==0' for name in writable] + [f'port_map_zero(&{name},sizeof({name}))' for name in zeros]) + ';}\n'
@@ -516,16 +690,33 @@ def prepare_all_maps(decomp, output, records):
                 room=re.sub(re.escape(name)+r'\[([^\]\n]+)\]',lambda m:f'port_maps_room_byte({name},{size},(s32)({m[1]}))',room)
             helpers='static inline bool CheckRange(s32 v,s32 low,s32 high) {return low<=v && v<=high;}\n#define CheckNotInRange(v,l,h) (!CheckRange(v,l,h))\n'
             helpers+='static inline u8 port_maps_room_byte(const u8* bytes,size_t count,s32 index) {if(index<0 || (size_t)index>=count)port_unimplemented("map room grid bounds");return bytes[index];}\n'
-            prototypes='static u8 Map_RoomIdxGet(q19_12,q19_12);\nq19_12 port_maps_ground_height(q19_12,q19_12);\n'+('static void Map_WorldObjectsInit(void);\n' if empty_init else '')
-            source = NOTICE + '#include "gameplay.h"\n#include "native_player_controls.h"\n#undef g_MapOverlayHdr\n#undef CHUNK_SIZE\n#define CHUNK_SIZE 40\n#define '+lane.upper()+'\n' + macros + '\n' + namespace + prototypes+code+data+''.join(initials)+helpers+room+reset
+            prototypes='static u8 Map_RoomIdxGet(q19_12,q19_12);\nq19_12 port_maps_ground_height(q19_12,q19_12);\nstatic void Map_WorldObjectsInit(void);\nint port_maps_messages_read(u32,u32,u32,u32,const char**,u8*,u32);\n'
+            if init_types:
+                data = data.replace(init_types, '', 1)
+            source = NOTICE + '#include "maps_objects.h"\nextern s8 D_800C4414;\n#undef g_MapOverlayHdr\n#undef CHUNK_SIZE\n#define CHUNK_SIZE 40\n#define '+lane.upper()+'\n' + macros + '\n' + namespace + init_types+prototypes+init_prototypes+code+data+''.join(initials)+helpers+room+reset
             source += f'const s_MapOverlayHdr* {prefix}descriptor(void) {{return &g_MapOverlayHdr;}}\n'
             source += f'u32 {prefix}point_count(void) {{return (u32)ARRAY_SIZE(MAP_POINTS);}}\n'
             blocker = 'animation info decoder' if anim_missing else ('message pointer decoder' if messages_missing else None)
             source += '// PORT: Never publish a placeholder for an undecoded pointer-bearing table.\n' if blocker else ''
             source += f'int {prefix}load_data(void) {{' + (f'port_unimplemented("{lane}/{blocker}");' if blocker else '') + 'return ' + (' || '.join(raw_loads) or '0') + ';}\n'
             source = re.sub(r'\{\s*}', '{0}', source)
-            if empty_init:
-                source+=init_code
+            source+=init_helpers+init_code
+            source=source.replace('SD_Call(', 'port_maps_object_sfx(')
+            # PORT: Keep the original signed 16-bit constant without unsigned negation.
+            source = source.replace('-0x2CCCu', '-0x2CCC')
+            if lane == 'map7_s02':
+                # PORT: The original pose starts with a model; name that member
+                # explicitly instead of passing an incompatible native pointer.
+                source = source.replace('WorldObject_ModelNameSet(&g_WorldObject_Beans[i],', 'WorldObject_ModelNameSet(&g_WorldObject_Beans[i].object,')
+                source = source.replace("beanObjName[4] = (i >> 1) + '1';", "beanObjName[4] = (char)((i >> 1) + '1');")
+                source = re.sub(r'(g_WorldObject_Beans\[i\]\.rotation\.v[xyz]\s*=) ([^;]+);', r'\1 (s16)(\2);', source)
+                for name in ['D_800EB9F4', 'D_800EBA14']:
+                    source = re.sub(r'(' + name + r'\[i\]\s*=) ([^;]+);', r'\1 (s16)(\2);', source)
+            source = source.replace('port_maps_object_sfx(Sfx_Unk1640)', 'port_maps_object_sfx(1640)')
+            source = source.replace('g_EndingIdx += 2;', 'g_EndingIdx = (u8)(g_EndingIdx + 2);')
+            if lane == 'map1_s05':
+                source=source.replace('    sharedFunc_800CAAD0_1_s05();', '    port_maps_init_note("MAP1_S05/effect-init begin");\n    sharedFunc_800CAAD0_1_s05();\n    port_maps_init_note("MAP1_S05/effect-init complete");')
+                source=source.replace('    port_maps_object_sfx(Sfx_Unk1478);', '    port_maps_init_note("MAP1_S05/Sfx_Unk1478 begin");\n    port_maps_object_sfx(Sfx_Unk1478);\n    port_maps_init_note("MAP1_S05/Sfx_Unk1478 complete");')
             source = source.replace('false, NO_VALUE,', 'false, (u8)NO_VALUE,')
             source = source.replace('true, NO_VALUE,', 'true, (u8)NO_VALUE,')
             source = source.replace('{ Player_VariableAnimDurationGet }','{ .variableFunc = Player_VariableAnimDurationGet }')
@@ -539,7 +730,9 @@ def prepare_all_maps(decomp, output, records):
             source = re.sub(r'static void Chara_AnimReset\(void\) \{port_unimplemented\("([^"]+)"\);\}',
                             r'static void Chara_AnimReset(s_SubCharacter* npc, bool cond) {(void)npc;(void)cond;port_unimplemented("\1");}', source)
             (output / f'{lane}.c').write_text(source, encoding='utf-8')
-            inventory.append(dict(name=lane.upper(), index=index, provider='maps', objects=writable + zeros, guards=sorted(callbacks), blocker=blocker,original_empty_init=empty_init))
+            inventory.append(dict(name=lane.upper(), index=index, provider='maps', objects=writable + zeros, guards=sorted(callbacks), blocker=blocker,original_empty_init=empty_init,
+                init_helpers=sorted(init_extra),init_leaf_guards=re.findall(r'port_unimplemented\("([^"\n]+)"\)',init_helpers),
+                init_services=sorted(set(re.findall(r'\b((?:WorldObject_|Math_|Chara_|Savegame_|Gfx_|Rng_)\w+)\(',init_code)))))
         registry += f'extern const s_MapOverlayHdr* {prefix}descriptor(void);\nextern void {prefix}reset(void);\nextern int {prefix}reset_probe(void);\nextern int {prefix}load_data(void);\n'
         registry += f'extern u32 {prefix}point_count(void);\n'
     registry += 'const PortMapEntry port_maps[43]={\n'
@@ -552,6 +745,40 @@ def prepare_all_maps(decomp, output, records):
     ground=NOTICE+'#include "collision.h"\n#define g_CollisionPointCache port_maps_ground_cache\n#define Collision_Fill port_maps_collision_fill\n#define Collision_GroundHeightGet port_maps_ground_height\n'
     ground+='static s_CollisionPoint port_maps_ground_cache;\nstatic const s_CollisionPoint cache_initial={.groundType=NO_VALUE};\n'
     ground+=function(player,'Collision_Fill')+function(player,'Collision_GroundHeightGet')
+    allocator = function((decomp/'src/bodyprog/gfx/bodyprog_effects_8005E0DC.c').read_text(encoding='utf-8'),'func_8005E7E0')
+    allocator = allocator.replace('func_8005E7E0(', 'port_maps_effect_alloc(').replace('field_A = arg0;', 'field_A = (u8)arg0;').replace('D_800C4408 = idx + 1;', 'D_800C4408 = (s16)(idx + 1);')
+    ground += 'extern s16 D_800C4408;\n' + allocator
+    ground += '''
+// PORT: Numeric PS1 spawn records expand the signed difficulty nibble and
+// preserve all original scalar bits without relying on native struct stride.
+static u32 spawn_word(const u8* p) {return (u32)p[0]|((u32)p[1]<<8)|((u32)p[2]<<16)|((u32)p[3]<<24);}
+int port_maps_spawn_decode(const u8* wire,u32 count,s_SpawnInfo* records) {
+    if(!wire || !records || !count || count>96)return 1;
+    for(u32 i=0;i<count;i++) {
+        const u8* p=wire+i*12;s_SpawnInfo* r=&records[i];
+        memset(r,0,sizeof(*r));
+        r->positionX=(s32)spawn_word(p);r->charaId=(s8)p[4];r->rotationY=p[5];r->flags=(s8)p[6];
+        s32 difficulty=p[7]&15;r->gameDifficultyMin=difficulty>=8?difficulty-16:difficulty;
+        r->positionZ=(s32)spawn_word(p+8);
+    }
+    return 0;
+}
+int port_maps_spawn_read(u32 file,u32 offset,u32 count,s_SpawnInfo* records) {
+    u8 wire[96*12];
+    if(!count || count>96 || port_map_data_read(file,offset,count*12,wire))return 1;
+    return port_maps_spawn_decode(wire,count,records);
+}
+int port_maps_spawn_probe(void) {
+    const u8 wire[12]={0x2e,0xfb,0xff,0xff,7,128,14,0xaf,0x2e,0x16,0,0};
+    struct {u32 before;s_SpawnInfo record;u32 after;} result={0};
+    result.before=0x12345678;result.after=0x76543210;
+    if(port_maps_spawn_decode(wire,1,&result.record))return 0;
+    return result.before==0x12345678 && result.after==0x76543210 &&
+        result.record.positionX==-1234 && result.record.positionZ==5678 &&
+        result.record.charaId==7 && result.record.rotationY==128 && result.record.flags==14 &&
+        result.record.gameDifficultyMin==-1 && port_maps_spawn_decode(wire,97,&result.record)==1;
+}
+'''
     ground+='// PORT: Native overlay activation invalidates the separately owned room-query cache.\nvoid port_maps_ground_reset(void) {memcpy(&port_maps_ground_cache,&cache_initial,sizeof(cache_initial));}\n'
     ground+='int port_maps_ground_reset_probe(void) {memset(&port_maps_ground_cache,0xa5,sizeof(port_maps_ground_cache));port_maps_ground_reset();return memcmp(&port_maps_ground_cache,&cache_initial,sizeof(cache_initial))==0;}\n'
     (output/'maps_ground.c').write_text(ground,encoding='utf-8')
@@ -573,8 +800,10 @@ def smoke(args):
         match=re.fullmatch(r'(MAP[0-7]_S\d{2})(?::(\d{1,3}))?',args.warp)
         if not match or match[1] not in catalog or int(match[2] or '0')>255:
             raise ValueError('warp needs an existing MAPx_Syy[:spawn], spawn 0..255')
+    if args.capture and (not args.warp or args.smoke_all):
+        raise ValueError('private capture requires one explicit --warp')
     private=Path(__file__).resolve().parents[3]/'private'
-    evidence=private/'work/maps'
+    evidence=private/'work/objects'
     evidence.mkdir(parents=True,exist_ok=True)
     executable=args.test_executable
     if executable is None:
@@ -588,30 +817,44 @@ def smoke(args):
     names=catalog if args.smoke_all else [args.warp]
     results=[]
     for name in names:
-        env=dict(os.environ,SH_MAP_WARP=name,SH_MAP_DISC=str(args.disc or private/'disc/Silent Hill (USA).bin'))
-        result=subprocess.run([str(executable),'maps::warp_tests::debug_map_warp','--exact','--ignored','--nocapture','--test-threads=1'],cwd=root,env=env,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=60)
-        log=result.stdout+result.stderr
-        (evidence/(name.replace(':','-')+'.log')).write_text(log,encoding='utf-8')
+        env=dict(os.environ,SH_MAP_WARP=name,SH_MAP_LIGHT=str(int(args.flashlight)),SH_MAP_CAPTURE=str(int(args.capture)),SH_MAP_DISC=str(args.disc or private/'disc/Silent Hill (USA).bin'))
+        try:
+            result=subprocess.run([str(executable),'maps::warp_tests::debug_map_warp','--exact','--ignored','--nocapture','--test-threads=1'],cwd=root,env=env,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=60)
+            log=result.stdout+result.stderr
+            code=result.returncode
+        except subprocess.TimeoutExpired as error:
+            def timeout_text(value):
+                return value.decode('utf-8',errors='replace') if isinstance(value,bytes) else (value or '')
+            log=timeout_text(error.stdout)+timeout_text(error.stderr)+'\nBLOCKED warp timeout after 60 seconds\n'
+            code=124
+        (evidence/(name.replace(':','-')+('-lit' if args.flashlight else '')+'.log')).write_text(log,encoding='utf-8')
         guard=re.search(r'BLOCKED native service:[^\n]*',log)
         frame=re.search(r'MAP_WARP_FRAME colors=(\d+) primitives=(\d+)',log)
         blank='VISIBLE lit_pixels=0\n' in log and 'MAP_WARP rendered=' in log
-        item=dict(map=name,exit=result.returncode,rendered='MAP_WARP rendered=' in log,selected='MAP_WARP selected=' in log,
+        geometry=re.search(r'MAP_WARP geometry=(\d+)',log)
+        detail=re.search(r'MAP_WARP geometry=\d+ detail=(\d+)',log)
+        phase=[line for line in log.splitlines() if line.startswith(('MAP_INIT ','MAP_WARP ','READ file='))]
+        abnormal=f'native exit {code} after '+(phase[-1] if phase else 'startup') if code not in [0,101] else None
+        item=dict(map=name,exit=code,flashlight_fixture=args.flashlight,world_meshes=int(geometry[1]) if geometry else None,rendered='MAP_WARP rendered=' in log,selected='MAP_WARP selected=' in log,
+                  varied_pixels=int(detail[1]) if detail else None,
                   colors=int(frame[1]) if frame else None,primitives=int(frame[2]) if frame else None,
-                  blocker=guard[0] if guard else ('black frame: lit_pixels=0, colors='+frame[1]+', primitives='+frame[2] if blank and frame else (None if result.returncode==0 else log[-700:])))
+                  blocker=guard[0] if guard else (abnormal or ('black frame: lit_pixels=0, colors='+frame[1]+', primitives='+frame[2] if blank and frame else (None if code==0 else log[-700:]))))
         results.append(item)
-        print(f'{name}: '+('PASS' if result.returncode==0 and item['rendered'] else 'BLOCKED')+' '+str(item['blocker'] or ''),flush=True)
-    (evidence/('smoke-results.json' if args.smoke_all else 'warp-results.json')).write_text(json.dumps(results,indent=2),encoding='utf-8')
+        print(f'{name}: '+('PASS' if code==0 and item['rendered'] else 'BLOCKED')+' '+str(item['blocker'] or ''),flush=True)
+    (evidence/(('smoke' if args.smoke_all else 'warp')+('-lit' if args.flashlight else '')+'-results.json')).write_text(json.dumps(results,indent=2),encoding='utf-8')
     return int(any(item['exit'] or not item['rendered'] for item in results))
 
 
 def check_clang(compiler):
     import subprocess
     from prepare_sdk import prepare as sdk
+    from prepare_audio import prepare as audio
     root=Path(__file__).resolve().parents[1]
     output=root/'target/maps-clang'
     sdk(root/'game/decomp',output)
+    audio(root/'game/decomp',output)
     sources=sorted(output.glob('map*_s*.c'))+[output/'maps_registry.c',output/'maps_ground.c',output/'maps_base.c',root/'port/maps_runtime.c']
-    flags=['-target','aarch64-apple-ios15.0','-ffreestanding','-std=c11','-Wall','-Wextra','-Werror','-nostdinc']
+    flags=['-target','aarch64-apple-ios15.0','-ffreestanding','-std=c11','-Wall','-Wextra','-Werror','-nostdinc','-DSH_NATIVE_AUDIO']
     for include in [root/'tools/layout-include',root/'port',root/'port/include',output,root/'game/decomp/include',root/'game/decomp/src/main']:
         flags+=['-I',str(include)]
     for name in ['ccos','csin','csqrt','catan']:
@@ -627,16 +870,66 @@ def check_clang(compiler):
     return int(failed!=0)
 
 
+def transition_candidate():
+    """Keep a source-checked, explicitly unverified replay for the events handoff."""
+    import json
+    root=Path(__file__).resolve().parents[1]
+    out=root.parents[1]/'private/work/objects'
+    out.mkdir(parents=True,exist_ok=True)
+    route=[]
+    for lane,index,trigger,target,destination in [('map2_s04',15,4,'MAP2_S02',9),('map2_s02',16,21,'MAP2_S04',23)]:
+        source=root/f'game/decomp/src/maps/{lane}/{lane}_events_data.c'
+        text=source.read_text(encoding='utf-8')
+        block=re.search(r'// \['+str(index)+r'\]\s*\{(.*?)\}',text,re.S)[1]
+        fields=dict(re.findall(r'\.(\w+)\s*=\s*(\w+)',block))
+        assert fields['sysState']=='SysState_LoadOverlay' and fields['mapIdx']=='MapIdx_'+target
+        assert fields['mapPointIdx']==str(trigger) and fields['eventParam']==str(destination)
+        assert not {'requiredEventFlag','requiredItemId','completeEventFlag'} & fields.keys()
+        points=(source.parent/'map_points.h').read_text(encoding='utf-8')
+        point=re.search(r'// \['+str(destination)+r'\].*?(\{.*?\})',points,re.S)[1]
+        route.append(dict(map=lane.upper(),event=index,trigger_point=trigger,destination_map=target,
+            destination_point_in_source_map=destination,point_source=point))
+    replay='''# BLOCKED candidate; pad timings and movement have NOT been calibrated or run.
+# Start MAP2_S04:4 through original loading, then require MAP2_S02 -> MAP2_S04.
+# First walk away/back to the exit; then turn and approach the street-side door.
+0 0000
+15 0040
+60 0000
+70 0010
+115 0000
+120 4000
+121 0000
+600 0020
+673 0000
+690 0010
+705 0000
+710 4000
+711 0000
+'''
+    (out/'police-return.candidate.txt').write_text(replay,encoding='utf-8')
+    (out/'police-return.candidate.json').write_text(json.dumps(dict(status='BLOCKED: not a passing milestone',
+        start='MAP2_S04:4',required_maps=['MAP2_S04','MAP2_S02','MAP2_S04'],route=route,
+        blocker='SysState_LoadArea_Update is guarded in tools/prepare_gameplay.py; destination loading, BGM and map player/update callbacks also need events integration',
+        timing='unverified; validate pad-driven position, original trigger selection, both queued activations and return before marking pass'),indent=2),encoding='utf-8')
+    print('Source-checked reversible route; candidate replay BLOCKED/unrun: '+str(out/'police-return.candidate.json'))
+    return 0
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--decomp', type=Path)
     parser.add_argument('--out', type=Path)
     parser.add_argument('--warp', help='test-only MAPx_Syy[:spawn] headless warp')
     parser.add_argument('--smoke-all', action='store_true')
+    parser.add_argument('--flashlight', action='store_true', help='explicit diagnostic spotlight/loading-pose fixture; no gameplay claim')
+    parser.add_argument('--capture', action='store_true', help='capture one warp to private/work/objects only')
+    parser.add_argument('--transition-candidate', action='store_true', help='write the source-checked MAP2_S04 -> MAP2_S02 -> MAP2_S04 candidate; not a replay pass')
     parser.add_argument('--test-executable', type=Path)
     parser.add_argument('--disc', type=Path)
     parser.add_argument('--check-clang', type=Path)
     args = parser.parse_args()
+    if args.transition_candidate:
+        raise SystemExit(transition_candidate())
     if args.check_clang:
         raise SystemExit(check_clang(args.check_clang))
     if args.warp or args.smoke_all:

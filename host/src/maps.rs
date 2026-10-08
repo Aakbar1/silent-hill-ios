@@ -444,6 +444,83 @@ mod tests {
 
 include!(concat!(env!("OUT_DIR"), "/native-source/maps_catalog.rs"));
 
+/// Decode owned PS1 message pointers as bounded offsets, never native addresses.
+pub(crate) fn decode_messages(
+    bytes: &[u8],
+    base: u32,
+    table: usize,
+    count: usize,
+) -> Result<Vec<Option<Box<[u8]>>>, String> {
+    let end = count.checked_mul(4).and_then(|n| table.checked_add(n));
+    let words = end
+        .and_then(|end| bytes.get(table..end))
+        .ok_or("map message table outside overlay")?;
+    words
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|word| {
+            let address = u32::from_le_bytes(*word);
+            if address == 0 {
+                return Ok(None);
+            }
+            let offset = address
+                .checked_sub(base)
+                .ok_or("map message before overlay")?;
+            let tail = bytes
+                .get(offset as usize..)
+                .ok_or("map message outside overlay")?;
+            let length = tail
+                .iter()
+                .take(4096)
+                .position(|&b| b == 0)
+                .ok_or("map message lacks bounded terminator")?;
+            Ok(Some(tail[..=length].into()))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod message_tests {
+    use super::decode_messages;
+    #[test]
+    fn pointers_alias_strings_but_never_escape_owned_overlay() {
+        let mut bytes = vec![0; 32];
+        bytes[..4].copy_from_slice(&0x800c0010u32.to_le_bytes());
+        bytes[4..8].copy_from_slice(&0x800c0010u32.to_le_bytes());
+        bytes[16..20].copy_from_slice(b"abc\0");
+        let decoded = decode_messages(&bytes, 0x800c0000, 0, 3).unwrap();
+        assert_eq!(decoded[0].as_deref(), Some(&b"abc\0"[..]));
+        assert_eq!(decoded[0], decoded[1]);
+        assert!(decoded[2].is_none());
+        for address in [0x800bffffu32, 0x800c0020, 0xffffffff] {
+            bytes[..4].copy_from_slice(&address.to_le_bytes());
+            assert!(decode_messages(&bytes, 0x800c0000, 0, 1).is_err());
+        }
+        assert!(decode_messages(&bytes, 0x800c0000, 31, 1).is_err());
+        assert!(decode_messages(&bytes, 0x800c0000, 0, usize::MAX).is_err());
+        let mut unterminated = vec![b'x'; 4104];
+        unterminated[..4].copy_from_slice(&0x800c0004u32.to_le_bytes());
+        assert!(decode_messages(&unterminated, 0x800c0000, 0, 1).is_err());
+    }
+    #[test]
+    fn spawn_wire_stride_and_signed_difficulty_have_checked_native_storage() {
+        unsafe extern "C" {
+            fn port_maps_spawn_probe() -> i32;
+        }
+        // SAFETY: The fixture uses only its stack-owned records and canaries.
+        assert_eq!(unsafe { port_maps_spawn_probe() }, 1);
+    }
+    #[test]
+    fn fixed_world_objects_use_identity_when_they_have_no_bone() {
+        unsafe extern "C" {
+            fn port_maps_fixed_coord_probe() -> i32;
+        }
+        // SAFETY: The fixture writes only its stack matrix and reads the identity.
+        assert_eq!(unsafe { port_maps_fixed_coord_probe() }, 1);
+    }
+}
+
 /// PORT: Explicit test-only spawn selection; the production loader is unchanged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DebugWarp {
@@ -506,16 +583,34 @@ mod warp_tests {
     #[test]
     #[ignore = "requires owned disc; run through tools/prepare_maps.py --warp"]
     fn debug_map_warp() {
+        unsafe extern "C" {
+            fn port_maps_debug_light_set(enabled: u32);
+        }
+        // SAFETY: Each opt-in warp runs alone in a new process, before C starts.
+        unsafe {
+            port_maps_debug_light_set(u32::from(
+                std::env::var("SH_MAP_LIGHT").as_deref() == Ok("1"),
+            ));
+        }
         let warp = DebugWarp::parse(&std::env::var("SH_MAP_WARP").expect("SH_MAP_WARP")).unwrap();
         let disc =
             crate::disc::GameDisc::open(std::env::var_os("SH_MAP_DISC").expect("SH_MAP_DISC"))
                 .unwrap();
         crate::spu_cpal::configure(crate::spu_cpal::AudioMode::parse("off").unwrap()).unwrap();
         crate::gpu_wgpu::configure(crate::gpu_wgpu::Options::default()).unwrap();
+        let screenshot = (std::env::var("SH_MAP_CAPTURE").as_deref() == Ok("1")).then(|| {
+            let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../private/work/objects");
+            std::fs::create_dir_all(&directory).unwrap();
+            directory.join(format!(
+                "{}-{}.png",
+                MAP_NAMES[warp.map as usize], warp.spawn
+            ))
+        });
         let result = crate::native::run_headless(
             disc,
             16,
-            None,
+            screenshot,
             crate::pad::ReplayPad::parse("0 0000").unwrap(),
             crate::native::ReplayCheck {
                 warp: Some(warp),

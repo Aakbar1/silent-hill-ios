@@ -1,153 +1,184 @@
-# Maps lane checkpoint
+# Objects lane checkpoint - 8 October 2026
 
-The lane links **43 native descriptor/data slices**, not 43 complete gameplay
-overlays. MAP0_S00 retains the events lane's original provider. The other 42
-descriptors retain their original points, events, spawns, camera paths, collision
-triggers and source animation data. The common original room-index function is
-linked across the maps, with checked disc-backed grids and its original ground
-height/cache helpers. Four original empty object initializers are retained;
-unavailable callbacks are typed fatal guards.
-No map initializer is skipped to claim a smoke pass.
+**43/43 overlays activate; 41/43 finish the object-init stage; 15/43 pass the
+world-frame warp smoke, up from 2/43. No process crashes.** The independent
+flashlight fixture also passes 15/43. A submitted mesh or a flare pixel alone
+is not a rendering pass. These are static world diagnostics, not gameplay.
+The full brief is not passed: the reversible walking milestone remains blocked,
+and MAP1_S04 cannot supply a faithful playable world at its original spawn.
 
-## Lifecycle and inventory
+## Object-init closure and groups
 
-`tools/prepare_maps.py` discovers the pinned `src/maps/map*/*_header.c` inventory
-and requires exactly 43 entries. `maps_registry.c` and `maps_inventory.json` are
-generated in Cargo's native-source directory. The inventory lists every mutable
-object compiled into each new data slice and every guarded callback. Initialized
-objects reset by copying compiled const images; BSS resets to zero. Pointer fields
-refer to that map's namespaced native objects. Callback-local state remains outside
-the slice until its callback is migrated; this is not an exhaustive reset of all
-unlinked upstream code.
+All 37 previous blanket init guards were replaced by the original initializer
+bodies. The two encountered init leaves still guarded are Player_ItemRemove
+(events ownership) and an unloaded VAB header for MAP1_S05's Sfx_Unk1478.
+MAP0_S00 callback bodies and all events/player/NPC/combat/items lane files stay
+unchanged. Other unlinked descriptor callbacks retain typed fatal guards.
 
-Pinned symbol intervals bound missing byte/scalar tables, which are read from the
-owned overlay at runtime. Pointer-bearing disc messages are not cast to native
-pointers: MAP4_S00, MAP4_S06 and MAP6_S05 currently fail activation at a named
-message-decoder guard. The unknown-size MAP1_S03 object table has only its source's
-constant-index footprint allocated, with its consumers guarded. No asset bytes,
-disassembly or game captures are generated into tracked files.
+| Original shared helper | Initializers using it (other than MAP0_S00) | Native service |
+|---|---:|---|
+| WorldObject_Init | 31 | Original pose/model macros |
+| WorldObject_ModelNameSet | 29 | Street lane's real name registration |
+| WorldObject_PlacementInit | 19 | Original placement macro |
+| Math_Vector3Set | 12 | Native fixed-width stores |
+| WorldObject_PoseInit | 7 | Original pose macro |
+| Chara_SpawnFlagsSet | 7 | Original spawn-flag helper |
+| Math_SetSVectorFast | 6 | Explicit three-component stores, no misaligned word alias |
+| WorldObject_PosePositionInit | 4 | Original position/model macro |
 
-`port/maps_runtime.c` replaces the old single-map activation/descriptor exports.
-The existing `Fs_QueueUpdate` completion path selects the registry entry, invalidates
-the old active descriptor, resets the new image and loads bounded numeric data
-before publishing it. A failed load leaves no active descriptor. The original
-room-query ground cache is invalidated on activation and covered by the reset
-fixture. Its broader integration with future MAP6 gameplay is not verified. The
-original startup dispatcher still owns calling map init in production; activation alone
-does not certify that dispatcher or a transition. The reset fixture dirties and
-restores all 43 slices and checks distinct descriptor, point, event and animation
-storage. `port/map.c` stays unchanged; the shared build compiles a generated copy
-with its superseded lifecycle exports renamed.
+The compiled 72-byte native pose and 64-byte placement records have layout
+assertions. Every newly linked map-owned object, pose and helper workspace is
+namespaced and inventoried for reset. The shared numeric boss parameters use
+the original 14-byte shape, appended to boot.h; ending selection and the ground
+image descriptor retain original shared ownership. Existing raw TIM scratch
+holds GROUND.TIM, and the real queue captures each TV texture descriptor.
 
-## Debug warp
+Original bounded effect setup is linked for MAP1_S05, MAP5_S00, MAP6_S04,
+MAP4_S03 and MAP7_S03. The effect-slot allocator keeps the original shared
+cursor. MAP2_S00's three 32-spawn variants decode owned 12-byte records to
+16-byte native records before the original flag-driven selection/memcpy.
+Its signed difficulty nibble and native stride have a canary fixture.
+The original misnamed s_MapPoint2d table is never copied at native point stride.
+
+## Messages, lifecycle and boundaries
+
+One checked decoder loads the 16 pointer slots in each of MAP4_S00, MAP4_S06 and
+MAP6_S05. PS1 addresses become bounded offsets in the owned overlay; strings
+must terminate within 4096 bytes. Null entries remain null. Decoding completes
+before copying native pointers into reset-owned arenas or publishing the map.
+Synthetic tests reject pointers below/above the overlay, table overflow and
+unterminated strings. All three owned-disc activation paths pass.
+
+The existing queued activation still invalidates the active descriptor first,
+resets its compiled images/BSS and ground cache, loads numeric/string records,
+then publishes it. A failed read publishes no descriptor. The all-43 reset probe
+passes with the enlarged inventory. This is the complete linked slice, not a
+claim that guarded callbacks' unlinked local statics or all host asset caches reset.
+MAP1_S03's broader unknown-size table and the finale's broader effect tables
+remain guarded; only their explicitly used init footprints are allocated.
+
+## Warp and MAP1_S04 diagnosis
+
+Warp now restores original settings, initializes the sound driver, streams the
+world, establishes camera/loading-pose coordinates and the environment, then
+calls the original func_8005E650 initializer dispatcher (including its null
+callback check). The original fixed-position light identity case returns before
+traversing a null bone; a stack fixture verifies that service. SFX calls retain
+original playback when a VAB header exists and fail explicitly when it does not.
+
+MAP1_S04 is the pinned sound-test overlay: its only point is (0,0), its message
+15 is "NO_STAGE!", and func_800CCA2C selects XA/SFX tasks. Its empty object init
+and lack of geometry at that point are original data, not a missing draw helper.
+See game/decomp/src/maps/map1_s04/{map_points.h,map1_s04.c,map1_s04_events_data.c}.
+No alternate spawn, fake geometry or changed event flag was added to pass it.
+
+World-frame gates require nonzero lit pixels, at least one submitted world mesh
+and at least 64 native pixels differing from the dominant color. The latter
+rejects a brightness rectangle plus a one-pixel flare: the private MAP3_S04-0.png
+negative capture was visually reviewed. MAP2_S04-0.png shows textured room
+geometry, with remaining rendering artefacts; it is not a parity certification.
+The explicit --flashlight fixture initializes a diagnostic loading pose and
+calls the original light toggle/effects. It grants no inventory item and does
+not initialize/render Harry or advance gameplay. It exposes missing water
+reflection rendering and does not cure the remaining night-scene shading.
 
 ```text
-python tools/prepare_maps.py --warp MAP0_S00:0
 python tools/prepare_maps.py --smoke-all
+python tools/prepare_maps.py --smoke-all --flashlight
+python tools/prepare_maps.py --warp MAP2_S04:0 --capture
 python tools/prepare_maps.py --check-clang C:/BuildTools2022/VC/Tools/Llvm/x64/bin/clang-tidy.exe
 ```
 
-The test-only command builds the release library test and runs each warp in an
-isolated headless process against the verified owned disc. `--disc PATH` overrides
-the private default. Spawn is an index in the original map-point array and is
-checked against that map's compiled count. The warp establishes the original
-screen/world setup and nonzero virtual timestep, queues the original overlay file
-read, calls map init, uses `Chara_PositionSet`, streams chunks and attempts a world
-frame. It does not initialize/render Harry or advance gameplay. Backend errors,
-native guards and missing frames remain failures. Host application CLI parsing is
-outside the lane; the `--warp` option is currently on this preparation/test tool.
+## Current all-43 table
 
-## Transition constraint and requests
+Every row compiles on MSVC /W4 /WX and the arm64 frontend. Results below use
+normal difficulty and point 0; a static smoke pass certifies neither NPCs,
+interactions, equipped items, movement nor a transition. Each blocked row names
+one measured service/frame boundary. Private logs and both result JSON files
+are under private/work/objects, with map-named default and -lit logs.
 
-The requested MAP0_S00 walk-through exit and return is absent from the pinned game
-data. Its sole overlay transition is event 33: `TriggerType_Tick`, requiring
-`EventFlag_26`, destination MAP0_S01, point 4. MAP0_S01 event 6 exits to MAP2_S00,
-requiring the pocket radio and button interaction; it has no return to MAP0_S00.
-See `game/decomp/src/maps/map0_s00/map0_s00_events_data.c:304` and
-`game/decomp/src/maps/map0_s01/map0_s01_events_data.c:57`. A faithful reversible
-pair elsewhere, or the original story transition, needs the director's selection.
-No flags or positions are injected to invent a gameplay transition.
+| Map | Reset objects | Warp result / precise blocker |
+|---|---:|---|
+| MAP0_S00 | 33 | PASS: 41 colors / 13 meshes / 49573 varied pixels |
+| MAP0_S01 | 37 | PASS: 60 colors / 55 meshes / 61565 varied pixels |
+| MAP0_S02 | 27 | PASS: 67 colors / 48 meshes / 54968 varied pixels |
+| MAP1_S00 | 29 | BLOCKED: Player_ItemRemove (events/items integration) |
+| MAP1_S01 | 29 | BLOCKED: world shading, 0 varied pixels / 22 meshes (light fixture: 0) |
+| MAP1_S02 | 36 | BLOCKED: world shading, 0 varied pixels / 36 meshes (light fixture: 1) |
+| MAP1_S03 | 29 | BLOCKED: world shading, 0 varied pixels / 14 meshes (light fixture: 1) |
+| MAP1_S04 | 19 | BLOCKED: original NO_STAGE sound-test overlay; no mesh at (0,0) |
+| MAP1_S05 | 22 | BLOCKED: Sfx_Unk1478 requires a loaded VAB header |
+| MAP1_S06 | 24 | PASS: 57 colors / 19 meshes / 60416 varied pixels |
+| MAP2_S00 | 44 | PASS: 108 colors / 75 meshes / 59350 varied pixels |
+| MAP2_S01 | 24 | PASS: 54 colors / 21 meshes / 57559 varied pixels |
+| MAP2_S02 | 19 | PASS: 44 colors / 38 meshes / 53267 varied pixels |
+| MAP2_S03 | 20 | PASS: 33 colors / 8 meshes / 43466 varied pixels |
+| MAP2_S04 | 25 | PASS: 108 colors / 5 meshes / 41710 varied pixels |
+| MAP3_S00 | 22 | PASS: 85 colors / 3 meshes / 55833 varied pixels |
+| MAP3_S01 | 28 | PASS: 54 colors / 15 meshes / 50224 varied pixels |
+| MAP3_S02 | 17 | PASS: 90 colors / 12 meshes / 52362 varied pixels |
+| MAP3_S03 | 30 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP3_S04 | 20 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
+| MAP3_S05 | 32 | BLOCKED: world shading, 0 varied pixels / 2 meshes (light fixture: 0) |
+| MAP3_S06 | 21 | PASS: 79 colors / 4 meshes / 60147 varied pixels |
+| MAP4_S00 | 18 | PASS: 47 colors / 4 meshes / 41193 varied pixels |
+| MAP4_S01 | 25 | BLOCKED: world shading, 0 varied pixels / 25 meshes (light fixture: 0) |
+| MAP4_S02 | 20 | BLOCKED: world shading, 0 varied pixels / 38 meshes (light fixture: 0) |
+| MAP4_S03 | 34 | BLOCKED: world shading, 0 varied pixels / 46 meshes (light fixture: 1) |
+| MAP4_S04 | 18 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 0) |
+| MAP4_S05 | 20 | BLOCKED: world shading, 0 varied pixels / 55 meshes (light fixture: 1) |
+| MAP4_S06 | 18 | PASS: 47 colors / 4 meshes / 41193 varied pixels |
+| MAP5_S00 | 20 | BLOCKED: water reflection service in flashlight fixture |
+| MAP5_S01 | 20 | BLOCKED: world shading, 0 varied pixels / 50 meshes (light fixture: 0) |
+| MAP5_S02 | 28 | BLOCKED: world shading, 0 varied pixels / 60 meshes (light fixture: 1) |
+| MAP5_S03 | 23 | BLOCKED: world shading, 0 varied pixels / 10 meshes (light fixture: 0) |
+| MAP6_S00 | 21 | BLOCKED: world shading, 0 varied pixels / 11 meshes (light fixture: 1) |
+| MAP6_S01 | 20 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP6_S02 | 22 | BLOCKED: world shading, 0 varied pixels / 19 meshes (light fixture: 0) |
+| MAP6_S03 | 24 | BLOCKED: water reflection service in flashlight fixture |
+| MAP6_S04 | 37 | BLOCKED: world shading, 0 varied pixels / 71 meshes (light fixture: 0) |
+| MAP6_S05 | 16 | BLOCKED: world shading, 0 varied pixels / 40 meshes (light fixture: 0) |
+| MAP7_S00 | 20 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
+| MAP7_S01 | 58 | BLOCKED: world shading, 0 varied pixels / 4 meshes (light fixture: 1) |
+| MAP7_S02 | 60 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
+| MAP7_S03 | 30 | BLOCKED: world shading, 0 varied pixels / 3 meshes (light fixture: 0) |
 
-Core/events requests: link the original `SysState_LoadArea_Update` system-state
-dispatcher (currently guarded in `prepare_gameplay.py`), the destination object,
-BGM/NPC/loading callbacks, and map effect texture services. Replace the current MAP0_S00-only
-72-event traversal bound with each descriptor's event count before general
-gameplay. MAP0_S00 callback bodies and `prepare_gameplay.py` were not edited.
-Actual Apple SDK/device runtime still needs the iOS lane's verification.
+## Reversible transition handoff
 
-## Verification and smoke results
+The selected pair is MAP2_S04 -> MAP2_S02 -> MAP2_S04 (police station/street).
+MAP2_S04 event 15 uses trigger point 4 and destination point 9 in its source
+table; MAP2_S02 event 16 uses trigger point 21 and source destination point 23.
+Both are button-triggered overlay loads with no required item or story flag.
+SysState_LoadArea_Update copies the destination point from the current overlay
+before loading the new one; these point indices are not destination-array indices.
 
-Private evidence lives in `private/work/maps/`; smoke logs are named
-by map and `smoke-results.json` retains native exit/guard results. A guard is a
-precise blocker, not a successful map load/render or a gameplay pass.
+`python tools/prepare_maps.py --transition-candidate` verifies those source
+records and writes police-return.candidate.txt/.json in the private lane tree.
+This is a BLOCKED, unrun pad candidate. Its timings are uncalibrated, and it is
+not a milestone pass. The events-owned load-area dispatcher is still guarded;
+non-MAP0_S00 BGM, player/update callbacks and the map effect-texture startup
+boundary also need integration before a real walk-through and return can run.
+No positions/completion flags are injected after the explicit diagnostic warp.
 
-| Map | MSVC / arm64 | Reset objects | Warp result |
-|---|---|---:|---|
-| MAP0_S00 | PASS / PASS | 33 | PASS: world frame, 48 colors / 369 primitives |
-| MAP0_S01 | PASS / PASS | 24 | BLOCKED: map0_s01/Map_WorldObjectsInit |
-| MAP0_S02 | PASS / PASS | 16 | BLOCKED: map0_s02/Map_WorldObjectsInit |
-| MAP1_S00 | PASS / PASS | 16 | BLOCKED: map1_s00/Map_WorldObjectsInit |
-| MAP1_S01 | PASS / PASS | 17 | BLOCKED: map1_s01/Map_WorldObjectsInit |
-| MAP1_S02 | PASS / PASS | 17 | BLOCKED: map1_s02/Map_WorldObjectsInit |
-| MAP1_S03 | PASS / PASS | 18 | BLOCKED: map1_s03/Map_WorldObjectsInit |
-| MAP1_S04 | PASS / PASS | 19 | BLOCKED: black frame: lit_pixels=0, colors=1, primitives=2 |
-| MAP1_S05 | PASS / PASS | 17 | BLOCKED: map1_s05/Map_WorldObjectsInit |
-| MAP1_S06 | PASS / PASS | 16 | BLOCKED: map1_s06/Map_WorldObjectsInit |
-| MAP2_S00 | PASS / PASS | 17 | BLOCKED: map2_s00/Map_WorldObjectsInit |
-| MAP2_S01 | PASS / PASS | 19 | BLOCKED: map2_s01/Map_WorldObjectsInit |
-| MAP2_S02 | PASS / PASS | 17 | BLOCKED: map2_s02/Map_WorldObjectsInit |
-| MAP2_S03 | PASS / PASS | 20 | PASS: world frame, 37 colors / 211 primitives |
-| MAP2_S04 | PASS / PASS | 19 | BLOCKED: map2_s04/Map_WorldObjectsInit |
-| MAP3_S00 | PASS / PASS | 16 | BLOCKED: map3_s00/Map_WorldObjectsInit |
-| MAP3_S01 | PASS / PASS | 16 | BLOCKED: map3_s01/Map_WorldObjectsInit |
-| MAP3_S02 | PASS / PASS | 16 | BLOCKED: map3_s02/Map_WorldObjectsInit |
-| MAP3_S03 | PASS / PASS | 16 | BLOCKED: map3_s03/Map_WorldObjectsInit |
-| MAP3_S04 | PASS / PASS | 16 | BLOCKED: map3_s04/Map_WorldObjectsInit |
-| MAP3_S05 | PASS / PASS | 17 | BLOCKED: map3_s05/Map_WorldObjectsInit |
-| MAP3_S06 | PASS / PASS | 16 | BLOCKED: map3_s06/Map_WorldObjectsInit |
-| MAP4_S00 | PASS / PASS | 17 | BLOCKED: map4_s00/message pointer decoder |
-| MAP4_S01 | PASS / PASS | 17 | BLOCKED: map4_s01/Map_WorldObjectsInit |
-| MAP4_S02 | PASS / PASS | 17 | BLOCKED: map4_s02/Map_WorldObjectsInit |
-| MAP4_S03 | PASS / PASS | 17 | BLOCKED: map4_s03/Map_WorldObjectsInit |
-| MAP4_S04 | PASS / PASS | 16 | BLOCKED: map4_s04/Map_WorldObjectsInit |
-| MAP4_S05 | PASS / PASS | 17 | BLOCKED: map4_s05/Map_WorldObjectsInit |
-| MAP4_S06 | PASS / PASS | 17 | BLOCKED: map4_s06/message pointer decoder |
-| MAP5_S00 | PASS / PASS | 16 | BLOCKED: map5_s00/Map_WorldObjectsInit |
-| MAP5_S01 | PASS / PASS | 17 | BLOCKED: map5_s01/Map_WorldObjectsInit |
-| MAP5_S02 | PASS / PASS | 16 | BLOCKED: map5_s02/Map_WorldObjectsInit |
-| MAP5_S03 | PASS / PASS | 18 | BLOCKED: map5_s03/Map_WorldObjectsInit |
-| MAP6_S00 | PASS / PASS | 16 | BLOCKED: map6_s00/Map_WorldObjectsInit |
-| MAP6_S01 | PASS / PASS | 16 | BLOCKED: map6_s01/Map_WorldObjectsInit |
-| MAP6_S02 | PASS / PASS | 16 | BLOCKED: map6_s02/Map_WorldObjectsInit |
-| MAP6_S03 | PASS / PASS | 15 | BLOCKED: map6_s03/Map_WorldObjectsInit |
-| MAP6_S04 | PASS / PASS | 16 | BLOCKED: map6_s04/Map_WorldObjectsInit |
-| MAP6_S05 | PASS / PASS | 15 | BLOCKED: map6_s05/message pointer decoder |
-| MAP7_S00 | PASS / PASS | 16 | BLOCKED: map7_s00/Map_WorldObjectsInit |
-| MAP7_S01 | PASS / PASS | 17 | BLOCKED: map7_s01/Map_WorldObjectsInit |
-| MAP7_S02 | PASS / PASS | 16 | BLOCKED: map7_s02/Map_WorldObjectsInit |
-| MAP7_S03 | PASS / PASS | 16 | BLOCKED: map7_s03/Map_WorldObjectsInit |
+## Verification and requests
 
-Smoke: **2 passed, 41 blocked, zero native process crashes**; 40 descriptors
-activate successfully. MAP1_S04 completes its original empty init and streaming
-but produces a black frame (zero lit pixels, two primitives), so the visibility
-check remains failed. The 37 init guards and three message-decoder guards remain
-fatal. No Harry/NPC rendering, gameplay or map-transition pass is claimed by the
-warp test. The ignored test exits 101 for guard/visibility failures; logs preserve
-the underlying native code 3 for guards. `--smoke-all` consequently exits 1.
+Release MSVC /W4 /WX, fmt, workspace/all-target Clippy -D warnings, workspace
+tests (307 unit/integration + 3 doctests passed, zero failed, 6 opt-in ignored),
+all-43 reset, map arm64 frontend (47 units), core
+frontend (18 units), extended renderer frontend (39 units), MSVC x86/x64 layouts
+and arm64 layout positive/negative controls are the required recorded gates.
+The map frontend now also compiles the real SH_NATIVE_AUDIO bank-check branch.
+The release build, fmt check and Clippy pass; MSVC x86/x64 layout checks and
+arm64 positive/negative controls pass. Both 43-map smokes return failure for
+their 28 explicitly blocked maps, with 15 passed and zero crashes each.
+Commands and logs are recorded in REPORT.md and private/work/objects.
+Apple SDK/device runtime, golden image parity and a gameplay transition are untested.
 
-The existing original first-map input replay also passes numerically: 422 gameplay
-samples, 9173 Q12 units walked, 1711 angle units turned right, and running at
-2.86 times sampled walking speed, with camera follow checks. It was invoked
-against the owned disc at scale 1 without captures; this verifies preservation
-of MAP0_S00 movement, not a transition. See `first-map-regression.json` / `.log`.
-
-Final gates: `tools/dev-cargo.cmd build --release` passes MSVC `/W4 /WX`;
-`cargo fmt --all --check` and workspace/all-target release Clippy with
-`-D warnings` pass. `tools/dev-cargo.cmd test --release --workspace` passes
-298 unit/integration tests plus 3 doctests, zero failures, 5 opt-in tests ignored.
-The maps arm64 frontend passes 47/47 units, and the existing core frontend passes
-18/18. MSVC x86/x64 layouts and arm64 positive/negative layout controls pass.
-Apple SDK/device compilation and runtime were not run. Logs: `build.log`,
-`fmt.log`, `clippy.log`, `tests.log`, `clang.log`, `clang-core.log`, `layouts.log`,
-`ios-layouts.log`, `smoke.log`, `smoke-results.json`, and map-named warp logs.
-Private scratch contains logs only and is below 1 MB; no bulky output is retained.
+Director/events: bind Player_ItemRemove and original map transition startup/
+callbacks; replace the fixed MAP0_S00 event bound before other maps run gameplay.
+Director/audio: load/verify the Sfx_Unk1478 VAB bank before its original init call.
+Director/render: diagnose the mode-1 world shading and link water reflection;
+keep the meaningful-pixel check instead of counting a flare as a map frame.
+Director: record MAP1_S04 as the original NO_STAGE sound-test overlay, publish
+this checkpoint into the core-owned root state, and run the actual Apple SDK CI.
+No main/merge/push, system install, disc copy or extracted game data in Git.

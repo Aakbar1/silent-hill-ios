@@ -2,8 +2,38 @@
 #include "maps_registry.h"
 #include "world.h"
 #include "render_services.h"
+#include "npc_startup.h"
+#ifdef SH_NATIVE_AUDIO
+#include "audio_records.h"
+#endif
 #include <stdio.h>
+// PORT: Original shared numeric boss state; never a serialized pointer view.
+s_800C4418 D_800C4418;
+// Original screen_data.c ground-image VRAM destination, not texture bytes.
+s_FsImageDesc g_LoadingScreenImg={{0,5},0,16,288,0};
+// PORT: Original finale's shared scalar; no credits/cutscene consumer is substituted.
+u8 g_EndingIdx;
 static const s_MapOverlayHdr* active;
+static bool debug_light;
+static bool debug_warp;
+void port_maps_init_note(const char* stage) {if(debug_warp){printf("MAP_INIT %s\n",stage);fflush(stdout);}}
+void port_maps_object_sfx(s32 task) {
+    // PORT: Original init SFX requires a published VAB header. Never treat
+    // a missing bank as silent success or dereference its native null pointer.
+    if(task>=1281 && task<=1791) {
+#ifdef SH_NATIVE_AUDIO
+        s32 bank=g_Vab_InfoTable[task-1280].vabProgIdx>>8;
+        if(bank<0 || bank>=SD_VAB_SLOTS || !vab_h[bank].vh_addr_4)
+            port_unimplemented("map object SFX/VAB header not loaded");
+#else
+        port_unimplemented("map object SFX/native audio bridge not configured");
+#endif
+    }
+    SD_Call(task);
+}
+extern u32 port_maps_frame_detail(void);
+// PORT: Explicit opt-in lighting fixture for isolated warp diagnostics only.
+void port_maps_debug_light_set(u32 enabled) {debug_light=enabled!=0;}
 _Static_assert(FILE_VIN_MAP7_S03_BIN-FILE_VIN_MAP0_S00_BIN+1==43,"native map file inventory");
 int port_map_activate(u32 file) {
     if(file<FILE_VIN_MAP0_S00_BIN || file>FILE_VIN_MAP7_S03_BIN)return 1;
@@ -38,13 +68,17 @@ int port_maps_reset_probe(void) {
     return 0;
 }
 void port_maps_warp(u32 map,u32 spawn) {
+    debug_warp=true;
     // PORT: Test-only warp exercises queued activation and the real map init.
     if(map>=43 || spawn>255)port_unimplemented("debug warp arguments");
     // PORT: Direct test entry establishes the same nonzero virtual timestep
     // normally supplied by MainLoop before camera integration.
     g_DeltaTime=g_DeltaTimeRaw=TIMESTEP_60_FPS;
     GameBoot_SavegameInitialize((s8)map,GameDifficulty_Normal);
-    InitGeom();Screen_Refresh(320,false);vwInitViewInfo();
+    InitGeom();Screen_Refresh(320,false);
+    // PORT: Original init callbacks can issue SFX tasks even with host audio off.
+    // Establish the real sound driver before settings or object initialization.
+    SpuInit();SD_Init();Settings_RestoreDefaults();vwInitViewInfo();
     World_Init();
     Fs_QueueInitialize();
     Fs_QueueStartRead((s32)(FILE_VIN_MAP0_S00_BIN+map),port_overlay_dynamic);
@@ -53,8 +87,6 @@ void port_maps_warp(u32 map,u32 spawn) {
     printf("MAP_WARP selected=%s spawn=%u\n",port_maps[map].name,spawn);
     fflush(stdout);
     if(spawn>=port_maps[map].point_count())port_unimplemented("debug warp spawn outside map points");
-    descriptor->initWorldObjects();
-    printf("MAP_WARP init=%s\n",port_maps[map].name);fflush(stdout);
     Chara_PositionSet(&descriptor->mapPoints[spawn]);
     q19_12 x=g_SysWork.playerWork.player.position.vx,z=g_SysWork.playerWork.player.position.vz;
     WorldGfx_MapInit((s_MapOverlayHdr*)descriptor,x,z);
@@ -65,10 +97,36 @@ void port_maps_warp(u32 map,u32 spawn) {
         if(!Fs_QueueGetLength() && WorldMap_ActiveModelsLoadStateCheck())break;
     }
     if(iteration==256)port_unimplemented("debug warp streaming readiness timeout");
+    printf("MAP_WARP ready=%s\n",port_maps[map].name);fflush(stdout);
     vcInitCamera((s_MapOverlayHdr*)descriptor,&g_SysWork.playerWork.player.position);
     vcSetCameraUseWarp(&g_SysWork.playerWork.player.position,g_SysWork.cameraAngleY);
     vcMoveAndSetCamera(true,false,false,false,false,false,false,false);
-    WorldEnv_MapPresetSet((s_MapOverlayHdr*)descriptor);port_render_effects();
+    printf("MAP_WARP camera=%s\n",port_maps[map].name);fflush(stdout);
+    // PORT: Match production setup order: camera and environment exist before
+    // init callbacks can invoke Gfx_MapEnvSet. Some original descriptors have
+    // no init callback; the original func_8005E650 also checks this pointer.
+    {
+        // PORT: A diagnostic loading pose supplies the spotlight coordinate.
+        // This does not load Harry, grant an item, or certify gameplay lighting.
+        GsCOORDINATE2* root=&g_SysWork.playerBoneCoords[HarryBone_Root];
+        GsCOORDINATE2* torso=&g_SysWork.playerBoneCoords[HarryBone_Torso];
+        GsInitCoordinate2(NULL,root);GsInitCoordinate2(root,torso);
+        SVECTOR heading;Math_SVectorSet(&heading,0,-g_SysWork.cameraAngleY,0);
+        Math_RotMatrixZxyNeg(&heading,&root->coord);
+        root->coord.t[0]=Q12_TO_Q8(x);root->coord.t[1]=0;root->coord.t[2]=Q12_TO_Q8(z);
+        Game_FlashlightAttributesFix();
+    }
+    WorldEnv_MapPresetSet((s_MapOverlayHdr*)descriptor);
+    printf("MAP_WARP preset=%s\n",port_maps[map].name);fflush(stdout);
+    if(debug_light)Game_TurnFlashlightOn();
+    func_8005E650((s32)map);
+    Fs_QueueWaitForEmpty();
+    printf("MAP_WARP init=%s\n",port_maps[map].name);fflush(stdout);
+    for(s32 i=0;i<(debug_light?16:1);i++)port_render_effects();
+    printf("MAP_WARP lighting=on:%d fade:%d intensity:%d position:%d,%d,%d mode:%d ambient:%d brightness:%d\n",
+        (int)g_SysWork.field_2388.isFlashlightOn,(int)g_SysWork.gameplayEnvironment.flashlightIntensity,
+        g_WorldEnvWork.light.intensity,g_WorldEnvWork.light.position.vx,g_WorldEnvWork.light.position.vy,
+        g_WorldEnvWork.light.position.vz,(int)g_WorldEnvWork.field_0,g_WorldEnvWork.field_20,g_WorldEnvWork.screenBrightness);
     GsClearOt(0,0,&g_OrderingTable0[g_ActiveBufferIdx]);
     GsOUT_PACKET_P=(PACKET*)port_packets[g_ActiveBufferIdx];
     port_draw_env(0,0,320,224,160,112);port_clear_vram(0,0,320,224,0,0,0);
@@ -76,5 +134,17 @@ void port_maps_warp(u32 map,u32 spawn) {
     // PORT: Setup may present a screen-clear frame. Rust verifies this final
     // world frame separately and retains any backend error or cancellation.
     (void)port_present(0,0,320,224,11,0,0);
+    u32 detail=port_maps_frame_detail();
+    printf("MAP_WARP geometry=%u detail=%u flashlight_fixture=%d\n",port_render_world_models,detail,(int)debug_light);
     printf("MAP_WARP rendered=%s queue=%d\n",port_maps[map].name,Fs_QueueGetLength());
+    if(!port_render_world_models)port_unimplemented("debug warp/no world mesh at original spawn");
+    // PORT: At least 64 native pixels must differ from the dominant color;
+    // a screen rectangle plus a single lens-flare pixel is not a visible world.
+    if(detail<64)port_unimplemented("debug warp/under 64 varied pixels despite world meshes");
+}
+
+int port_maps_fixed_coord_probe(void) {
+    MATRIX matrix;memset(&matrix,0xa5,sizeof(matrix));
+    Vw_CoordHierarchyMatrixCompute(NULL,&matrix);
+    return memcmp(&matrix,&GsIDMATRIX,sizeof(matrix))==0 && matrix.m[0][0]==4096 && matrix.t[2]==0;
 }
