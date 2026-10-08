@@ -134,58 +134,78 @@ impl Output {
                     )
             })
             .map(|c| c.with_sample_rate(cpal::SampleRate(SAMPLE_RATE)));
-        let config = match preferred {
-            Some(c) => c,
-            None => device.default_output_config().map_err(|e| e.to_string())?,
-        };
-        let format = config.sample_format();
-        let mut stream_config = config.config();
-        let requested = match config.buffer_size() {
-            cpal::SupportedBufferSize::Range { min, max } => Some(buffer_frames.clamp(*min, *max)),
-            cpal::SupportedBufferSize::Unknown => None,
-        };
-        if let Some(size) = requested {
-            stream_config.buffer_size = cpal::BufferSize::Fixed(size);
+        // Devices (notably the iOS simulator, and some real routes) can reject the preferred
+        // rate or a fixed buffer. Try progressively looser requests; Callback resamples to
+        // whatever rate the device ends up using.
+        let fallback = device.default_output_config().map_err(|e| e.to_string())?;
+        let mut attempts = Vec::new();
+        if let Some(c) = preferred {
+            attempts.push((c.clone(), true));
+            attempts.push((c, false));
         }
-        let (producer, consumer) = RingBuffer::new(capacity);
-        let stats = Arc::new(Statistics::default());
-        let mut callback =
-            Callback::new(consumer, Arc::clone(&stats), stream_config.sample_rate.0)?;
-        let error_stats = Arc::clone(&stats);
-        let errors = move |_e| {
-            error_stats.device_errors.fetch_add(1, Ordering::Relaxed);
-        };
-        let channels = usize::from(stream_config.channels);
-        let stream = match format {
-            cpal::SampleFormat::F32 => device.build_output_stream(
-                &stream_config,
-                move |data: &mut [f32], _| callback.fill(data, channels),
-                errors,
-                None,
-            ),
-            cpal::SampleFormat::I16 => device.build_output_stream(
-                &stream_config,
-                move |data: &mut [i16], _| callback.fill(data, channels),
-                errors,
-                None,
-            ),
-            cpal::SampleFormat::U16 => device.build_output_stream(
-                &stream_config,
-                move |data: &mut [u16], _| callback.fill(data, channels),
-                errors,
-                None,
-            ),
-            _ => return Err(format!("unsupported device format {format:?}")),
+        attempts.push((fallback.clone(), true));
+        attempts.push((fallback, false));
+        let mut last_error = String::from("no audio configuration attempted");
+        for (config, fixed) in attempts {
+            let format = config.sample_format();
+            let mut stream_config = config.config();
+            let requested = match (fixed, config.buffer_size()) {
+                (true, cpal::SupportedBufferSize::Range { min, max }) => {
+                    Some(buffer_frames.clamp(*min, *max))
+                }
+                _ => None,
+            };
+            if let Some(size) = requested {
+                stream_config.buffer_size = cpal::BufferSize::Fixed(size);
+            }
+            let (producer, consumer) = RingBuffer::new(capacity);
+            let stats = Arc::new(Statistics::default());
+            let mut callback =
+                Callback::new(consumer, Arc::clone(&stats), stream_config.sample_rate.0)?;
+            let error_stats = Arc::clone(&stats);
+            let errors = move |_e| {
+                error_stats.device_errors.fetch_add(1, Ordering::Relaxed);
+            };
+            let channels = usize::from(stream_config.channels);
+            let built = match format {
+                cpal::SampleFormat::F32 => device.build_output_stream(
+                    &stream_config,
+                    move |data: &mut [f32], _| callback.fill(data, channels),
+                    errors,
+                    None,
+                ),
+                cpal::SampleFormat::I16 => device.build_output_stream(
+                    &stream_config,
+                    move |data: &mut [i16], _| callback.fill(data, channels),
+                    errors,
+                    None,
+                ),
+                cpal::SampleFormat::U16 => device.build_output_stream(
+                    &stream_config,
+                    move |data: &mut [u16], _| callback.fill(data, channels),
+                    errors,
+                    None,
+                ),
+                _ => {
+                    last_error = format!("unsupported device format {format:?}");
+                    continue;
+                }
+            };
+            match built {
+                Ok(stream) => {
+                    return Ok(Self {
+                        stream,
+                        producer,
+                        statistics: stats,
+                        sample_rate: stream_config.sample_rate.0,
+                        channels: stream_config.channels,
+                        requested_buffer_frames: requested,
+                    });
+                }
+                Err(e) => last_error = e.to_string(),
+            }
         }
-        .map_err(|e| e.to_string())?;
-        Ok(Self {
-            stream,
-            producer,
-            statistics: stats,
-            sample_rate: stream_config.sample_rate.0,
-            channels: stream_config.channels,
-            requested_buffer_frames: requested,
-        })
+        Err(last_error)
     }
     pub fn play(&self) -> Result<(), String> {
         self.stream.play().map_err(|e| e.to_string())
