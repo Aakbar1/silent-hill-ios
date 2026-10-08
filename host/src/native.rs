@@ -33,6 +33,196 @@ unsafe extern "C" {
     static g_ScreenFade_Status: i32;
 }
 
+// PORT: Original libsd callbacks re-enter these services on the sole game
+// worker. Each call releases HOST before the next C timer handler executes.
+#[unsafe(no_mangle)]
+extern "C" fn port_audio_trace_enabled() -> i32 {
+    i32::from(std::env::var_os("SH_AUDIO_TRACE").is_some())
+}
+#[unsafe(no_mangle)]
+extern "C" fn port_audio_advance(sample: u64) -> i32 {
+    host(|h| match h.spu.advance_to(sample) {
+        Ok(()) => 0,
+        Err(error) => {
+            h.error = Some(error);
+            1
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_audio_read_sectors(lba: u32, count: u32, data: *mut u8) -> i32 {
+    if data.is_null() || count > 32 {
+        return 1;
+    }
+    use crate::disc::SectorReader;
+    host(|h| {
+        match h
+            .disc
+            .source_mut()
+            .read_logical(lba, u64::from(count) * 2048)
+        {
+            Ok(bytes) => {
+                // SAFETY: C bounds the writable buffer at 32 logical sectors.
+                unsafe {
+                    data.copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
+                }
+                0
+            }
+            Err(e) => {
+                h.error = Some(format!("audio sectors {lba}: {e}"));
+                1
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn port_audio_reverb(mode: i32, clear: i32) -> i32 {
+    let Some(preset) = u8::try_from(mode)
+        .ok()
+        .and_then(psxspu::reverb::Preset::from_id)
+    else {
+        return 1;
+    };
+    host(|h| {
+        let result = (|| {
+            if clear != 0 {
+                h.spu
+                    .transfer_write(u32::from(preset.base()) * 8, &vec![0; preset.work_bytes()])?;
+            } else {
+                h.spu.write_register(0x1a2, preset.base())?;
+                for (i, word) in preset.registers().into_iter().enumerate() {
+                    h.spu.write_register(0x1c0 + i as u16 * 2, word)?;
+                }
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(e) => {
+                h.error = Some(e);
+                1
+            }
+        }
+    })
+}
+
+#[derive(Default)]
+struct AudioCd {
+    lba: u32,
+    file: u8,
+    channel: u8,
+    stream: Option<psxspu::xa::XaStream>,
+    phase: u32,
+    matrix: [u8; 4],
+}
+thread_local! { static AUDIO_CD: RefCell<AudioCd> = RefCell::new(AudioCd {matrix:[128,0,0,128],..AudioCd::default()}); }
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_audio_cd_matrix(matrix: *const u8) {
+    if matrix.is_null() {
+        return;
+    }
+    // SAFETY: PsyQ CdMix supplies exactly four matrix bytes.
+    let bytes = unsafe { std::slice::from_raw_parts(matrix, 4) };
+    // PsyQ CdlATV uses LL, LR, RR, RL; XaStream uses LL, LR, RL, RR.
+    AUDIO_CD.with(|cd| cd.borrow_mut().matrix = [bytes[0], bytes[1], bytes[3], bytes[2]]);
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn port_audio_cd_command(command: i32, data: *const u8) -> i32 {
+    AUDIO_CD.with(|cd| {
+        let mut cd = cd.borrow_mut();
+        match command {
+            2 | 21 => {
+                if data.is_null() {
+                    return 1;
+                }
+                // SAFETY: Setloc/SeekL supplies a three-byte CdlLOC.
+                let p = unsafe { std::slice::from_raw_parts(data, 3) };
+                let bcd = |b: u8| u32::from(b >> 4) * 10 + u32::from(b & 15);
+                let absolute = bcd(p[0]) * 4500 + bcd(p[1]) * 75 + bcd(p[2]);
+                let Some(lba) = absolute.checked_sub(150) else {
+                    return 1;
+                };
+                cd.lba = lba;
+                cd.stream = None;
+                cd.phase = 0;
+                host(|h| h.spu.cd_stop());
+            }
+            13 => {
+                if data.is_null() {
+                    return 1;
+                }
+                // SAFETY: Setfilter supplies file/channel bytes.
+                cd.file = unsafe { *data };
+                cd.channel = unsafe { *data.add(1) };
+            }
+            6 => {
+                cd.stream = Some(psxspu::xa::XaStream::new(cd.file, cd.channel));
+                cd.phase = 0;
+            }
+            9 => {
+                cd.stream = None;
+                host(|h| h.spu.cd_stop());
+            }
+            1 | 14 => {}
+            _ => return 1,
+        }
+        0
+    })
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn port_audio_xa_tick() {
+    use crate::disc::SectorReader;
+    AUDIO_CD.with(|cd| {
+        let mut cd = cd.borrow_mut();
+        if cd.stream.is_none() {
+            return;
+        }
+        cd.phase += 150;
+        while cd.phase >= 60 {
+            cd.phase -= 60;
+            let lba = cd.lba;
+            cd.lba += 1;
+            let result = host(|h| {
+                let sector = h
+                    .disc
+                    .source_mut()
+                    .read_sector(lba)
+                    .map_err(|e| e.to_string())?;
+                let mut frames = Vec::new();
+                let matrix = cd.matrix;
+                let stream = cd.stream.as_mut().expect("active XA");
+                stream.matrix = matrix;
+                stream
+                    .feed_sector(sector.raw().map_err(|e| e.to_string())?, &mut frames)
+                    .map_err(|e| e.to_string())?;
+                let ended = stream.ended;
+                if !frames.is_empty() {
+                    let pcm: Vec<i16> = frames.into_iter().flatten().collect();
+                    h.spu.cd_input(&pcm, 44100, 2)?;
+                }
+                Ok::<bool, String>(ended)
+            });
+            match result {
+                Ok(false) => {}
+                Ok(true) => {
+                    cd.stream = None;
+                    break;
+                }
+                Err(e) => {
+                    host(|h| h.error = Some(e));
+                    cd.stream = None;
+                    break;
+                }
+            }
+        }
+    });
+}
+
 struct Host {
     disc: GameDisc<DiscImage<File>>,
     gpu: Box<dyn GpuBackend>,
@@ -865,6 +1055,16 @@ pub fn run_headless(
             port_run_game()
         }
     };
+    if std::env::var_os("SH_AUDIO_AMBIENCE_PROBE").is_some() {
+        unsafe extern "C" {
+            fn port_audio_run_ambience_probe() -> i32;
+        }
+        // SAFETY: The real game guard returned; no HOST borrow is active.
+        let audio_code = unsafe { port_audio_run_ambience_probe() };
+        if audio_code != 0 {
+            return Err(format!("audio ambience probe: {audio_code}"));
+        }
+    }
     let result = host(|h| {
         if let Some(movie) = h.movie.take() {
             movie.end(h.spu.as_mut(), false);
@@ -987,6 +1187,18 @@ pub fn run_with_backends(
         });
         // SAFETY: This is the sole game worker. C's exit jump only crosses C frames after Rust callbacks return.
         let code = unsafe { port_run_game() };
+        // PORT: Opt-in audio-only milestone at the genuine next gameplay guard.
+        // Do not change the game's return code or claim that player updates ran.
+        if std::env::var_os("SH_AUDIO_AMBIENCE_PROBE").is_some() {
+            unsafe extern "C" {
+                fn port_audio_run_ambience_probe() -> i32;
+            }
+            // SAFETY: Game execution has returned and no HOST borrow is active.
+            let audio_code = unsafe { port_audio_run_ambience_probe() };
+            if audio_code != 0 {
+                return Err(format!("audio ambience probe: {audio_code}"));
+            }
+        }
         host(|h| {
             if let Some(movie) = h.movie.take() {
                 movie.end(h.spu.as_mut(), false);

@@ -397,3 +397,24 @@ int port_capture_render_boundary(void) {
     if(!result){port_render_first_map();fflush(stdout);return 0;}
     fflush(stdout);return result==1?stop_code:2;
 }
+
+// PORT: Audio linkage moves the genuine boundary past Bgm_Update. Retain
+// strict state/step/guard checks for the separate static rendering milestone.
+int port_audio_capture_render_boundary(void) {
+    if(g_GameWork.gameState!=11 || g_GameWork.gameStateSteps[0]!=2 ||
+       vblanks!=2274 || stop_code!=3 || !blocked_service ||
+       strcmp(blocked_service,"World_NearbyPlayerCollisionTriggersGet/native nearby trigger classification")!=0)return 4;
+    int result=setjmp(stop);
+    if(!result){port_render_first_map();fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
+}
+
+extern void audio_ambience_probe(void);
+int port_audio_run_ambience_probe(void) {
+    if(g_GameWork.gameState!=11 || g_GameWork.gameStateSteps[0]!=2 ||
+       stop_code!=3 || !blocked_service ||
+       strcmp(blocked_service,"World_NearbyPlayerCollisionTriggersGet/native nearby trigger classification")!=0)return 4;
+    int result=setjmp(stop);
+    if(!result){audio_ambience_probe();fflush(stdout);return 0;}
+    fflush(stdout);return result==1?stop_code:2;
+}

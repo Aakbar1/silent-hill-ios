@@ -103,6 +103,16 @@ pub struct SpuCpal {
 
 impl SpuCpal {
     pub fn open(mode: AudioMode) -> Result<Self, String> {
+        #[cfg(target_os = "ios")]
+        if mode == AudioMode::On {
+            unsafe extern "C" {
+                fn audio_ios_session_start() -> i32;
+            }
+            // SAFETY: C configures AVAudioSession synchronously on this worker.
+            if unsafe { audio_ios_session_start() } != 0 {
+                return Err("AVAudioSession playback activation failed".into());
+            }
+        }
         let sink = match mode {
             AudioMode::Off => Sink::Discard,
             AudioMode::On => Sink::Device {
@@ -202,6 +212,21 @@ impl SpuCpal {
                             *playing = true;
                         }
                     }
+                    let underruns = output.statistics.underrun_frames.load(Ordering::Relaxed);
+                    if underruns != self.statistics.device_underrun_frames
+                        && std::env::var_os("SH_AUDIO_TRACE").is_some()
+                    {
+                        println!(
+                            "AUDIO_DEVICE underruns={} clock={} max_callback_frames={}",
+                            underruns,
+                            self.statistics.rendered_frames,
+                            output
+                                .statistics
+                                .max_callback_frames
+                                .load(Ordering::Relaxed)
+                        );
+                    }
+                    self.statistics.device_underrun_frames = underruns;
                     check_device(output)?;
                 }
             }
@@ -220,6 +245,17 @@ impl SpuCpal {
             Sink::Discard => Ok(()),
             Sink::Wav(wave) => wave.finish().map_err(|e| e.to_string()),
             Sink::Device { output, playing } => {
+                if std::env::var_os("SH_AUDIO_TRACE").is_some() {
+                    println!(
+                        "AUDIO_DEVICE before_finish_underruns={} max_callback_frames={} rate={}",
+                        output.statistics.underrun_frames.load(Ordering::Relaxed),
+                        output
+                            .statistics
+                            .max_callback_frames
+                            .load(Ordering::Relaxed),
+                        output.sample_rate
+                    );
+                }
                 let result = finish_device(output, *playing);
                 self.statistics.device_underrun_frames =
                     output.statistics.underrun_frames.load(Ordering::Relaxed);
@@ -230,6 +266,17 @@ impl SpuCpal {
         };
         if let Err(error) = &result {
             self.failure = Some(error.clone());
+        }
+        if std::env::var_os("SH_AUDIO_TRACE").is_some() {
+            println!(
+                "AUDIO_PCM frames={} peak={} nonzero={} rails={} underruns={} device_errors={}",
+                self.statistics.rendered_frames,
+                self.statistics.peak,
+                self.statistics.nonzero_samples,
+                self.statistics.rail_samples,
+                self.statistics.device_underrun_frames,
+                self.statistics.device_errors
+            );
         }
         self.failure.clone().map_or(result, Err)
     }
@@ -270,14 +317,25 @@ fn finish_device(output: &mut Output, playing: bool) -> Result<(), String> {
     }
     // PORT: pad only the device tail, never the game clock/WAV. Preserve the
     // final queued game samples before pausing; a bounded timeout protects exit.
-    let padding = PREFILL.min(output.producer.slots());
+    // PORT: An unthrottled native replay can finish with a completely full
+    // ring. Wait for space to append the whole silence tail; zero available
+    // slots must not turn shutdown padding into zero and force an underrun.
+    let padding = PREFILL;
+    let deadline = Instant::now() + Duration::from_secs(2);
     for _ in 0..padding {
+        while output.producer.slots() == 0 {
+            check_device(output)?;
+            if Instant::now() >= deadline {
+                output.pause()?;
+                return Err("audio device did not consume shutdown padding".into());
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
         output.producer.push([0; 2]).map_err(|e| e.to_string())?;
     }
     if !playing {
         output.play()?;
     }
-    let deadline = Instant::now() + Duration::from_secs(2);
     while DEVICE_CAPACITY - output.producer.slots() > padding / 2 {
         if let Err(error) = check_device(output) {
             let _ = output.pause();
@@ -412,7 +470,7 @@ impl SpuBackend for SpuCpal {
 
 fn check_recording_path(path: &Path) -> Result<(), String> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../private/work/spuwire")
+        .join("../../../private/work")
         .canonicalize()
         .map_err(|e| format!("private audio directory: {e}"))?;
     let parent = path
@@ -422,7 +480,7 @@ fn check_recording_path(path: &Path) -> Result<(), String> {
         .canonicalize()
         .map_err(|e| format!("audio parent: {e}"))?;
     if !parent.starts_with(&root) {
-        return Err("WAV output must be inside private/work/spuwire/".into());
+        return Err("WAV output must be inside private/work/".into());
     }
     if path.file_name().is_none() || path.exists() {
         return Err("WAV output must be a new file".into());
