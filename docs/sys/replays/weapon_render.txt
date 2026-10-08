@@ -1,0 +1,23 @@
+# Isolated diagnostic with SH_FIGHT_DIAGNOSTIC=handgun|pipe; not a combat proof.
+# Original New Game/opening skip path; test equip at tick 3500 is explicit.
+0 0000
+1400 0008
+1401 0000
+1510 4000
+1511 0000
+1650 4000
+1651 0000
+2201 0008
+2202 0000
+2350 0008
+2351 0000
+2450 0008
+2451 0000
+3300 0010
+3420 0000
+3450 0020
+3510 0000
+3520 0200
+3580 4200
+3670 0200
+3730 0000

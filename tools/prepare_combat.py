@@ -334,7 +334,7 @@ build.include(repo.join("port/sys/combat"))
 
 def check_clang(decomp, out, compiler):
     root=Path(__file__).resolve().parents[1]
-    sources=[root/'port/sys/combat/combat.c',out/'combat_original.c',out/'combat_helpers.c',out/'combat_assets.c']
+    sources=[root/'port/sys/combat/combat.c',root/'port/sys/combat/anm_decode.c',out/'combat_original.c',out/'combat_helpers.c',out/'combat_assets.c']
     sources += [out/f'combat_ai_{kind}.c' for kind in SMALL_AI+['stalker']]
     flags=['-target','aarch64-apple-ios15.0','-ffreestanding','-std=c11','-Wall','-Wextra','-Werror','-nostdinc','-DSH_COMBAT_FREESTANDING_CRT']
     for include in [root/'tools/layout-include',root/'port/sys/combat',root/'port',root/'port/include',out,decomp/'include']:

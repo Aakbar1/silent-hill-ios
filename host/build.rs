@@ -309,6 +309,7 @@ fn main() {
         .status()
         .expect("generate original native audio driver");
     assert!(audio.success(), "audio preparation failed");
+    fight_prepare(&repo, &decomp, &generated, python);
     move_render_milestone(&generated);
     for path in [
         "port/audio_services.c",
@@ -993,4 +994,30 @@ fn maps_rust_catalog(repo: &Path) {
         format!("pub const MAP_NAMES: [&str; 43] = {names:?};\n"),
     )
     .expect("map Rust catalog");
+}
+
+// PORT: Fight binds production effects in generated callers after other lanes.
+fn fight_prepare(repo: &Path, decomp: &Path, generated: &Path, python: &str) {
+    for path in [
+        "port/fx_anm.c",
+        "port/fx_debug.c",
+        "port/fx_weapons.c",
+        "port/fx_weapons.h",
+        "port/sys/combat",
+    ] {
+        println!("cargo:rerun-if-changed={}", repo.join(path).display());
+    }
+    println!(
+        "cargo:rerun-if-changed={}",
+        repo.join("tools/prepare_fight.py").display()
+    );
+    let status = std::process::Command::new(python)
+        .arg(repo.join("tools/prepare_fight.py"))
+        .arg("--decomp")
+        .arg(decomp)
+        .arg("--out")
+        .arg(generated)
+        .status()
+        .expect("generate native fight services");
+    assert!(status.success(), "fight preparation failed");
 }

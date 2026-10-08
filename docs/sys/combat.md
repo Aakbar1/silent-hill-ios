@@ -1,3 +1,101 @@
+# Fight lane checkpoint
+
+**The full brief is not passed: goal 5 remains blocked.** Effects and weapon
+publication are demonstrated through isolated rendering fixtures; these fixtures
+explicitly grant equipment and emit test blood, and never count as combat play.
+The original opening progression still stops at `SysState_LoadArea_Update` /
+VBlank 9552. The existing warp entry renders a static world without a gameplay
+loop. Transit-owned source files, core replays and milestones.py are unchanged.
+
+## Implemented
+
+- Sixteen original effect functions now execute natively: allocation, shared
+  scheduler/work arena, blood/impact publication, ground/death blood, muzzle
+  effects, original packet drawing and effect texture loading. `func_8005F6B0`,
+  `func_800622B8` and `func_8006342C` no longer stop at publication guards.
+  The native work union preserves the scheduler prefix across draw consumers;
+  original packed byte/halfword stores remain explicit. Native SVector stores
+  replace signed-shift packing, and the original zero-register macro remains zero.
+- Original `GameFs_WeaponInfoUpdate`, weapon animation/collision tables and weapon
+  bank selection are linked. Headerless WEP fragments patch the stable HB_BASE
+  frame arena at 0x15bb4, bounded before map frames at 0x19d84. Numeric reads and
+  decoded native descriptors remain separate; no raw pointer relocation is used.
+  Held PLMs retain their original material/bone-assignment readiness step after
+  native graph publication. The unused HyperBlaster table tail has explicit zero
+  storage instead of an out-of-bounds source-table read (`// PORT:`).
+- BIRD/NightFlutter ANMs use a bounded native decoder with forward-parent support,
+  channel/count/cycle checks, stable owned leaves and failure-atomic publication.
+  Both C and Rust decoders reach the original C model/bone consumer for all 39
+  owned-disc model/animation pairs, with matching results. Air Screamer/Groaner
+  AI and other map enemy callbacks remain guarded; their gameplay is unproved.
+- Original enemy kill statistics and death flag handling replace the final NPC
+  death-statistics guard. The no-attack sentinel cannot index before the table.
+- Cold map object SFX loads the original current ambient VAB task through libsd.
+  MAP1_S05 reports `FIGHT_SFX sound=1478 bank=2 header=loaded body=loaded`; it then
+  fails the existing static warp's varied-pixel gate. No audible SFX claim is made.
+
+## Evidence and verification
+
+Private evidence: `C:/Claude Projects/Silent Hill iOS/private/work/fight/`.
+`handgun.png` and `pipe.png` were visually reviewed: held weapons/attack poses,
+handgun flash and ground blood through the real wgpu renderer at 1x. Both runs
+finish 3650 frames in original gameplay with no guards. Test setup at tick 3500
+is explicitly logged as `FIGHT_FIXTURE`; blood is emitted at tick 3600, without
+changing health. The real input subsequently drives aim and attack animation.
+
+| Isolated fixture | Samples | Aim | Attack | Distinct keyframes | Held draws | Effect packet bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Handgun | 151 | 129 | 67 | 36 | 67 | 24672 |
+| Steel pipe | 151 | 129 | 63 | 38 | 66 | 18720 |
+
+`python tools/check_fight.py --render-fixtures`: 2/2 pass (`render-results.json`).
+`--self-test`: one positive and eleven rejection controls pass. The actual combat
+check rejects both the static cafe warp and the guarded school warp: zero player,
+NPC or production-hit samples. `combat.log`, `combat-results.json` and
+`opening-combat-boundary.log` retain those failures. `first_fight.txt` is a
+candidate, not a completed combat replay. Inventory equip/reload UI, other weapon
+variants and real NPC damage/death remain unverified.
+
+Release MSVC `/W4 /WX` build, root/standalone fmt and all-target Clippy with warnings
+denied pass. Workspace tests with `precise-vertices`: 311 passed, zero failed,
+seven opt-in tests ignored. Standalone combat: 19 passed with `SH_REQUIRE_DISC=1`,
+including 39 C-decoded owned model/ANM pairs and 128 THR collision graphs (3978
+surface reads). Unchanged movement evaluator: 422 samples, 9173 Q12 walked,
+1711 right turn, running 2.86 times walking speed. Arm64 frontend: 90 playable C
+units plus nine standalone combat units passed, zero failed. Apple SDK/device,
+PS1 visual goldens and broader enemy gameplay are untested. Logs: `build.log`,
+`tests.log`, `clippy.log`, `harness-tests.log`, `harness-clippy.log`, `clang.log`,
+`harness-clang.log`, `first-map.log` and `first-map-results.json`.
+
+## Reproduction and requests
+
+Build with `tools/dev-cargo.cmd build --release`. For isolated rendering set
+`SH_FIGHT_DIAGNOSTIC=handgun` or `pipe`, then run the host with `--headless --audio
+off --scale 1 --frames 3650 --input docs/sys/replays/weapon_render.txt --screenshot
+<private/work/fight/handgun.png or pipe.png>`. Remove that environment setting
+before any real combat proof. `python tools/check_fight.py --run --warp
+MAP0_S01:0 --frames 1300` drives the opt-in native replay test and deliberately
+fails until warp can execute actual gameplay. New replays live in `docs/sys/replays/`.
+
+Arm64: `python tools/prepare_fight.py --decomp game/decomp --out
+<the release build's OUT_DIR/native-source> --check-clang
+C:/BuildTools2022/VC/Tools/Llvm/x64/bin/clang-tidy.exe`. The checker consumes the
+actual Cargo-generated closure, including all 43 map units and native audio.
+
+Director/transit: provide a playable warp using original player/NPC loading and
+update flow, and complete the area-load boundary. Then calibrate the candidate
+against real enemies and require Harry damage, an enemy hit and death, and a
+private screenshot through `tools/check_fight.py`. Register the 90-unit arm64
+check and publish this checkpoint to the core-owned PROJECT_STATE.md. No system
+installs, main/merge/push, copied disc, assets, disassembly or screenshots in Git.
+
+---
+
+## Historical standalone combat checkpoint (superseded for fight integration)
+
+The following inventory documents the older isolated harness; it does not claim
+current playable AI linkage or replace the measured fight results above.
+
 # Combat lane checkpoint
 
 **The full combat brief is not passed.** This is a tested native combat slice and an exhaustive conservative source inventory, not a complete enemy/gameplay plug-in. Reference: `d9e28f8315c7938117224f21516786d9d149a145`, GPL-3.0-only, Copyright (C) 2026 shdecompilations. No core-owned file was changed. `PROJECT_STATE.md` remains core-owned; this document is the combat checkpoint.
