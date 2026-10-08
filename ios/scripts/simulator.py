@@ -1,5 +1,6 @@
 """Launch the real host without a disc in a NEW simulator; verify importer pixels."""
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -10,6 +11,43 @@ import time
 from package import EXE, IOS, NAME, run
 
 BUNDLE = "com.bramley.silenthillport"
+
+
+def wait_log(log, required, timeout=60, start=0, min_recoveries=0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        content = log.read_text(errors="replace") if log.exists() else ""
+        if any(marker in content for marker in ("panic:", "IOS_SMOKE FAIL", "recovery failed", "pause deadline expired")):
+            raise RuntimeError(content)
+        generations = re.findall(r"audio recovery progress generation=(\d+)", content[start:])
+        if (all(marker in content[start:] for marker in required)
+                and max(map(int, generations), default=0) >= min_recoveries):
+            return content
+        time.sleep(0.5)
+    raise RuntimeError(f"Missing log markers after {timeout}s: {required}\n{content}")
+
+
+def verify_smoke_log(content):
+    required = ("IOS_GPU selected=wgpu backend=Metal", "stats=false wide=false",
+                "IOS_PRESENT UIImage installed", "IOS_AUDIO SpuCpal initialized with real device output",
+                "IOS_SMOKE PASS rendered=90 audio_frames=66150", "touch=PASS saves=PASS")
+    if not all(marker in content for marker in required):
+        raise AssertionError("Incomplete real GPU/audio/touch/save evidence")
+    if any(marker in content for marker in ("fallback=Raster", "IOS_SMOKE FAIL", "panic:", "GPU ERROR", "recovery failed")):
+        raise AssertionError("Synthetic smoke must use Metal successfully; fallback is not a pass")
+    callbacks = re.findall(r"audio_callbacks=(\d+)", content)
+    if not callbacks or int(callbacks[-1]) == 0:
+        raise AssertionError("The real audio device did not run callbacks")
+    scales = re.findall(r"selected=wgpu backend=Metal scale=(\d+)", content)
+    if not scales or not 1 <= int(scales[-1]) <= 3:
+        raise AssertionError("Invalid phone scale")
+    selected = int(scales[-1])
+    probes = re.findall(r"IOS_GPU probe scale=(\d+) samples=4 mean_ms=([0-9.]+) max_ms=([0-9.]+)", content)
+    measured = [(float(mean), float(worst)) for scale, mean, worst in probes if int(scale) == selected]
+    if not measured or not 0 <= measured[-1][0] <= measured[-1][1]:
+        raise AssertionError("Selected scale has no valid measured render sample")
+    if selected > 1 and measured[-1][1] > 12:
+        raise AssertionError("Selected scale exceeds the measured phone render budget")
 
 
 def choose_device(data):
@@ -77,6 +115,37 @@ def main():
         ocr.check_returncode()
         print(ocr.stdout)
         print(f"PASS: real host installed, no disc, importer text visible in captured pixels; landscape view {surface_w}x{surface_h}; screenshot {width}x{height}")
+        shutil.copy2(log, out / "importer-game.log")
+        # Same freshly created data-free simulator/app; no extra build or boot.
+        env = os.environ.copy()
+        env["SIMCTL_CHILD_SH_IOS_SMOKE"] = "1"
+        run(["xcrun", "simctl", "launch", "--terminate-running-process", udid, BUNDLE], env=env)
+        content = wait_log(log, ["IOS_SMOKE PASS", "IOS_PRESENT UIImage installed"])
+        verify_smoke_log(content)
+        content = wait_log(log, ["IOS_SMOKE synthetic interruption notification began",
+                                "IOS_SMOKE synthetic route notification",
+                                "IOS_SMOKE audio recovery progress", "spu_state=PASS"], timeout=30, min_recoveries=2)
+        screenshot = out / "synthetic-metal.png"
+        run(["xcrun", "simctl", "io", udid, "screenshot", screenshot])
+        result = subprocess.run(["xcrun", "swift", str(IOS / "scripts/verify-synthetic.swift"), str(screenshot)], capture_output=True, text=True)
+        (out / "synthetic-pixels.txt").write_text(result.stdout + result.stderr)
+        result.check_returncode()
+        # Settings backgrounds the running process; launch without terminate
+        # resumes that SAME worker. Tick/audio/save state must survive.
+        offset = len(content)
+        run(["xcrun", "simctl", "launch", udid, "com.apple.Preferences"])
+        content = wait_log(log, ["worker paused; synchronous save callbacks completed", "pause acknowledged"], timeout=15, start=offset)
+        offset = len(content)
+        run(["xcrun", "simctl", "launch", udid, BUNDLE])
+        content = wait_log(log, ["worker resumed", "IOS_AUDIO recovered; SPU state and sample clock preserved",
+                                "IOS_SMOKE audio recovery progress", "spu_state=PASS"], timeout=30, start=offset)
+        verify_smoke_log(content)
+        run(["xcrun", "simctl", "io", udid, "screenshot", out / "synthetic-resumed.png"])
+        result = subprocess.run(["xcrun", "swift", str(IOS / "scripts/verify-synthetic.swift"), str(out / "synthetic-resumed.png")], capture_output=True, text=True)
+        (out / "resumed-pixels.txt").write_text(result.stdout + result.stderr)
+        result.check_returncode()
+        assert not (container / "Library/Application Support/SilentHillPort/disc.bin").exists()
+        print("PASS: synthetic Metal screenshot, real audio callbacks, menu/walking/release pad adapter, atomic synthetic saves, same-worker background/resume.")
     finally:
         if "log" in locals() and log.exists():
             shutil.copy2(log, out / "game.log")

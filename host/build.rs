@@ -881,6 +881,11 @@ fn audio_ios_worker(out: &Path) {
             .find("        h.error.take().map_or_else(")
             .expect("iOS audio finish seam");
     text.insert_str(offset, "        h.spu.finish()?;\n");
+    // PORT: Keep the shared audio factory seam, with UIKit lifecycle ownership.
+    text = text.replace(
+        "let backends = Backends { spu: Box::new(crate::spu_cpal::open_configured()?), ..backends };",
+        "let backends = Backends { spu: Box::new(crate::platform_ios::open_audio()?), ..backends };",
+    );
     fs::write(path, text).expect("iOS audio worker adaptation");
 }
 

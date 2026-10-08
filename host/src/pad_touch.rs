@@ -53,6 +53,7 @@ unsafe extern "C" {
     fn sh_title_menu_state() -> i32;
     fn sh_option_selected_entry() -> i32;
     fn VSync(mode: i32) -> i32;
+    static g_Player_DisableControl: u8;
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -94,7 +95,10 @@ unsafe fn context_snapshot() -> (Snapshot, Config, GameContext) {
         run_inverted: game.options[14] != 0,
         ..Config::default()
     };
-    (snapshot, config, scene(snapshot))
+    let mut context = scene(snapshot);
+    // SAFETY: Same worker-only prefix/accessor contract as the snapshot above.
+    context.available.movement &= unsafe { g_Player_DisableControl == 0 };
+    (snapshot, config, context)
 }
 
 fn native_bindings(bits: [u16; 14]) -> Bindings {
@@ -147,6 +151,7 @@ fn scene(snapshot: Snapshot) -> GameContext {
         mode,
         available: Availability {
             skip: matches!(snapshot.state, 1 | 2 | 5 | 6 | 9),
+            movement: mode == Mode::Exploring,
             ..Availability::default()
         },
     }
@@ -375,8 +380,8 @@ fn targets(snapshot: Snapshot, view: Viewport) -> Vec<(UiTarget, &'static str)> 
         for (index, button, label) in [(0, Buttons::UP, "PREV"), (1, Buttons::DOWN, "NEXT")] {
             add(
                 Rect {
-                    x: 16.0 + index as f32 * 64.0,
-                    y: view.height - 64.0,
+                    x: view.content().x + 16.0 + index as f32 * 64.0,
+                    y: view.content().y + view.content().height - 64.0,
                     width: 56.0,
                     height: 48.0,
                 },
@@ -397,10 +402,11 @@ fn targets(snapshot: Snapshot, view: Viewport) -> Vec<(UiTarget, &'static str)> 
         for index in 0..9 {
             add(
                 Rect {
-                    x: view.width * 0.18,
-                    y: view.height * (48.0 + 16.0 * index as f32) / 224.0,
-                    width: view.width * 0.5,
-                    height: view.height * 16.0 / 224.0,
+                    x: view.content().x + view.content().width * 0.18,
+                    y: view.content().y
+                        + view.content().height * (48.0 + 16.0 * index as f32) / 224.0,
+                    width: view.content().width * 0.5,
+                    height: view.content().height * 16.0 / 224.0,
                 },
                 TargetAction::Ui {
                     request: UiAction::Activate { id: index },
@@ -419,8 +425,18 @@ impl TouchPad {
         config: Config,
         context: GameContext,
     ) -> [u8; 8] {
+        // A suspension release takes precedence over a repeated read of the
+        // same tick. Ordinary repeated reads still retain their cached pulse.
+        let cancelling = self
+            .shared
+            .lock()
+            .expect("touch cancel state")
+            .queue
+            .iter()
+            .any(|i| matches!(i, Input::Cancel));
         if let Some((previous, packet)) = self.cached
             && previous == tick
+            && !cancelling
         {
             return packet;
         }
@@ -459,14 +475,18 @@ impl TouchPad {
             self.commands.clear();
             self.previous_command = Buttons::default();
             self.engine.cancel_all();
-            shared.queue.clear();
+            shared
+                .queue
+                .retain(|i| matches!(i, Input::View(_) | Input::Cancel));
             self.scene_key = key;
         }
         if self.engine.config() != config || self.engine.context() != context {
             self.commands.clear();
             self.previous_command = Buttons::default();
             self.option_command = None;
-            shared.queue.clear();
+            shared
+                .queue
+                .retain(|i| matches!(i, Input::View(_) | Input::Cancel));
         }
         self.engine.set_config(config).map_err(|e| e.to_string())?;
         self.engine.set_context(context);
@@ -742,6 +762,158 @@ fn label_pixel(label: &str, r: Rect, p: Point) -> bool {
 pub fn accepts(input: Option<&Path>) -> bool {
     input.is_some_and(|p| p == Path::new("touch") || p.extension().is_some_and(|e| e == "jsonl"))
 }
+
+/// UIKit sends point coordinates into the same worker-owned engine/provider as
+/// desktop. No UI thread reads C globals. A handle owns only the bounded mailbox.
+#[derive(Clone)]
+pub struct PlatformTouch {
+    shared: Arc<Mutex<Shared>>,
+}
+impl PlatformTouch {
+    pub fn new(view: Viewport) -> Result<(Self, TouchPad), String> {
+        let engine = Engine::new(Config::default(), view, GameContext::default())
+            .map_err(|e| e.to_string())?;
+        let shared = Arc::new(Mutex::new(Shared {
+            live: true,
+            clock_ms: 0,
+            queue: VecDeque::new(),
+            native_ids: HashSet::new(),
+            mouse: Point::default(),
+            mouse_down: false,
+            overlay: None,
+            checks: Vec::new(),
+            checked: 0,
+            error: None,
+            base_lit: 0,
+        }));
+        let pad = TouchPad {
+            engine,
+            shared: shared.clone(),
+            events: Vec::new(),
+            cursor: 0,
+            cached: None,
+            commands: VecDeque::new(),
+            previous_command: Buttons::default(),
+            option_command: None,
+            scene_key: (-1, -1, -1),
+        };
+        Ok((Self { shared }, pad))
+    }
+    pub fn touch(&self, id: u64, phase: Phase, x: f32, y: f32) {
+        let mut shared = self.shared.lock().expect("UIKit touch queue");
+        // PORT: UIKit uptime is not the original game's sample clock. Events are
+        // stamped at the last logic sample; holds advance only on game ticks,
+        // including after a long suspension. Order within a batch is preserved.
+        let time_ms = shared.clock_ms;
+        if shared.queue.len() >= 512 {
+            shared.queue.clear();
+            shared.queue.push_back(Input::Cancel);
+            eprintln!("IOS_TOUCH overflow; releasing all contacts");
+        }
+        shared.queue.push_back(Input::Touch(TouchEvent {
+            id,
+            phase,
+            x,
+            y,
+            time_ms,
+        }));
+    }
+    pub fn viewport(&self, view: Viewport) {
+        let mut shared = self.shared.lock().expect("UIKit viewport");
+        // Keep only the newest geometry; engine viewport changes cancel captures.
+        shared.queue.retain(|i| !matches!(i, Input::View(_)));
+        shared.queue.push_back(Input::View(view));
+    }
+    pub fn cancel(&self) {
+        let mut shared = self.shared.lock().expect("UIKit cancel");
+        shared.queue.retain(|i| matches!(i, Input::View(_)));
+        shared.queue.push_back(Input::Cancel);
+        shared.overlay = None;
+    }
+    pub fn draw(&self, pixels: &mut [u32], w: u32, h: u32) {
+        let shared = self.shared.lock().expect("UIKit overlay");
+        if let Some(overlay) = &shared.overlay {
+            draw_overlay(pixels, w, h, overlay);
+        }
+    }
+    pub fn error(&self) -> Option<String> {
+        self.shared.lock().expect("UIKit error").error.clone()
+    }
+
+    /// Data-free CI exercises the production mailbox, engine and pad adapter.
+    /// Synthetic snapshots are used ONLY here, never in a real game session.
+    pub fn smoke_check(&self, pad: &mut TouchPad) -> Result<(), String> {
+        self.smoke_check_with(pad, |id, phase, x, y| self.touch(id, phase, x, y))
+    }
+    pub fn smoke_check_with(
+        &self,
+        pad: &mut TouchPad,
+        send: impl Fn(u64, Phase, f32, f32),
+    ) -> Result<(), String> {
+        let view = pad.engine.viewport();
+        let snapshot = |tick| Snapshot {
+            tick,
+            state: 7,
+            step: 1,
+            menu: 1,
+            ..Snapshot::default()
+        };
+        pad.sample_snapshot(0, snapshot(0), Config::default(), scene(snapshot(0)));
+        let bounds = pad
+            .engine
+            .layout()
+            .controls
+            .iter()
+            .find(|c| c.control == Control::Confirm)
+            .ok_or("missing menu OK target")?
+            .bounds;
+        for id in [1, 2] {
+            send(id, Phase::Down, bounds.center().x, bounds.center().y);
+            send(id, Phase::Up, bounds.center().x, bounds.center().y);
+        }
+        let pressed = PadState {
+            buttons: Buttons::CROSS,
+            ..PadState::default()
+        }
+        .ps1_packet();
+        for (tick, expected) in [
+            (1, pressed),
+            (2, PadState::default().ps1_packet()),
+            (3, pressed),
+        ] {
+            if pad.sample_snapshot(
+                tick,
+                snapshot(tick),
+                Config::default(),
+                scene(snapshot(tick)),
+            ) != expected
+            {
+                return Err("UIKit menu pulse/neutral-edge check failed".into());
+            }
+        }
+        let exploring = |tick| Snapshot {
+            tick,
+            state: 11,
+            sys: 0,
+            ..Snapshot::default()
+        };
+        pad.sample_snapshot(4, exploring(4), Config::default(), scene(exploring(4)));
+        let origin = Point::new(view.content().x + 80.0, view.content().y + 100.0);
+        send(3, Phase::Down, origin.x, origin.y);
+        send(3, Phase::Move, origin.x, origin.y - 55.0);
+        let packet = pad.sample_snapshot(5, exploring(5), Config::default(), scene(exploring(5)));
+        if packet[7] >= 64 {
+            return Err("UIKit walking analog check failed".into());
+        }
+        self.cancel();
+        if pad.sample_snapshot(6, exploring(6), Config::default(), scene(exploring(6)))
+            != PadState::default().ps1_packet()
+        {
+            return Err("UIKit lifecycle release check failed".into());
+        }
+        self.error().map_or(Ok(()), Err)
+    }
+}
 fn check_output(path: &Path) -> Result<(), String> {
     let private = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -886,6 +1058,29 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn platform_safe_area_menu_walking_and_lifecycle_probe() {
+        for view in [default_view(), Viewport::default()] {
+            let (handle, mut pad) = PlatformTouch::new(view).unwrap();
+            handle.smoke_check(&mut pad).unwrap();
+            let pixels = &mut vec![0; 320 * 224];
+            handle.draw(pixels, 320, 224);
+            assert!(pixels.iter().any(|p| *p != 0));
+        }
+    }
+    #[test]
+    fn cancel_releases_even_on_repeated_logic_read() {
+        let mut pad = test_pad();
+        assert_ne!(
+            pad.sample_snapshot(0, title(0), Config::default(), scene(title(0))),
+            PadState::default().ps1_packet()
+        );
+        pad.shared.lock().unwrap().queue.push_back(Input::Cancel);
+        assert_eq!(
+            pad.sample_snapshot(0, title(0), Config::default(), scene(title(0))),
+            PadState::default().ps1_packet()
+        );
+    }
     fn test_pad() -> TouchPad {
         let shared = Arc::new(Mutex::new(Shared {
             live: false,

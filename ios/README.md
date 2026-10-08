@@ -37,8 +37,8 @@ Files exposes Documents through `UIFileSharingEnabled` and
 The playback audio session is configured without background-audio entitlement.
 Apple's [playback category](https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/playback)
 continues audio with Ring/Silent set to silent; this is the requested category's
-behaviour. The current host still uses its existing silent SPU fallback: session
-configuration alone does not implement game sound.
+behaviour. The real worker opens SpuCpal before running the game. Its original mixer,
+registers, sample clock and CD queue survive audio-device rebuilds.
 
 ## Build and CI
 
@@ -54,7 +54,17 @@ container), installs the real host with no disc, waits for the importer, capture
 `simulator.png`, checks landscape view dimensions, and uses macOS Vision OCR to
 require the importer title and choose button in the screenshot pixels. It uploads
 `game.log`, `simulator-system.log`, and `importer-ocr.txt`, then deletes only that
-new simulator. No game screenshots are captured or uploaded by this workflow.
+new simulator. It then relaunches the same data-free app with `SIMCTL_CHILD_SH_IOS_SMOKE=1`.
+The built-in scene sends original triangle packets through the **shared wgpu
+backend (Metal)**, presents scaled readback to UIKit, and opens the **real** cpal
+output. Ninety frames, nonzero device callback count, menu/walking/release pad
+checks and synthetic atomic-save checks must pass. Pixel checks require both
+colored triangles, so the importer or a blank screenshot cannot pass. Clearly
+labelled synthetic interruption and route notifications exercise the production
+observers and require new audio callbacks with the retained sample clock.
+Settings backgrounds the process; foreground launch must resume the same worker
+and render again. This reuses one build and simulator to keep macOS minutes modest.
+No game screenshots are captured or uploaded by this workflow.
 
 Local data-free checks:
 
@@ -66,11 +76,9 @@ python -m compileall -q ios/scripts
 ```
 
 `ios/app` has its own committed lockfile and builds the actual host source as a
-path dependency. This avoids the inherited root workspace discovery failure
-(psxgpu/psxspu still have nested `[workspace]` tables despite `crates/*`). It does
-not copy or change host sources/dependency declarations. The director still needs
-to fix root membership for whole-workspace Windows checks; iOS CI can proceed
-independently with the actual host dependency.
+path dependency. This keeps packaging independent of workspace membership. The current root
+workspace excludes the standalone GPU/SPU manifests and its Windows gates run.
+No host source or dependency declaration is copied.
 
 Windows verification commands (existing MSVC and installed Rust iOS targets):
 
@@ -90,6 +98,7 @@ Remove-Item Env:SH_IOS_RUST_CHECK_ONLY
 
 `SH_IOS_RUST_CHECK_ONLY=1` bypasses C/UIKit compilation for Windows Rust checking;
 it emits an explicit warning and is forbidden on macOS or in real packaging.
+The GPU dependency observes the same explicitly Windows-only diagnostic flag.
 These checks are **not Apple C builds or iOS linking tests**. CI omits this flag
 and compiles both C archives with Apple's clang, with warnings as errors.
 
@@ -106,17 +115,46 @@ results and requests. A small Apple-only generated module appends
 `ios/host_bridge.rs` to current `host/src/native.rs`, preserving the existing C
 callbacks without editing the parallel core lane. Its Host initializer must stay
 in sync when core3 changes the worker fields; replace it with a public worker seam
-when the director integrates that API. UIKit presents real raster/movie frames,
-with bounded pending frame storage and background pause. Native GPU/audio/touch
-backend integration belongs with the parallel lanes; current boot logic, silent
-SPU and keyboard PadSource are preserved. This does not establish full-game,
-audio, or touch playability.
+when the director integrates that API. UIKit selects the shared wgpu/Metal backend. Live safe game-view points and
+screen pixel density set the requested integer scale, capped at **3x** (18 MiB
+per full-VRAM u32 plane versus 32 MiB at 4x). A five-frame original synthetic
+probe warms once, then logs four measured samples including native and scaled
+GPU readback. It selects the largest scale with worst sample <=12 ms, reserving
+part of the original 16.67 ms tick for other work; 1x is the last GPU option.
+These samples measure startup rendering, not whole-game or device performance.
+No shader changes, widened camera or debug statistics overlay are enabled.
+The scaled Metal pixels, rather than the native-size replay copy, reach UIKit.
+A mirrored Raster receives the original packets and VRAM writes; initialization
+or runtime failure logs its reason and switches without losing uploaded data.
+Readbacks remain on the sole worker, preserving original GPU/game boundaries.
+
+`SHGameView` delivers stable multi-touch IDs and local logical-point coordinates
+to `PlatformTouch`, then the existing `touch::Engine` and live C context/bindings
+provider. Controls draw after scaled rendering on the same game-view geometry.
+The game view preserves the original 320:224 aspect (also for 448-line scanouts)
+and lies inside UIKit's live safe area. Walking is enabled only in exploring
+state with player control enabled; ownership/combat/puzzle accessors are still
+needed for the remaining controls. Menus keep their existing labelled
+PREV/NEXT/OK/BACK adapter. Scene/geometry/binding changes and focus/interruption
+release captures; event queues are bounded. Timestamps use the game's monotonic
+logic clock, so a suspension cannot turn a held finger into a long gesture.
+
+Backgrounding pauses at audio/GPU callback boundaries and grants a short UIKit background
+task for an in-flight synchronous save/tick. The worker acknowledges completion;
+UIKit then deactivates playback and ends that task. Resume resets pacing without
+catch-up. Interruption, route change and media-service reset requests run on the
+worker: discard/reopen only the physical output, preserve SPU/RAM/CD/sample time,
+and re-prime before playback. SaveStore still syncs and atomically replaces only
+original save-point payloads; backgrounding does not invent an autosave.
+Apple notification references: [interruptions](https://developer.apple.com/documentation/avfaudio/avaudiosession/interruptionnotification),
+[route changes](https://developer.apple.com/documentation/avfaudio/responding-to-audio-route-changes),
+[bounded background work](https://developer.apple.com/documentation/uikit/extending-your-app-s-background-execution-time).
 
 After integration, CI must prove both complete Apple C builds and links, resource
 compilation, unsigned device IPA inspection, simulator signing/launch, landscape
 importer screenshot and OCR. Then the friend's phone must verify picker/iCloud,
 USB/Files import, wrong release, interrupted copy, relaunch, saves/log sharing,
-background/resume and the integrated gameplay/audio/touch backends. Neither a
+background/resume, actual call/headphone interruptions and gameplay/audio/touch. Neither a
 Windows type-check nor the no-disc simulator smoke proves those device checks.
 
 Installation and PC-to-Files transfer: [INSTALL_FOR_FRIEND.md](INSTALL_FOR_FRIEND.md).

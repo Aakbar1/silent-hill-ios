@@ -116,3 +116,22 @@ To share diagnostics, open **Files ? On My iPhone ? Silent Hill Port**, long-pre
 Back up saves and logs before deleting/reinstalling the app; deletion also removes
 the private imported disc copy, so keep the PC original for reimport. Keep your
 disc image private. Do not upload it to GitHub or send game screenshots to CI.
+
+## Controls and checks for the new build
+
+Graphics now use Metal, with a measured scale capped at 3x. The game stays at its
+original aspect ratio inside the phone's safe area. If Metal fails, `game.log`
+records the reason and the app uses software graphics.
+
+Use **PREV / NEXT / OK / BACK** in menus. During walking, drag on the left side
+of the game image: up moves forward, sideways turns, and a farther push runs.
+Controls appear over the game image; letterbox areas are outside the touch view.
+Ownership-dependent combat, inventory and puzzle controls still need the other
+core lanes. This build does not establish a complete touch playthrough.
+
+Check menus and walking, then switch apps and return. Input should release while
+away, and sound should resume. Also check a call interruption and headphone
+disconnect/reconnect. Playback can sound even with the phone's silent switch on.
+Saves still occur through the original save flow; switching apps does not make
+an extra save. Back up **saves/** before reinstalling. If graphics, sound or touch
+stops, share **game.log** and describe the last action and audio device used.

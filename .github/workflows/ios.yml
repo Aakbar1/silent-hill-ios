@@ -70,7 +70,7 @@ jobs:
           export AR="$(xcrun --sdk iphonesimulator --find ar)"
           cargo clippy --manifest-path ios/app/Cargo.toml -p silent-hill-boot --lib --locked --target aarch64-apple-ios-sim -- -D warnings
           cargo clippy --manifest-path ios/app/Cargo.toml --locked --target aarch64-apple-ios-sim -- -D warnings
-      - name: Boot, install, launch, verify and screenshot
+      - name: Fresh simulator importer OCR, synthetic Metal/audio and lifecycle smoke
         run: python3 ios/scripts/simulator.py
       - name: Upload simulator evidence (also on failure)
         if: always()

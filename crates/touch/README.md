@@ -191,3 +191,9 @@ need core-owned accessors. Unavailable gameplay chips stay hidden. The accessor
 matches `port/boot.h` in this checkout and must migrate with core3's records.
 Windowed replay is verified; `--headless` explicitly fails until core3 exposes
 backend injection. Root milestone registration also belongs to the director.
+
+UIKit now uses the same `PlatformTouch` mailbox, engine and live context/bindings
+provider. Its game-view point coordinates and safe areas match the scaled display
+overlay. Exploring state enables walking only while the core permits player
+control. Suspension/interruption releases input, including a repeated pad read
+in the same tick. See `ios/README.md` for data-free CI checks and device limits.

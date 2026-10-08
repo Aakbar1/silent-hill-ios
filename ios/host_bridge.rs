@@ -3,6 +3,9 @@
 // callbacks, asset reads, movie decoder, raster and save payloads unchanged.
 fn ios_clock() {
     let paused = crate::platform_ios::wait_for_active();
+    // Audio may have waited/resumed earlier in this tick. Never catch up the
+    // game's wall-clock pacing after an OS suspension.
+    let paused = crate::platform_ios::take_clock_reset() || paused;
     // Called while port_present already holds the HOST RefCell borrow: use
     // independent clock storage, never re-enter host() from that callback.
     thread_local! { static NEXT: std::cell::Cell<Option<Instant>> = const { std::cell::Cell::new(None) }; }

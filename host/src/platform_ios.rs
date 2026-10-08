@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! UIKit owns the sole application loop. The existing native C worker owns game
-//! state; the UIKit presenter consumes the same raster output as the desktop.
+//! state; the UIKit presenter consumes the shared scaled Metal renderer.
+#[path = "../../ios/audio.rs"]
+mod audio;
 #[path = "../../ios/importer.rs"]
 mod importer;
 
 use crate::{
-    backend::{GpuBackend, SilentSpu},
+    backend::{GpuBackend, SilentSpu, SpuBackend},
     disc::GameDisc,
+    ios_renderer::{PhoneGpu, requested_scale, synthetic_scene},
     native::Backends,
-    pad::{KeyboardController, LiveInput},
-    raster::Raster,
+    pad::LiveInput,
+    pad_touch::PlatformTouch,
     saves::SaveStore,
 };
+use sh_touch::{Insets, Phase, Viewport};
 use std::{
     cell::Cell,
     collections::HashMap,
@@ -22,7 +26,7 @@ use std::{
         Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 unsafe extern "C" {
@@ -30,6 +34,10 @@ unsafe extern "C" {
     fn sh_ios_status(text: *const c_char, progress: f64, busy: bool);
     fn sh_ios_frame(rgba: *const u8, width: u32, height: u32);
     fn sh_ios_game_started();
+    fn sh_ios_worker_paused();
+    fn sh_ios_refresh_view();
+    fn sh_ios_synthetic_touch(id: u64, phase: u32, x: f32, y: f32);
+    fn sh_ios_synthetic_audio_notifications();
 }
 
 struct State {
@@ -42,6 +50,16 @@ struct State {
     cancel: Arc<AtomicBool>,
     files: Mutex<HashMap<PathBuf, WatchedFile>>,
     input: Arc<LiveInput>,
+    interrupted: AtomicBool,
+    recover_audio: AtomicBool,
+    audio_recoveries: AtomicU64,
+    worker_paused: AtomicBool,
+    clock_reset: AtomicBool,
+    ui_ready: AtomicBool,
+    audio: Mutex<Option<Arc<Mutex<crate::spu_cpal::SpuCpal>>>>,
+    failure: Mutex<Option<String>>,
+    touch: Mutex<Option<PlatformTouch>>,
+    view: Mutex<(Viewport, f32)>,
 }
 #[derive(Clone, Copy)]
 struct WatchedFile {
@@ -97,8 +115,31 @@ unsafe extern "C" fn sh_ios_initialize(documents: *const c_char, support: *const
         cancel: Arc::new(AtomicBool::new(false)),
         files: Mutex::new(HashMap::new()),
         input: Arc::new(LiveInput::default()),
+        interrupted: AtomicBool::new(false),
+        recover_audio: AtomicBool::new(false),
+        audio_recoveries: AtomicU64::new(0),
+        worker_paused: AtomicBool::new(false),
+        clock_reset: AtomicBool::new(false),
+        ui_ready: AtomicBool::new(false),
+        audio: Mutex::new(None),
+        failure: Mutex::new(None),
+        touch: Mutex::new(None),
+        view: Mutex::new((Viewport::default(), 1.0)),
     });
     let state = STATE.get().expect("initialized once");
+    // SAFETY: initialize is on main after its window/controller was installed.
+    unsafe { sh_ios_refresh_view() };
+    if std::env::var("SH_IOS_SMOKE").as_deref() == Ok("1") {
+        state.game_started.store(true, Ordering::Release);
+        unsafe { sh_ios_game_started() };
+        std::thread::spawn(|| {
+            if let Err(error) = synthetic_smoke() {
+                eprintln!("IOS_SMOKE FAIL {error}");
+                status(&format!("Synthetic smoke failed: {error}"), -1.0, false);
+            }
+        });
+        return;
+    }
     let saved = importer::imported(&state.support);
     if saved.exists() {
         status("Checking your imported disc…", -1.0, true);
@@ -243,8 +284,111 @@ extern "C" fn sh_ios_active(active: bool) {
     if let Some(state) = STATE.get() {
         state.active.store(active, Ordering::Relaxed);
         state.input.focus(active);
+        if !active {
+            if let Some(touch) = &*state.touch.lock().expect("touch handle") {
+                touch.cancel();
+            }
+        }
+        println!("IOS_LIFECYCLE active={active}");
     }
 }
+
+#[unsafe(no_mangle)]
+extern "C" fn sh_ios_interrupted(interrupted: bool) {
+    if let Some(state) = STATE.get() {
+        if state.interrupted.swap(interrupted, Ordering::AcqRel) != interrupted {
+            state.recover_audio.store(true, Ordering::Release);
+            if let Some(touch) = &*state.touch.lock().expect("touch handle") {
+                touch.cancel();
+            }
+        }
+        println!("IOS_LIFECYCLE interrupted={interrupted}");
+    }
+}
+#[unsafe(no_mangle)]
+extern "C" fn sh_ios_audio_route_changed() {
+    if let Some(state) = STATE.get() {
+        state.recover_audio.store(true, Ordering::Release);
+        if let Some(touch) = &*state.touch.lock().expect("touch handle") {
+            touch.cancel();
+        }
+        println!("IOS_AUDIO route/reset recovery requested");
+    }
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn sh_ios_view(
+    width: f32,
+    height: f32,
+    top: f32,
+    right: f32,
+    bottom: f32,
+    left: f32,
+    ratio: f32,
+) {
+    if let Some(state) = STATE.get() {
+        let view = Viewport {
+            width,
+            height,
+            safe: Insets {
+                top,
+                right,
+                bottom,
+                left,
+            },
+        };
+        *state.view.lock().expect("UIKit geometry") = (view, ratio);
+        println!(
+            "IOS_VIEW points={width:.1}x{height:.1} safe={top:.1},{right:.1},{bottom:.1},{left:.1} pixel_ratio={ratio:.1} requested_scale={}",
+            requested_scale(view.content().width, view.content().height, ratio)
+        );
+        if let Some(touch) = &*state.touch.lock().expect("touch handle") {
+            touch.viewport(view);
+        }
+    }
+}
+#[unsafe(no_mangle)]
+extern "C" fn sh_ios_touch(id: u64, phase: u32, x: f32, y: f32) {
+    let phase = match phase {
+        0 => Phase::Down,
+        1 => Phase::Move,
+        2 => Phase::Up,
+        3 => Phase::Cancel,
+        _ => return,
+    };
+    if let Some(state) = STATE.get()
+        && is_running(state)
+        && let Some(touch) = &*state.touch.lock().expect("touch handle")
+    {
+        touch.touch(id, phase, x, y);
+    }
+}
+
+fn is_running(state: &State) -> bool {
+    state.active.load(Ordering::Acquire) && !state.interrupted.load(Ordering::Acquire)
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn sh_ios_ready() {
+    if let Some(state) = STATE.get() {
+        state.ui_ready.store(true, Ordering::Release);
+    }
+}
+fn wait_for_ui() {
+    let state = STATE.get().expect("UI state");
+    while !state.ui_ready.load(Ordering::Acquire) {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+pub(crate) fn take_clock_reset() -> bool {
+    STATE
+        .get()
+        .expect("clock state")
+        .clock_reset
+        .swap(false, Ordering::AcqRel)
+}
+
+pub(crate) use audio::open_audio;
 
 fn start_game(disc: GameDisc<crate::disc::DiscImage<fs::File>>) {
     let state = STATE.get().expect("initialized storage");
@@ -255,13 +399,37 @@ fn start_game(disc: GameDisc<crate::disc::DiscImage<fs::File>>) {
     // SAFETY: The function schedules UI work on the main queue.
     unsafe { sh_ios_game_started() };
     std::thread::spawn(move || {
+        wait_for_ui();
+        wait_for_active();
+        let (view, ratio) = *state.view.lock().expect("UIKit geometry");
+        let (touch, pad) = match PlatformTouch::new(view) {
+            Ok(pair) => pair,
+            Err(error) => {
+                status(&error, -1.0, false);
+                return;
+            }
+        };
+        *state.touch.lock().expect("touch handle") = Some(touch.clone());
+        let gpu = match PhoneGpu::new(
+            requested_scale(view.content().width, view.content().height, ratio),
+            false,
+        ) {
+            Ok(gpu) => gpu,
+            Err(error) => {
+                status(&error, -1.0, false);
+                return;
+            }
+        };
         let backends = Backends {
             gpu: Box::new(IosGpu {
-                raster: Raster::default(),
+                inner: gpu,
+                touch,
                 first: Cell::new(true),
             }),
             spu: Box::<SilentSpu>::default(),
-            pad: Box::new(KeyboardController::new(state.input.clone())),
+            // The Apple worker factory replaces this placeholder with the
+            // lifecycle-aware SpuCpal before any C/game callbacks execute.
+            pad: Box::new(pad),
         };
         if let Err(error) = crate::native::run_ios_worker(
             disc,
@@ -276,17 +444,26 @@ fn start_game(disc: GameDisc<crate::disc::DiscImage<fs::File>>) {
 }
 
 struct IosGpu {
-    raster: Raster,
+    inner: PhoneGpu,
+    touch: PlatformTouch,
     first: Cell<bool>,
 }
 impl IosGpu {
     fn present(&self, pixels: Vec<u32>, width: u32, height: u32) -> Vec<u32> {
-        let rgba: Vec<u8> = pixels
+        let (display_w, display_h, mut display) = match self.inner.display(width, height, &pixels) {
+            Ok(frame) => frame,
+            Err(error) => {
+                eprintln!("IOS_GPU display failure: {error}");
+                return pixels;
+            }
+        };
+        self.touch.draw(&mut display, display_w, display_h);
+        let rgba: Vec<u8> = display
             .iter()
             .flat_map(|p| [(p >> 16) as u8, (p >> 8) as u8, *p as u8, 255])
             .collect();
         // SAFETY: UIKit immediately copies exactly width*height*4 live bytes.
-        unsafe { sh_ios_frame(rgba.as_ptr(), width, height) };
+        unsafe { sh_ios_frame(rgba.as_ptr(), display_w, display_h) };
         if self.first.replace(false) {
             println!("first game frame presented to UIKit");
         }
@@ -297,35 +474,192 @@ impl IosGpu {
 pub(crate) fn wait_for_active() -> bool {
     let state = STATE.get().expect("initialized host");
     let mut paused = false;
-    while !state.active.load(Ordering::Relaxed) {
+    while !is_running(state) {
         paused = true;
+        if !state.worker_paused.swap(true, Ordering::AcqRel) {
+            state.clock_reset.store(true, Ordering::Release);
+            if let Some(audio) = &*state.audio.lock().expect("audio handle") {
+                if let Err(error) = audio.lock().expect("audio worker").ios_suspend() {
+                    *state.failure.lock().expect("lifecycle failure") = Some(error);
+                }
+                state.recover_audio.store(true, Ordering::Release);
+            }
+            println!("IOS_LIFECYCLE worker paused; synchronous save callbacks completed");
+            unsafe { sh_ios_worker_paused() };
+        }
         std::thread::sleep(Duration::from_millis(50));
+    }
+    if state.recover_audio.swap(false, Ordering::AcqRel)
+        && let Some(audio) = &*state.audio.lock().expect("audio handle")
+    {
+        state.clock_reset.store(true, Ordering::Release);
+        let mut audio = audio.lock().expect("audio worker");
+        if let Err(error) = audio.ios_suspend().and_then(|()| audio.ios_recover()) {
+            eprintln!("IOS_AUDIO recovery failed: {error}");
+            *state.failure.lock().expect("lifecycle failure") = Some(error);
+        } else {
+            state.audio_recoveries.fetch_add(1, Ordering::Release);
+            println!("IOS_AUDIO recovered; SPU state and sample clock preserved");
+        }
+    }
+    if state.worker_paused.swap(false, Ordering::AcqRel) {
+        println!("IOS_LIFECYCLE worker resumed");
     }
     paused
 }
 impl GpuBackend for IosGpu {
+    fn begin_ordering_table(&mut self) {
+        wait_for_active();
+        self.inner.begin_ordering_table();
+    }
+    fn end_ordering_table(&mut self) {
+        wait_for_active();
+        self.inner.end_ordering_table();
+    }
+    fn packet_precise(&mut self, words: &[u32], positions: &[[f32; 2]]) {
+        wait_for_active();
+        self.inner.packet_precise(words, positions);
+    }
     fn packet(&mut self, words: &[u32]) {
-        self.raster.packet(words);
+        wait_for_active();
+        self.inner.packet(words);
     }
     fn env(&mut self, clip: [i32; 4], offset: [i32; 2]) {
-        self.raster.env(clip, offset);
+        wait_for_active();
+        self.inner.env(clip, offset);
     }
     fn load(&mut self, [x, y, w, h]: [i32; 4], pixels: &[u16]) {
-        self.raster.load(x, y, w, h, pixels);
+        wait_for_active();
+        self.inner.load([x, y, w, h], pixels);
     }
     fn read(&self, rect: [i32; 4]) -> Vec<u16> {
-        self.raster.read(rect)
+        wait_for_active();
+        self.inner.read(rect)
     }
     fn clear(&mut self, rect: [i32; 4], color: [u8; 3]) {
-        self.raster.clear(rect, color);
+        wait_for_active();
+        self.inner.clear(rect, color);
     }
     fn frame(&self, x: i32, y: i32, w: u32, h: u32) -> Vec<u32> {
-        self.present(self.raster.frame(x, y, w, h), w, h)
+        wait_for_active();
+        self.present(self.inner.frame(x, y, w, h), w, h)
     }
     fn frame_rgb24(&self, x: i32, y: i32, w: u32, h: u32) -> Vec<u32> {
-        self.present(GpuBackend::frame_rgb24(&self.raster, x, y, w, h), w, h)
+        wait_for_active();
+        self.present(self.inner.frame_rgb24(x, y, w, h), w, h)
     }
     fn primitives(&self) -> u64 {
-        self.raster.primitives
+        self.inner.primitives()
+    }
+}
+
+fn synthetic_smoke() -> Result<(), String> {
+    wait_for_ui();
+    let state = STATE.get().expect("smoke storage");
+    println!("IOS_SMOKE synthetic-only; disc importer and native C worker bypassed");
+    let (view, ratio) = *state.view.lock().expect("UIKit geometry");
+    let (touch, mut pad) = PlatformTouch::new(view)?;
+    *state.touch.lock().expect("touch handle") = Some(touch.clone());
+    touch.smoke_check_with(&mut pad, |id, phase, x, y| {
+        let phase = match phase {
+            Phase::Down => 0,
+            Phase::Move => 1,
+            Phase::Up => 2,
+            Phase::Cancel => 3,
+        };
+        // SAFETY: The Objective-C data-free probe calls the SAME Rust entry as
+        // SHGameView's touch delivery. No UIKit objects or C state are touched.
+        unsafe { sh_ios_synthetic_touch(id, phase, x, y) };
+    })?;
+    let mut gpu = IosGpu {
+        inner: PhoneGpu::new(
+            requested_scale(view.content().width, view.content().height, ratio),
+            true,
+        )?,
+        touch,
+        first: Cell::new(true),
+    };
+    let mut audio = open_audio()?;
+    // Stable synthetic SPU RAM/register sentinels prove device rebuilds do not
+    // reset hardware state. These are original fixture bytes, not game assets.
+    audio.transfer_write(0x7fff0, &[1, 2, 3, 4])?;
+    audio.write_register(4, 0x1234)?;
+    let saves = SaveStore::new(state.support.join("synthetic-save-check"));
+    let mut payload = [0u8; 636];
+    saves.write(0, &payload)?;
+    payload[0] = 7;
+    saves.write(0, &payload)?;
+    if saves.write(0, &payload[..635]).is_ok() || saves.read(0)? != Some(payload) {
+        return Err("synthetic atomic save replacement/preservation failed".into());
+    }
+    fs::remove_file(saves.root().join("slot-000.shs")).map_err(|e| e.to_string())?;
+    fs::remove_dir(saves.root()).map_err(|e| e.to_string())?;
+    let start = Instant::now();
+    for frame in 1..=90 {
+        audio.advance_to(frame * 735)?;
+        synthetic_scene(&mut gpu);
+        let pixels = gpu.frame(0, 0, 320, 224);
+        if let Some(error) = crate::gpu_wgpu::frame_error() {
+            return Err(error);
+        }
+        if !gpu.inner.accelerated() || pixels.iter().all(|p| *p == 0) {
+            return Err("synthetic Metal path was blank or fell back".into());
+        }
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    let callbacks = state
+        .audio
+        .lock()
+        .expect("audio handle")
+        .as_ref()
+        .expect("smoke audio")
+        .lock()
+        .expect("smoke audio worker")
+        .ios_callbacks();
+    if callbacks == 0 {
+        return Err("real audio device delivered no callbacks".into());
+    }
+    println!(
+        "IOS_SMOKE PASS rendered=90 audio_frames=66150 audio_callbacks={callbacks} touch=PASS saves=PASS seconds={:.3}",
+        start.elapsed().as_secs_f64()
+    );
+    // SAFETY: Schedules clearly labelled synthetic OS-notification fixtures on
+    // main, exercising the production observers without game data or a call.
+    unsafe { sh_ios_synthetic_audio_notifications() };
+    // Keep servicing lifecycle after the scene is drawn, so CI can background
+    // and foreground the real app without an imported disc.
+    let mut sample = 66150;
+    let mut observed_recovery = 0;
+    loop {
+        wait_for_active();
+        sample += 735;
+        audio.advance_to(sample)?;
+        synthetic_scene(&mut gpu);
+        gpu.frame(0, 0, 320, 224);
+        if let Some(error) = crate::gpu_wgpu::frame_error() {
+            return Err(error);
+        }
+        let generation = state.audio_recoveries.load(Ordering::Acquire);
+        let callbacks = state
+            .audio
+            .lock()
+            .expect("audio handle")
+            .as_ref()
+            .expect("smoke audio")
+            .lock()
+            .expect("smoke audio worker")
+            .ios_callbacks();
+        if generation > observed_recovery && callbacks > 0 {
+            let mut sentinel = [0; 4];
+            audio.transfer_read(0x7fff0, &mut sentinel)?;
+            if sentinel != [1, 2, 3, 4] || audio.read_register(4)? != 0x1234 {
+                return Err("SPU RAM/register state changed during device recovery".into());
+            }
+            println!(
+                "IOS_SMOKE audio recovery progress generation={generation} sample={sample} callbacks={callbacks} spu_state=PASS"
+            );
+            observed_recovery = generation;
+        }
+        std::thread::sleep(Duration::from_millis(16));
     }
 }

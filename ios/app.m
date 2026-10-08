@@ -13,9 +13,74 @@ extern void sh_ios_import(const char *);
 extern bool sh_ios_wants_import(void);
 extern void sh_ios_poll(void);
 extern void sh_ios_active(bool);
+extern void sh_ios_interrupted(bool);
+extern void sh_ios_audio_route_changed(void);
+extern void sh_ios_view(float, float, float, float, float, float, float);
+extern void sh_ios_touch(uint64_t, uint32_t, float, float);
+extern void sh_ios_ready(void);
 
 void sh_ios_status(const char *, double, bool);
+void sh_ios_synthetic_touch(uint64_t identity, uint32_t phase, float x, float y) {
+    // Data-free fixture only. SHGameView delivers to this exact same Rust FFI.
+    sh_ios_touch(identity, phase, x, y);
+}
+void sh_ios_synthetic_audio_notifications(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        printf("IOS_SMOKE synthetic interruption notification began\n"); fflush(stdout);
+        [NSNotificationCenter.defaultCenter postNotificationName:AVAudioSessionInterruptionNotification
+            object:AVAudioSession.sharedInstance userInfo:@{AVAudioSessionInterruptionTypeKey:@(AVAudioSessionInterruptionTypeBegan)}];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            [NSNotificationCenter.defaultCenter postNotificationName:AVAudioSessionInterruptionNotification
+                object:AVAudioSession.sharedInstance userInfo:@{AVAudioSessionInterruptionTypeKey:@(AVAudioSessionInterruptionTypeEnded),
+                    AVAudioSessionInterruptionOptionKey:@(AVAudioSessionInterruptionOptionShouldResume)}];
+        });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            printf("IOS_SMOKE synthetic route notification\n"); fflush(stdout);
+            [NSNotificationCenter.defaultCenter postNotificationName:AVAudioSessionRouteChangeNotification
+                object:AVAudioSession.sharedInstance userInfo:@{AVAudioSessionRouteChangeReasonKey:@(AVAudioSessionRouteChangeReasonNewDeviceAvailable)}];
+        });
+    });
+}
 static dispatch_queue_t importQueue;
+static BOOL sceneActive = YES, audioInterrupted;
+static UIBackgroundTaskIdentifier pauseTask = UIBackgroundTaskInvalid;
+
+// Touch identity lasts from began through ended/cancelled. Coordinates and safe
+// areas are in the SAME logical view used by the display-copy overlay.
+@interface SHGameView : UIImageView
+@property(nonatomic, strong) NSMutableDictionary<NSValue *, NSNumber *> *contacts;
+@property(nonatomic) uint64_t nextContact;
+@end
+@implementation SHGameView
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        self.userInteractionEnabled = YES;
+        self.multipleTouchEnabled = YES;
+        self.contacts = [NSMutableDictionary dictionary];
+        self.contentMode = UIViewContentModeScaleToFill;
+    }
+    return self;
+}
+- (void)deliver:(NSSet<UITouch *> *)touches phase:(uint32_t)phase {
+    NSArray<UITouch *> *ordered = [touches.allObjects sortedArrayUsingComparator:^NSComparisonResult(UITouch *a, UITouch *b) {
+        return a.timestamp < b.timestamp ? NSOrderedAscending : a.timestamp > b.timestamp ? NSOrderedDescending : NSOrderedSame;
+    }];
+    for (UITouch *touch in ordered) {
+        NSValue *key = [NSValue valueWithNonretainedObject:touch];
+        if (phase == 0) { self.contacts[key] = @(++self.nextContact); }
+        NSNumber *identity = self.contacts[key];
+        if (!identity) { continue; }
+        CGPoint point = [touch locationInView:self];
+        sh_ios_touch(identity.unsignedLongLongValue, phase, (float)point.x, (float)point.y);
+        if (phase >= 2) { [self.contacts removeObjectForKey:key]; }
+    }
+}
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; [self deliver:touches phase:0]; }
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; [self deliver:touches phase:1]; }
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; [self deliver:touches phase:2]; }
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; [self deliver:touches phase:3]; }
+@end
 
 @interface SHController : UIViewController <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UILabel *titleLabel;
@@ -24,7 +89,7 @@ static dispatch_queue_t importQueue;
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) UIProgressView *progress;
 @property(nonatomic, strong) UIStackView *importer;
-@property(nonatomic, strong) UIImageView *game;
+@property(nonatomic, strong) SHGameView *game;
 @property(nonatomic, strong) NSTimer *timer;
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL playing;
@@ -33,13 +98,18 @@ static dispatch_queue_t importQueue;
 static SHController *controller;
 static NSURL *documentsURL, *supportURL;
 
+void sh_ios_refresh_view(void) {
+    [controller.view setNeedsLayout];
+    [controller.view layoutIfNeeded];
+    // Publish even if Auto Layout already ran before Rust initialized STATE.
+    [controller viewDidLayoutSubviews];
+}
+
 @implementation SHController
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor colorWithRed:0.055 green:0.075 blue:0.09 alpha:1];
-    self.game = [[UIImageView alloc] init];
-    self.game.contentMode = UIViewContentModeScaleAspectFit;
-    self.game.translatesAutoresizingMaskIntoConstraints = NO;
+    self.game = [[SHGameView alloc] init];
     self.game.hidden = YES;
     [self.view addSubview:self.game];
     self.titleLabel = [[UILabel alloc] init];
@@ -78,11 +148,7 @@ static NSURL *documentsURL, *supportURL;
         [self.importer.leadingAnchor constraintGreaterThanOrEqualToAnchor:safe.leadingAnchor constant:24],
         [self.importer.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-24],
         [self.importer.topAnchor constraintGreaterThanOrEqualToAnchor:safe.topAnchor constant:16],
-        [self.importer.bottomAnchor constraintLessThanOrEqualToAnchor:safe.bottomAnchor constant:-16],
-        [self.game.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
-        [self.game.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
-        [self.game.topAnchor constraintEqualToAnchor:safe.topAnchor],
-        [self.game.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor]
+        [self.importer.bottomAnchor constraintLessThanOrEqualToAnchor:safe.bottomAnchor constant:-16]
     ]];
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *timer) {
         (void)timer;
@@ -96,6 +162,15 @@ static NSURL *documentsURL, *supportURL;
 }
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    // PORT: Original display aspect is 320:224 even for 448-line scanouts.
+    // Keep touch/overlay geometry inside the actual safe game rectangle.
+    CGRect safe = self.view.safeAreaLayoutGuide.layoutFrame;
+    CGFloat width = MIN(safe.size.width, safe.size.height * 320.0 / 224.0);
+    CGFloat height = width * 224.0 / 320.0;
+    self.game.frame = CGRectMake(CGRectGetMidX(safe)-width/2, CGRectGetMidY(safe)-height/2, width, height);
+    UIEdgeInsets insets = self.game.safeAreaInsets;
+    sh_ios_view((float)width, (float)height, (float)insets.top, (float)insets.right,
+                (float)insets.bottom, (float)insets.left, (float)self.view.window.screen.scale);
     printf("resize %.0fx%.0f\n", self.view.bounds.size.width, self.view.bounds.size.height);
     fflush(stdout);
 }
@@ -171,6 +246,27 @@ void sh_ios_game_started(void) {
         controller.importer.hidden = YES;
         [controller.spinner stopAnimating];
         controller.game.hidden = NO;
+        [controller.view setNeedsLayout];
+        [controller.view layoutIfNeeded];
+        sh_ios_ready();
+    });
+}
+
+// Worker acknowledgement comes only at a safe callback/tick boundary. Saves
+// already use synchronous sync+atomic rename; no UI-thread save writes exist.
+void sh_ios_worker_paused(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sceneActive && !audioInterrupted) {
+            NSError *error = nil;
+            if (![AVAudioSession.sharedInstance setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:&error]) {
+                printf("IOS_AUDIO deactivate failed: %s\n", error.localizedDescription.UTF8String);
+            }
+        }
+        if (pauseTask != UIBackgroundTaskInvalid) {
+            [UIApplication.sharedApplication endBackgroundTask:pauseTask];
+            pauseTask = UIBackgroundTaskInvalid;
+        }
+        printf("IOS_LIFECYCLE pause acknowledged\n"); fflush(stdout);
     });
 }
 
@@ -199,7 +295,11 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
         CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
         CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
         CGImageRef image = CGImageCreate(w, h, 8, 32, (size_t)w * 4, color, kCGBitmapByteOrderDefault | kCGImageAlphaLast, provider, NULL, false, kCGRenderingIntentDefault);
-        if (image) { controller.game.image = [UIImage imageWithCGImage:image]; CGImageRelease(image); }
+        if (image) {
+            controller.game.image = [UIImage imageWithCGImage:image]; CGImageRelease(image);
+            static BOOL first = YES;
+            if (first) { first = NO; printf("IOS_PRESENT UIImage installed %ux%u\n", w, h); fflush(stdout); }
+        }
         CGDataProviderRelease(provider); CGColorSpaceRelease(color);
     });
     }
@@ -211,6 +311,27 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
 @property(nonatomic, strong) UIWindow *window;
 @end
 @implementation SHDelegate
+- (void)audioInterruption:(NSNotification *)notification {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSUInteger type = [notification.userInfo[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
+        if (type == AVAudioSessionInterruptionTypeBegan) {
+            audioInterrupted = YES;
+            sh_ios_interrupted(true);
+        } else {
+            NSUInteger options = [notification.userInfo[AVAudioSessionInterruptionOptionKey] unsignedIntegerValue];
+            if (options & AVAudioSessionInterruptionOptionShouldResume) {
+                audioInterrupted = NO;
+                sh_ios_interrupted(false);
+            } else { printf("IOS_AUDIO interruption ended; waiting for manual foreground\n"); }
+        }
+    });
+}
+- (void)audioRoute:(NSNotification *)notification {
+    printf("IOS_AUDIO notification=%s\n", notification.name.UTF8String); fflush(stdout);
+    if ([notification.name isEqualToString:AVAudioSessionRouteChangeNotification] &&
+        [notification.userInfo[AVAudioSessionRouteChangeReasonKey] unsignedIntegerValue] == AVAudioSessionRouteChangeReasonCategoryChange) { return; }
+    sh_ios_audio_route_changed();
+}
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
     (void)application; (void)options;
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -236,6 +357,10 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
     if (![audio setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault options:0 error:&error] || ![audio setActive:YES error:&error]) {
         printf("Audio session setup failed\n");
     }
+    NSNotificationCenter *notifications = NSNotificationCenter.defaultCenter;
+    [notifications addObserver:self selector:@selector(audioInterruption:) name:AVAudioSessionInterruptionNotification object:nil];
+    [notifications addObserver:self selector:@selector(audioRoute:) name:AVAudioSessionRouteChangeNotification object:nil];
+    [notifications addObserver:self selector:@selector(audioRoute:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
     importQueue = dispatch_queue_create("com.bramley.silenthillport.import", DISPATCH_QUEUE_SERIAL);
     return YES;
 }
@@ -256,6 +381,8 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
     self.window.rootViewController = controller;
     [self.window makeKeyAndVisible];
     sh_ios_initialize(documentsURL.fileSystemRepresentation, supportURL.fileSystemRepresentation);
+    [controller.view setNeedsLayout];
+    [controller.view layoutIfNeeded];
     for (UIOpenURLContext *context in options.URLContexts) {
         if (context.URL.isFileURL) { [controller importURL:context.URL]; break; }
     }
@@ -266,8 +393,28 @@ void sh_ios_frame(const uint8_t *rgba, uint32_t width, uint32_t height) {
         if (context.URL.isFileURL) { [controller importURL:context.URL]; break; }
     }
 }
-- (void)sceneWillResignActive:(UIScene *)scene { (void)scene; sh_ios_active(false); }
-- (void)sceneDidBecomeActive:(UIScene *)scene { (void)scene; sh_ios_active(true); }
+- (void)sceneWillResignActive:(UIScene *)scene {
+    (void)scene; sceneActive = NO;
+    [controller.game.contacts removeAllObjects];
+    if (pauseTask == UIBackgroundTaskInvalid) {
+        pauseTask = [UIApplication.sharedApplication beginBackgroundTaskWithName:@"Finish current native save/tick" expirationHandler:^{
+            printf("IOS_LIFECYCLE pause deadline expired\n"); fflush(stdout);
+            if (pauseTask != UIBackgroundTaskInvalid) {
+                [UIApplication.sharedApplication endBackgroundTask:pauseTask];
+                pauseTask = UIBackgroundTaskInvalid;
+            }
+        }];
+    }
+    sh_ios_active(false);
+    if (!controller.playing) { sh_ios_worker_paused(); }
+}
+- (void)sceneDidBecomeActive:(UIScene *)scene {
+    (void)scene; sceneActive = YES;
+    // Explicit foreground is the player's resume after a non-resuming call.
+    audioInterrupted = NO; sh_ios_interrupted(false);
+    sh_ios_active(true);
+    [controller.view setNeedsLayout];
+}
 @end
 
 void sh_ios_application_main(void) {

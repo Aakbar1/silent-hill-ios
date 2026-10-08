@@ -5,10 +5,25 @@ import unittest
 import zipfile
 
 from package import EXE, NAME, archive, metadata, validate_ipa
-from simulator import choose_device
+from simulator import choose_device, verify_smoke_log
 
 
 class PipelineTests(unittest.TestCase):
+    def test_synthetic_requires_accelerated_audio_callbacks_and_all_checks(self):
+        good = "\n".join([
+            "IOS_GPU probe scale=3 samples=4 mean_ms=4.000 max_ms=5.000",
+            "IOS_GPU selected=wgpu backend=Metal scale=3 stats=false wide=false",
+            "IOS_PRESENT UIImage installed 960x672",
+            "IOS_AUDIO SpuCpal initialized with real device output",
+            "IOS_SMOKE PASS rendered=90 audio_frames=66150 audio_callbacks=100 touch=PASS saves=PASS",
+        ])
+        verify_smoke_log(good)
+        for bad in (good + "\nfallback=Raster", good.replace("audio_callbacks=100", "audio_callbacks=0"),
+                    good.replace("touch=PASS", "touch=FAIL"), good.replace("scale=3", "scale=4"),
+                    good.replace("max_ms=5.000", "max_ms=13.000"), good.replace("IOS_GPU probe", "missing measurement"),
+                    good.replace("IOS_PRESENT UIImage installed", "never presented")):
+            with self.subTest(log=bad), self.assertRaises(AssertionError):
+                verify_smoke_log(bad)
     def test_simulator_chooses_latest_available_iphone(self):
         def phone(name, udid, available=True):
             return {"name": name, "udid": udid, "isAvailable": available}
