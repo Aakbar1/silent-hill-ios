@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
+unsafe extern "C" {
+    fn port_run_maps_warp(map: u32, spawn: u32) -> i32;
+}
 use crate::{
     asset_store::{AssetInfo, AssetKind, AssetStore, NativeSpan},
     backend::{GpuBackend, SpuBackend},
@@ -1008,6 +1011,7 @@ pub struct Backends {
 #[derive(Default)]
 pub struct ReplayCheck {
     pub world_probe: bool,
+    pub warp: Option<crate::maps::DebugWarp>,
     pub min_lit_pixels: usize,
     pub option_entry: Option<i32>,
     pub menu_state: Option<i32>,
@@ -1055,7 +1059,9 @@ pub fn run_headless(
     });
     // SAFETY: Headless mode is the sole C worker; jumps cross only C stack frames.
     let code = unsafe {
-        if check.world_probe {
+        if let Some(warp) = check.warp {
+            port_run_maps_warp(warp.map, warp.spawn)
+        } else if check.world_probe {
             port_run_world_probe()
         } else {
             port_run_game()
@@ -1094,6 +1100,19 @@ pub fn run_headless(
             pixels.iter().filter(|p| **p != 0).count()
         });
         println!("VISIBLE lit_pixels={lit}");
+        if check.warp.is_some() {
+            let colors = h.last_frame.as_ref().map_or(0, |(_, _, pixels)| {
+                pixels
+                    .iter()
+                    .copied()
+                    .collect::<std::collections::HashSet<_>>()
+                    .len()
+            });
+            println!(
+                "MAP_WARP_FRAME colors={colors} primitives={}",
+                h.gpu.primitives()
+            );
+        }
         if let Some(error) = h.error.take() {
             return Err(error);
         }
@@ -1103,7 +1122,7 @@ pub fn run_headless(
                 h.frames
             ));
         }
-        if !check.world_probe && h.frames != limit {
+        if !check.world_probe && check.warp.is_none() && h.frames != limit {
             return Err(format!("completed {} of {limit} ticks", h.frames));
         }
         if check.state.is_some_and(|state| state != h.state)

@@ -27,6 +27,7 @@ fn fixed_long(text: &str) -> String {
 
 fn main() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    maps_rust_catalog(&repo);
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
         // PORT: Extend the existing worker inside its module without editing the
         // parallel core lane. No copied game bytes or alternate game logic.
@@ -311,6 +312,25 @@ fn main() {
         inner: build,
         generated: generated.clone(),
     };
+    // PORT: Maps owns the registry and generated descriptor units; MAP0_S00
+    // remains registered below and its callback bodies stay with events.
+    for path in ["port/maps_registry.h", "port/maps_runtime.c"] {
+        println!("cargo:rerun-if-changed={}", repo.join(path).display());
+    }
+    build.file(repo.join("port/maps_runtime.c"));
+    build.file(generated.join("maps_registry.c"));
+    build.file(generated.join("maps_ground.c"));
+    for entry in fs::read_dir(&generated).expect("native map units") {
+        let path = entry.expect("native map unit").path();
+        let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        if name.starts_with("map")
+            && name.ends_with(".c")
+            && name.as_bytes().get(4) == Some(&b'_')
+            && name != "map0_s00.c"
+        {
+            build.file(path);
+        }
+    }
     build
         // PORT: Self-contained audio units and caller-definition adapters.
         .file(generated.join("audio_driver.c"))
@@ -844,6 +864,10 @@ impl AudioBuild {
     fn file(&mut self, path: impl AsRef<Path>) -> &mut Self {
         let path = path.as_ref();
         let name = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
+        if path.parent().is_some_and(|p| p.ends_with("port")) && name == "map.c" {
+            self.inner.file(self.generated.join("maps_base.c"));
+            return self;
+        }
         if path.parent().is_some_and(|p| p.ends_with("port"))
             && [
                 "runtime.c",
@@ -913,4 +937,30 @@ fn move_render_milestone(out: &Path) {
         text = text.replace(before, after);
     }
     fs::write(path, text).expect("move static rendering milestone");
+}
+
+// PORT: The Rust-only iOS check returns before C preparation. Generate the
+// data-free warp catalog there too, from the same pinned source directory.
+fn maps_rust_catalog(repo: &Path) {
+    let decomp = std::env::var_os("SH_DECOMP_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| repo.join("game/decomp"));
+    let mut names = Vec::new();
+    for entry in fs::read_dir(decomp.join("src/maps")).expect("map source inventory") {
+        let path = entry.expect("map source directory").path();
+        let name = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
+        if path.join(format!("{name}_header.c")).is_file() {
+            names.push(name.to_uppercase());
+        }
+    }
+    names.sort();
+    assert_eq!(names.len(), 43, "pinned map source inventory");
+    let out =
+        PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("native-source");
+    fs::create_dir_all(&out).expect("map Rust source directory");
+    fs::write(
+        out.join("maps_catalog.rs"),
+        format!("pub const MAP_NAMES: [&str; 43] = {names:?};\n"),
+    )
+    .expect("map Rust catalog");
 }
