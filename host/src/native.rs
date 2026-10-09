@@ -452,7 +452,7 @@ unsafe extern "C" fn port_player_map_anim_load(
     host(|h| {
         let result = (|| {
             let entry = h.disc.entry(id).map_err(|e| e.to_string())?;
-            if entry.name != "HB_M0S00.ANM" {
+            if !crate::maps::is_player_map_fragment(&entry.name) {
                 return Err("map animation fragment identity is not linked".to_owned());
             }
             let base = h

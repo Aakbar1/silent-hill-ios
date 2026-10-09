@@ -348,8 +348,7 @@ mod tests {
     }
     #[test]
     fn owned_opening_chunks_run_native_c_graph_consumer() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/disc/Silent Hill (USA).bin");
+        let path = crate::default_disc_path();
         if !path.exists() {
             return;
         }
@@ -391,8 +390,7 @@ mod tests {
     }
     #[test]
     fn owned_map_frame_blocks_patch_a_stable_player_arena() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/disc/Silent Hill (USA).bin");
+        let path = crate::default_disc_path();
         if !path.exists() {
             return;
         }
@@ -629,8 +627,7 @@ mod warp_tests {
         crate::spu_cpal::configure(crate::spu_cpal::AudioMode::parse("off").unwrap()).unwrap();
         crate::gpu_wgpu::configure(crate::gpu_wgpu::Options::default()).unwrap();
         let screenshot = (std::env::var("SH_MAP_CAPTURE").as_deref() == Ok("1")).then(|| {
-            let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../private/work/objects");
+            let directory = crate::default_private_work().join("objects");
             std::fs::create_dir_all(&directory).unwrap();
             directory.join(format!(
                 "{}-{}.png",

@@ -473,8 +473,7 @@ impl SpuBackend for SpuCpal {
 }
 
 fn check_recording_path(path: &Path) -> Result<(), String> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../private/work")
+    let root = crate::default_private_work()
         .canonicalize()
         .map_err(|e| format!("private audio directory: {e}"))?;
     let parent = path

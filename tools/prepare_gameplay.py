@@ -291,8 +291,8 @@ def prepare_transit_services(decomp, out):
     effects=read('src/bodyprog/gfx/bodyprog_effects_8005E0DC.c')
     code+='\n/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n'
     code+=enumeration(read('include/bodyprog/bodyprog.h'),'EffectTextureFlags')
-    for name in ['D_800A9084','D_800A908C','D_800A9094']:
-        code+=initializer(read('src/bodyprog/screen/screen_data.c'),name)
+    # PORT: fight's player_effects.c (tools/prepare_fight.py) owns D_800A9084/8C/94 and
+    # Map_EffectTexturesLoad (with a bounds-checked native buffer); don't emit a second copy.
     body=function(effects,'Map_EffectTexturesLoad')
     body=re.sub(r'    static s16 __pad_bss_800C42DA\[7\];\n','',body)
     # PORT: Queue consumers own decoded TIMs; no fixed FONT24 arena arithmetic.
@@ -300,7 +300,6 @@ def prepare_transit_services(decomp, out):
     body=body.replace('if (gte_IsDisabled())', 'if (false) // PORT: Native GTE has no disabled coprocessor state.')
     body=body.replace('loadedEffectTextureFlags |= 1 << i;', 'loadedEffectTextureFlags = (u16)(loadedEffectTextureFlags | (1u << i));')
     body=body[:-2]+'    (void)loadedEffectTextureFlags;\n}\n'
-    code+=body
     code+='extern s_FsImageDesc g_LoadingScreenImg;\nvoid Screen_BackgroundImgDraw(s_FsImageDesc*);\n'
     code+=function(read('src/bodyprog/game_boot/load_screen.c'),'GameBoot_LoadScreen_BackgroundImg')
     items=read('src/bodyprog/items/item_screens_2.c')

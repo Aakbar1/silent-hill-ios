@@ -587,8 +587,7 @@ mod tests {
     #[test]
     fn owned_player_assets_decode_and_run_original_consumers() {
         let _lock = CONSUMERS.lock().unwrap();
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/disc/Silent Hill (USA).bin");
+        let path = crate::default_disc_path();
         if !path.exists() {
             return;
         }

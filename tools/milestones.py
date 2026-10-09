@@ -1,5 +1,11 @@
 """Headless milestone gate. Logs and screenshots always stay outside the repo."""
 from pathlib import Path
+
+
+def project_root(repo):
+    """Directory holding private/ (works from the main checkout and from worktrees)."""
+    return next((p for p in repo.parents if (p / 'private').is_dir()), repo.parent.parent)
+
 from datetime import datetime, timezone
 import argparse
 import hashlib
@@ -33,14 +39,14 @@ def main():
         if unknown:
             raise SystemExit("unknown milestones: " + ", ".join(sorted(unknown)))
         cases = [case for case in cases if case["name"] in args.only]
-    private = root.parent.parent / "private/work/core5"
+    private = project_root(root) / "private/work/core5"
     # PORT: Lane workers can keep all replay captures in their own private tree.
     import os
     lane = os.environ.get("SH_MILESTONE_LANE")
     if lane:
         if lane not in ("player","move","events","transit"):
             raise SystemExit("unsupported private milestone lane")
-        private = root.parent.parent / ("private/work/"+lane)
+        private = project_root(root) / ("private/work/"+lane)
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     executable = root / "target/release/silent-hill-boot.exe"
@@ -171,7 +177,7 @@ def first_map_main():
     root = Path(__file__).resolve().parents[1]
     lane=os.environ.get('SH_MILESTONE_LANE','move')
     if lane not in ('player','move','events','transit'):raise SystemExit('unsupported private milestone lane')
-    output = root.parent.parent / f"private/work/{lane}/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    output = project_root(root) / f"private/work/{lane}/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     command = [str(root/"target/release/silent-hill-boot.exe"),"--headless","--audio","off","--frames","3720","--input",str(root/"docs/core/replays/first_map.txt"),"--expect-state","11"]
     command += ["--scale",str(args.scale)]
@@ -299,7 +305,7 @@ def events_main():
     frames=11000
     lane=os.environ.get('SH_MILESTONE_LANE','transit' if args.opening_noskip else 'events')
     if lane not in ('events','transit'):raise SystemExit('unsupported private events milestone lane')
-    output=root.parent.parent/f'private/work/{lane}/milestones'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    output=project_root(root)/f'private/work/{lane}/milestones'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     output.mkdir(parents=True)
     command=[str(root/'target/release/silent-hill-boot.exe'),'--headless','--audio','off','--scale',str(args.scale),'--frames',str(frames),'--input',str(root/'docs/core/replays'/f'{name}.txt'),'--expect-state','11']
     if args.disc:command+=['--disc',str(args.disc.resolve())]

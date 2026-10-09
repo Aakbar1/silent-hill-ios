@@ -18,8 +18,7 @@ struct Options {
 
 fn options() -> Result<Options, String> {
     let mut result = Options {
-        disc: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/disc/Silent Hill (USA).bin"),
+        disc: silent_hill_boot::default_disc_path(),
         inspect: false,
         inspect_assets: false,
         frames: None,
@@ -207,8 +206,7 @@ fn run() -> Result<(), String> {
         );
     }
     if let Some(path) = &options.screenshot {
-        let private_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../private/work")
+        let private_root = silent_hill_boot::default_private_work()
             .canonicalize()
             .map_err(|e| format!("private output directory: {e}"))?;
         let parent = path
