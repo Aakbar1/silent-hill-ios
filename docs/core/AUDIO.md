@@ -1,3 +1,14 @@
+# Story positional-audio checkpoint - 9 October 2026
+
+The original falloff/pitch helper now drives libsd voice-attribute updates and
+real SPU registers through the no-skip opening. The wheel's observed attenuation
+changes with movement, including silent cutoff and nonzero voice volumes.
+The checked mixed PCM window has no output rails. See [STORY.md](replays/STORY.md)
+and `private/work/story/enemy-load-audio.json`; no isolated-wheel, nonzero wheel
+pitch (the original call passes zero), perceptual or PS1 parity claim is made.
+
+---
+
 # Audio lane checkpoint
 
 Original libsd (`smf_main`, `smf_mid`, `smf_io`, `smf_snd`), the complete `sd_call` task/voice/bank driver, its sound tables, and the BGM layer controller are linked. `Bgm_Update(false)` now executes the original MAP0_S00 callback and layer logic. The next measured guard is **World_NearbyPlayerCollisionTriggersGet/native nearby trigger classification**, state **11 / step 2 / VBlank 2274**, before camera/player updates. The host's final CHECK shows step 0, the last presented frame. Movement is not established.

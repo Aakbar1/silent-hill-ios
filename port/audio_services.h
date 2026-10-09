@@ -16,6 +16,7 @@ void audio_timer_stop(void);
 void audio_timer_enable(bool enabled);
 void audio_clock_vblank(void);
 void audio_trace(const char* event,s32 value);
+void audio_positional_trace(s32 id,s32 voice,s32 pan,s32 attenuation,s32 pitch);
 void EnterCriticalSection(void);
 void ExitCriticalSection(void);
 u8 audio_sfx_play(u16 sfxId,q0_7 balance,q0_8 vol);

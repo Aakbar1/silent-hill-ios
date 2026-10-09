@@ -1,3 +1,16 @@
+# Story combat checkpoint - 9 October 2026
+
+The no-skip original alley encounter now runs through real Stalker AI, attacks,
+Harry damage and normal grabs. A clean 19650-frame replay records 16 production
+hits and HP loss from 100 to 43.4. All enemies remain at 350 HP; there is no
+Harry-to-enemy damage or kill. `tools/check_fight.py --run` correctly fails its
+unchanged kill requirement. No fixture/warp/equipment grant establishes this
+result. See [story checkpoint](../core/replays/STORY.md) and its private capture.
+The original unequipped opening differs from the first armed/winnable fight;
+the requested alley win needs clarification. Static warp gameplay is unchanged.
+
+---
+
 # Fight lane checkpoint
 
 **The full brief is not passed: goal 5 remains blocked.** Effects and weapon

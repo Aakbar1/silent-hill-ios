@@ -1,3 +1,14 @@
+# Story checkpoint - 9 October 2026
+
+The no-skip story reaches active alley combat at VBlank 19650 without a guard.
+Harry takes real damage (100 to 43.4 HP; 16 production hits), while the three
+Grey Children retain 350 HP each. The requested enemy kill is not demonstrated;
+the original scene leaves Harry unequipped. See [STORY.md](replays/STORY.md)
+for the source constraints, private screenshot, reproduction and validation.
+The existing 11000-frame opening milestone and movement gates remain green.
+
+---
+
 # Transit checkpoint - 9 October 2026
 
 The no-skip opening now passes the first alley gate through the original room

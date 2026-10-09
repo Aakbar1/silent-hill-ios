@@ -15,7 +15,9 @@ int sh_save_init_probe(void) {
     memcpy(&difficulty,(const u8*)g_SavegamePtr+0x260,4);
     return difficulty==0x10000000u;
 }
-void Game_TimerUpdate(void) {port_unimplemented("Game_TimerUpdate/native gameplay work");}
+// PORT: Menus/dialogue share the same original timer implementation as gameplay.
+void port_move_game_timer_update(void);
+void Game_TimerUpdate(void) {port_move_game_timer_update();}
 void Game_RadioSoundStop(void) {port_unimplemented("Game_RadioSoundStop/native audio tasks");}
 void Bgm_MenuUpdate(void) {port_unimplemented("Bgm_MenuUpdate/native audio tasks");}
 // PORT: Menu audio remains logged until the game-owned libsd tasks are linked.

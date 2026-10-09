@@ -257,10 +257,7 @@ static void WorldObjects_Add(s_WorldObjectModel* model,VECTOR3* pos,SVECTOR3* ro
     // PORT: No-draw object bridge for the world lane. Original wheel state still advances.
     (void)model;(void)pos;(void)rot;
 }
-static void Sfx_WithFalloffAndPitchPlay(s32 id,VECTOR3* pos,s32 volume,s32 distance,s32 pitch) {
-    (void)id;(void)pos;(void)volume;(void)distance;(void)pitch;
-    port_unimplemented("map0_s00/wheel positional SFX");
-}
+void Sfx_WithFalloffAndPitchPlay(e_SfxId,VECTOR3*,s32,q19_12,s8);
 '''
     for name in ['func_800DC33C','func_800DC694','func_800DC8D8','func_800DCA30','func_800DCC54','func_800DD0CC']:
         helpers += f'static void {name}(void) {{port_unimplemented("map0_s00/{name}");}}\n'

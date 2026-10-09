@@ -6,6 +6,13 @@ void audio_trace(const char* event,s32 value) {
     if(port_audio_trace_enabled())printf("AUDIO %s value=%d ctrl=%x main=%x,%x cd=%x,%x\n",event,value,
         port_spu_read(0x1aa),port_spu_read(0x180),port_spu_read(0x182),port_spu_read(0x1b0),port_spu_read(0x1b2));
 }
+// PORT: Observe real voice-register writes; this diagnostic changes no sound state.
+void audio_positional_trace(s32 id,s32 voice,s32 pan,s32 attenuation,s32 pitch) {
+    if(port_audio_trace_enabled() && id==1358)
+        printf("POSITIONAL_SFX tick=%d id=%d voice=%d pan=%d attenuation=%d pitch=%d left=%u right=%u spu_pitch=%u\n",
+            VSync(-1),id,voice,pan,attenuation,pitch,
+            port_spu_read((u16)(voice*16)),port_spu_read((u16)(voice*16+2)),port_spu_read((u16)(voice*16+4)));
+}
 _Alignas(8) u8 audio_cd_buffer[0x10000],audio_vab_headers[4][0x10000],audio_kdt_buffer[0x10000];
 s32 g_RadioPitchState;
 s_BgmLayerLimits audio_map0_limits;

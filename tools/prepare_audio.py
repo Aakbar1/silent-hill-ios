@@ -369,6 +369,9 @@ def prepare(decomp, out):
             adapted=adapted.replace(before,after)
         code=code.replace(body,adapted)
     code += '\nvoid Sd_SfxPlay(s32 id,s32 pan,s32 vol) { (void)audio_sfx_play((u16)id,(q0_7)pan,(q0_8)vol); }\n'
+    body=function(code,'Sd_SfxAttributesUpdate')
+    code=code.replace(body,body.replace('    SpuSetVoiceAttr(&attr);',
+        '    SpuSetVoiceAttr(&attr);\n    audio_positional_trace(sfxId,voiceIdx,balance,vol,pitch);'))
     code += '''
 // PORT: Audio-only regression fixture for upstream enum-bool task storage.
 // Restore every touched controller field; never substitute a gameplay update.

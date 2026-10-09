@@ -44,7 +44,7 @@ def main():
     import os
     lane = os.environ.get("SH_MILESTONE_LANE")
     if lane:
-        if lane not in ("player","move","events","transit"):
+        if lane not in ("player","move","events","transit","story"):
             raise SystemExit("unsupported private milestone lane")
         private = project_root(root) / ("private/work/"+lane)
     output = private / "milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -176,7 +176,7 @@ def first_map_main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     lane=os.environ.get('SH_MILESTONE_LANE','move')
-    if lane not in ('player','move','events','transit'):raise SystemExit('unsupported private milestone lane')
+    if lane not in ('player','move','events','transit','story'):raise SystemExit('unsupported private milestone lane')
     output = project_root(root) / f"private/work/{lane}/milestones" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     command = [str(root/"target/release/silent-hill-boot.exe"),"--headless","--audio","off","--frames","3720","--input",str(root/"docs/core/replays/first_map.txt"),"--expect-state","11"]
@@ -304,7 +304,7 @@ def events_main():
     name='opening_noskip' if args.opening_noskip else 'first_area_combat'
     frames=11000
     lane=os.environ.get('SH_MILESTONE_LANE','transit' if args.opening_noskip else 'events')
-    if lane not in ('events','transit'):raise SystemExit('unsupported private events milestone lane')
+    if lane not in ('events','transit','story'):raise SystemExit('unsupported private events milestone lane')
     output=project_root(root)/f'private/work/{lane}/milestones'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     output.mkdir(parents=True)
     command=[str(root/'target/release/silent-hill-boot.exe'),'--headless','--audio','off','--scale',str(args.scale),'--frames',str(frames),'--input',str(root/'docs/core/replays'/f'{name}.txt'),'--expect-state','11']
