@@ -61,7 +61,9 @@ mod render_milestone {
             .expect("private root");
         let disc = GameDisc::open(private.join("disc/Silent Hill (USA).bin"))
             .expect("verified owned disc");
-        let directory = if std::env::var("SH_RENDER_TEST_LANE").as_deref() == Ok("street") {
+        let directory = if std::env::var("SH_RENDER_TEST_LANE").as_deref() == Ok("story") {
+            private.join("work/story")
+        } else if std::env::var("SH_RENDER_TEST_LANE").as_deref() == Ok("street") {
             private.join("work/street")
         } else {
             private.join("work/world")
@@ -159,7 +161,9 @@ mod render_milestone {
             .expect("private root");
         let disc = GameDisc::open(private.join("disc/Silent Hill (USA).bin"))
             .expect("verified owned disc");
-        let directory = private.join("work/street");
+        let directory = if std::env::var("SH_RENDER_TEST_LANE").as_deref() == Ok("story") {
+            private.join("work/story")
+        } else { private.join("work/street") };
         std::fs::create_dir_all(&directory).expect("private captures");
         let replay = ReplayPad::parse(
             &std::fs::read_to_string(root.join("docs/core/replays/first_map.txt"))

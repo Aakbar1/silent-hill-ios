@@ -1,3 +1,12 @@
+# Story map checkpoint - 9 October 2026
+
+MAP0_S00 now reaches active alley combat through the original no-skip route,
+with real Harry damage and a clean VBlank-19650 endpoint. No enemy kill is
+claimed. See [STORY.md](replays/STORY.md). The all-43 static warp inventory below
+is historical and unchanged; static warp still does not execute gameplay.
+
+---
+
 # Transit map checkpoint - 9 October 2026
 
 **43/43 overlays activate; 42/43 finish object initialization; 15/43 pass

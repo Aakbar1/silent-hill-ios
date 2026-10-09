@@ -786,8 +786,22 @@ def prepare_player_movement(decomp, out):
             code=code.replace('s_Model**     models;', '/* PORT: Remove a match-only uninitialized read whose body adds zero. */')
             code=re.sub(r'if \(\(\*models\) != NULL\).*?\{\s*g_Player_HeadingAngle \+= Q12_ANGLE\(0.0f\);\s*}', '',code,flags=re.S)
             code=code.replace('if (ABS(headingAngle0) <','// PORT: This reference grab branch reads an undefined angle before computing it.\n            port_unimplemented("Player_LogicUpdate/Romper grab undefined reference angle");\n            if (ABS(headingAngle0) <')
-            # The switch handles exactly these original states; reject any other state.
-            code=code.replace('                    break;\n            }\n\n            g_Player_HeadingAngle = headingAngle1;', '                    break;\n                default: port_unimplemented("Player_LogicUpdate/pinned grab state");\n            }\n\n            g_Player_HeadingAngle = headingAngle1;')
+            # PORT: The second switch only refines pinned grabs. Ordinary grabs
+            # already computed headingAngle1 in the preceding switch, so their
+            # original fall-through must retain that result. Other states still
+            # stop at the existing unresolved boundary.
+            code=code.replace('                    break;\n            }\n\n            g_Player_HeadingAngle = headingAngle1;', '''                    break;
+                case PlayerState_EnemyGrabTorsoFront:
+                case PlayerState_EnemyGrabTorsoBack:
+                case PlayerState_EnemyGrabLegsFront:
+                case PlayerState_EnemyGrabLegsBack:
+                case PlayerState_EnemyGrabNeckFront:
+                case PlayerState_EnemyGrabNeckBack:
+                    break;
+                default: port_unimplemented("Player_LogicUpdate/pinned grab state");
+            }
+
+            g_Player_HeadingAngle = headingAngle1;''')
         if name=='Player_PositionUpdate':code=code.replace('VECTOR3            sp30;', 'VECTOR3            sp30={0}; // PORT: Only the school boss branch consumes this copied offset.')
         if name=='Player_CombatUpdate':
             code=re.sub(r'VECTOR\*\s+(attackPos[012])',r'VECTOR3* \1',code)
@@ -945,11 +959,14 @@ void port_move_attack_tables_ensure(void) {
     sound_source+='void Sfx_WithFlagsAndPitchPlay(e_SfxId,const VECTOR3*,q23_8,s32,s32);\n'
     # PORT: Positional callers use audio's real driver.
     sound_source+='void Sd_SfxWithPitchPlay(u16,s8,u8,s8);\nvoid Sd_SfxAttributesUpdate(u16,s8,u8,s8);\n'
-    for name in ['Math_Pow2Neg','Math_Pow2NegClamped','Sfx_DistanceAttenuatedVolumeGet','Sfx_WithFlagsPlay','Sfx_WithFlagsAndPitchPlay','Sfx_WithPitchPlay']:
+    for name in ['Math_Pow2Neg','Math_Pow2NegClamped','Sfx_DistanceAttenuatedVolumeGet','Sfx_WithFlagsPlay','Sfx_WithFlagsAndPitchPlay','Sfx_WithPitchPlay','AttenuationCalc','Sfx_WithFalloffAndPitchPlay']:
         code=function(sfx,name)
         code=code.replace('Sd_SfxWithPitchPlay(sfxId, balance, ~adjVol, pitch);','Sd_SfxWithPitchPlay((u16)sfxId,(s8)balance,(u8)~adjVol,(s8)pitch);')
         code=code.replace('Sd_SfxWithPitchPlay(sfxId, balance, ~volCpy, pitch);','Sd_SfxWithPitchPlay((u16)sfxId,(s8)balance,(u8)~volCpy,pitch);')
         code=code.replace('Sd_SfxAttributesUpdate(sfxId, balance, ~adjVol, pitch);','Sd_SfxAttributesUpdate((u16)sfxId,(s8)balance,(u8)~adjVol,(s8)pitch);')
+        # PORT: Preserve PS1 byte narrowing and the original attribute-update path.
+        code=code.replace('atten1 = AttenuationCalc(vol, pos, falloff) - (vol + 1);','atten1 = (u8)(AttenuationCalc(vol, pos, falloff) - (vol + 1));')
+        code=code.replace('Sd_SfxAttributesUpdate(sfxId, balance, adjVol, pitch);','Sd_SfxAttributesUpdate((u16)sfxId,(s8)balance,(u8)adjVol,pitch);')
         sound_source+=code
     (out/'player_sfx.c').write_text(sound_source,encoding='utf-8')
 
@@ -1186,7 +1203,7 @@ def prepare_player_events(decomp,out):
     source='/* SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 shdecompilations. */\n#include "native_player_events.h"\n'
     source+='static VECTOR3 g_Event_PathWaypoints[2][8];static q3_12 g_Event_PathWaypointHeadingAngles[8];static q19_12 g_Event_TweenTimers[6];\n'
     source+='void port_events_helpers_reset(void){memset(g_Event_PathWaypoints,0,sizeof(g_Event_PathWaypoints));memset(g_Event_PathWaypointHeadingAngles,0,sizeof(g_Event_PathWaypointHeadingAngles));memset(g_Event_TweenTimers,0,sizeof(g_Event_TweenTimers));}\n'
-    for name in ['Event_SysStateStepIncrement','Event_SysStateStepSet','Event_WaitTimer','Event_CharaAnimCmdExecute','Event_ScreenFadeCmd','Event_DisplayMapMsg','Event_WaitPlayerStop','Event_PathWaypointSet','Event_PathWaypointExecutePlayer','Event_PathWaypointExecuteChara','Event_PathWaypointExecuteCharaNoWait','Event_TweenReset','Event_TweenLinear','Event_CameraPositionSet','Event_CameraLookAtSet','Event_DisplayMapMsgWithAudio']:
+    for name in ['Event_SysStateStepIncrement','Event_SysStateStepSet','Event_SysStateBranchOnFlag','Event_WaitTimer','Event_CharaAnimCmdExecute','Event_ScreenFadeCmd','Event_DisplayMapMsg','Event_WaitPlayerStop','Event_PathWaypointSet','Event_PathWaypointExecutePlayer','Event_PathWaypointExecuteChara','Event_PathWaypointExecuteCharaNoWait','Event_TweenReset','Event_TweenLinear','Event_CameraPositionSet','Event_CameraLookAtSet','Event_DisplayMapMsgWithAudio']:
         code=function(original,name)
         from prepare_camera import narrow
         code=narrow(code,read('include/bodyprog/view/structs.h'))
@@ -1349,6 +1366,75 @@ def extend_event_maps(decomp,out):
     prepare_events_combat(decomp,out)
     prepare_events_npcs(decomp,out)
     prepare_transit_opening(decomp,out)
+    prepare_story_alley(decomp,out)
+
+
+def prepare_story_alley(decomp,out):
+    """Original darkness event reached by the second-door no-skip replay."""
+    from prepare_camera import narrow
+    path=out/'map0_s00.c'
+    code=path.read_text(encoding='utf-8')
+    source=(decomp/'src/maps/map0_s00/map0_s00_2.c').read_text(encoding='utf-8')
+    player=(decomp/'src/maps/characters/player.c').read_text(encoding='utf-8')
+    fields={'D_800DFB5C':'q19_12','D_800DFB60':'u8','D_800DFB40':'s32','D_800DFB44':'s_800DFB44','D_800DFB48':'s_800DFB48','D_800DFACC':'s32','D_800DFB61':'u8','D_800DFAC8':'u16'}
+    definitions=(decomp/'include/maps/map0/map0_s00.h').read_text(encoding='utf-8')
+    records=between(definitions,'typedef struct\n{\n    s16   field_0;', 'typedef struct\n{\n    s32 field_0;')
+    head='#include "npc_startup.h"\n#include "render_gte.h"\n'+records+''.join(f'#define {n} sh_map0_s00_{n}\nstatic {t} {n}'+('[2]' if n=='D_800DFAC8' else '')+';\n' for n,t in fields.items())
+    extra='\nvoid GameFs_FlameGfxLoad(void);\n'
+    extra+=between((decomp/'include/bodyprog/player.h').read_text(encoding='utf-8'),'#define Player_AnimFlagsClear', '/** @brief Resets the player character')
+    # PORT: VECTOR/VECTOR3 positions are 32-bit. Short rotation fields sharing
+    # vx/vy/vz names cannot determine the width of these camera coordinates.
+    view=re.sub(r'\b(?:s16|s32|q3_12|q4_12)\s+(?:vx|vy|vz)\s*;', '',(out/'native_gameplay_records.h').read_text(encoding='utf-8'))
+    for name,original in [('Player_CutsceneWeaponUnequip',player),('Player_AnimPlaybackStateGet',player),('Player_AnimLock',player),('Player_AnimUnlock',player),('Player_AnimIsLocked',player),('MapEven_CutsceneAlleyGetsDarker',source),('func_800DD0CC',source),('MapEvent_CutsceneAlleyNightmare',source)]:
+        body=narrow(function(original,name),view)
+        body=body.replace('SysWork_StateSetNext(', 'port_move_state_next(')
+        if name=='Player_AnimPlaybackStateGet':
+            # PORT: Case 7 falls through to the wait before the scheduled player
+            # update assigns its map animation. A base animation has no map row;
+            # report invalid playback and keep waiting, never read preceding rodata.
+            # Above-table statuses remain fatal rather than completing the wait.
+            body=body.replace('    model    = &g_SysWork.playerWork.player.model;',
+                '    model    = &g_SysWork.playerWork.player.model;\n    // PORT: A base animation keeps the wait pending until the scheduled update assigns a map row.\n    s32 index=model->anim.status-ANIM_STATUS(38,false);\n    if(index<0)return AnimPlaybackState_Invalid;\n    if((size_t)index>=ARRAY_SIZE(HARRY_M0S00_ANIM_INFOS))port_unimplemented("map0_s00/player animation playback index");')
+        if name=='MapEven_CutsceneAlleyGetsDarker':
+            # PORT: Upstream has an unreachable duplicate after case 6's break.
+            # The reachable identical load at the end of the function is retained.
+            dead='''            if (Fs_QueueChunksLoad())
+            {
+                D_800DFB60++;
+                Chara_Load(1, ENEMY_CHARA_ID, &g_SysWork.npcBoneCoordBuffer[0], 0, NULL, NULL);
+            }
+'''
+            if body.count(dead)!=1:raise ValueError('darkness duplicate load drift')
+            body=body.replace(dead,'')
+        if name=='func_800DD0CC':
+            # PORT: Keep the original signed halfword/byte stores explicit.
+            body=body.replace('D_800DFB44.field_0 += g_DeltaTime;', 'D_800DFB44.field_0 = (s16)(D_800DFB44.field_0 + g_DeltaTime);')
+            body=body.replace('D_800DFB44.field_2 += g_DeltaTime;', 'D_800DFB44.field_2 = (q3_12)(D_800DFB44.field_2 + g_DeltaTime);')
+            body=re.sub(r'(D_800DFB48.field_[012] = )Rng_GenerateUInt\(([^;]+)\);',r'\1(u8)Rng_GenerateUInt(\2);',body)
+        if name=='MapEvent_CutsceneAlleyNightmare':
+            body=body.replace('Math_SetSVectorFast(&offset, 0, -38, 0);','Math_SVectorSet(&offset, 0, -38, 0); // PORT: Typed halfword stores avoid signed packing shifts.')
+            body=body.replace('&D_800DFAC8', 'D_800DFAC8')
+        old=function(code,name)
+        if 'port_unimplemented' not in old:raise ValueError('story callback already linked: '+name)
+        if old.startswith('static '):body='static '+body
+        code=code.replace(old,re.sub(r'//[^\n]*','',body.split('{',1)[0]).strip()+';\n')
+        extra+=body
+    reset=function(code,'sh_map0_s00_reset')
+    code=code.replace(reset,reset[:-2]+''.join(f'memset(&{n},0,sizeof({n}));' for n in fields)+'}\n')
+    probe=function(code,'sh_map0_s00_reset_probe')
+    probe_new=probe.replace('{','{'+''.join(f'memset(&{n},0xa5,sizeof({n}));' for n in fields),1)
+    probe_new=probe_new.replace('return ','return '+''.join(f'port_map_zero(&{n},sizeof({n})) && ' for n in fields),1)
+    code=code.replace(probe,probe_new)
+    # PORT: Original 4-byte scalar, 4-byte phase record and 3-byte random record.
+    # Load numeric leaves only, bounded by the pinned overlay's data region.
+    assert 'extern s32 D_800DFB40;' in definitions and 'extern s_800DFB48 D_800DFB48;' in definitions
+    code=code.replace('int sh_map0_s00_load_data(void)', 'static int port_story_alley_prior_load(void)')
+    # PORT: The two-page message indexes two u16 audio commands in the four
+    # bytes preceding D_800DFACC (0x800DFACC - 0x800DFAC8). The decomp's
+    # singleton declaration must not turn its second command into a native OOB.
+    assert 'extern u16 D_800DFAC8;' in definitions and 'extern s32 D_800DFACC;' in definitions
+    extra+='int sh_map0_s00_load_data(void){u8 wire[11],audio[4];if(port_story_alley_prior_load() || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x165c8,sizeof(wire),wire) || port_map_data_read(FILE_VIN_MAP0_S00_BIN,0x16550,sizeof(audio),audio))return 1;D_800DFB40=(s32)move_word(wire);D_800DFB44.field_0=(s16)move_half(wire+4);D_800DFB44.field_2=(q3_12)move_half(wire+6);D_800DFB48.field_0=wire[8];D_800DFB48.field_1=wire[9];D_800DFB48.field_2=wire[10];D_800DFAC8[0]=move_half(audio);D_800DFAC8[1]=move_half(audio+2);return 0;}\n'
+    path.write_text(head+code+extra,encoding='utf-8')
 
 
 def prepare_transit_opening(decomp,out):
@@ -1529,7 +1615,7 @@ def prepare_events_npcs(decomp,out):
     path=out/'map0_s00.c'
     code=path.read_text(encoding='utf-8')
     code=code.replace(function(code,'Stalker_Update'),'void Stalker_Update(s_SubCharacter*,s_AnmHeader*,GsCOORDINATE2*);\n')
-    extra='\n#include "native_npc_ai.h"\n#undef cherylProps\n#undef playerChara\n#define stalkerProps stalker->properties.stalker\n'
+    extra='\n#include "native_npc_ai.h"\nvoid port_events_hit_trace(const s_SubCharacter*,const s_SubCharacter*,s32);\n#undef cherylProps\n#undef playerChara\n#define stalkerProps stalker->properties.stalker\n'
     for name in ['STALKER_ANIM_INFOS','g_Stalker_TargetPositionX','g_Stalker_TargetPositionZ','sharedData_800E3A20_0_s00','sharedData_800E3A24_0_s00','sharedData_800E3A28_0_s00','sharedData_800E3A2C_0_s00']:
         extra+=f'#define {name} sh_map0_s00_{name}\n'
     extra+=re.sub(r'^#include[^\n]*','',read('include/maps/characters/stalker.h'),flags=re.M)+'\n'
@@ -1555,6 +1641,12 @@ def prepare_events_npcs(decomp,out):
     extra+='static s_Keyframe* port_events_keyframe(s_Keyframe* table,s32 count,s32 index){if(index<0 || index>=count)port_unimplemented("Stalker keyframe table bounds");return &table[index];}\n'
     for name in ai_names:
         body=function(stalker,name)
+        if name=='Stalker_Control_6':
+            # PORT: Observe the original grab damage path as well as collision hits.
+            # The arithmetic/RNG call is unchanged; the trace never queues damage.
+            hit='g_SysWork.playerWork.player.damage.amount += (FP_TO(D_800AD4C8[50].field_4, Q12_SHIFT) * Rng_GenerateUInt(85, 116)) / 100;'
+            if body.count(hit)!=1:raise ValueError('Stalker grab damage statement drift')
+            body=body.replace(hit,'s32 previousDamage=g_SysWork.playerWork.player.damage.amount;\n                '+hit+'\n                if(g_SysWork.playerWork.player.damage.amount>previousDamage)port_events_hit_trace(stalker,&g_SysWork.playerWork.player,g_SysWork.playerWork.player.damage.amount-previousDamage);')
         # PORT: Some original control states are empty for MAP0_S00.
         body=body.replace('{','{\n    (void)stalker;',1)
         body=body.replace('ratan2(', 'port_events_atan(')

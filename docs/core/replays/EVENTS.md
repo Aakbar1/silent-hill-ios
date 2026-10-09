@@ -1,3 +1,12 @@
+# Story follow-on
+
+The wheel and subsequent story guards are superseded by the active alley
+encounter at VBlank 19650. Harry damage is real; enemy damage/death and the
+required win remain absent. See [STORY.md](STORY.md). Existing no-skip opening
+assertions remain unchanged; the deeper fight checker retains its kill rule.
+
+---
+
 # Transit follow-on
 
 The first alley load-area guard below is superseded. The no-skip replay now
